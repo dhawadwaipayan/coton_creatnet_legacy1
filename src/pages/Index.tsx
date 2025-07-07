@@ -20,6 +20,10 @@ const Index = () => {
   const handleZoomIn = () => setZoom(z => Math.min(z + 10, 500));
   const handleZoomOut = () => setZoom(z => Math.max(z - 10, 10));
 
+  // Brush state for draw tool (lifted up)
+  const [brushColor, setBrushColor] = useState('#e5e5e5');
+  const [brushSize, setBrushSize] = useState(16);
+
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
       setSketchBarOpen(false);
@@ -55,7 +59,13 @@ const Index = () => {
   return (
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
-      <Canvas ref={canvasRef} selectedTool={selectedTool || 'select'} onSelectedImageSrcChange={setSelectedImageSrc} />
+      <Canvas
+        ref={canvasRef}
+        selectedTool={selectedTool || 'select'}
+        onSelectedImageSrcChange={setSelectedImageSrc}
+        brushColor={brushColor}
+        brushSize={brushSize}
+      />
       
       {/* Sidebar - positioned center left */}
       <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
@@ -86,6 +96,10 @@ const Index = () => {
               closeSketchBar={handleCloseSketchBar}
               selectedMode={selectedMode}
               setSelectedMode={setSelectedMode}
+              brushColor={brushColor}
+              setBrushColor={setBrushColor}
+              brushSize={brushSize}
+              setBrushSize={setBrushSize}
             />
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
+import { DrawSubBar } from './DrawSubBar';
 import type { CanvasHandle } from './Canvas';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
@@ -14,9 +15,13 @@ export interface ModePanelProps {
   closeSketchBar?: () => void;
   selectedMode?: string;
   setSelectedMode?: (mode: string) => void;
+  brushColor: string;
+  setBrushColor: (color: string) => void;
+  brushSize: number;
+  setBrushSize: (size: number) => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -625,6 +630,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           </div>
         )}
       </div>
+      {/* Draw Tool SubBar */}
+      {selectedMode === 'draw' && (
+        <DrawSubBar
+          brushColor={brushColor}
+          setBrushColor={setBrushColor}
+          brushSize={brushSize}
+          setBrushSize={setBrushSize}
+        />
+      )}
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}

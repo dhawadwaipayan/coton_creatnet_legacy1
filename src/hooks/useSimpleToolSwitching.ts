@@ -3,29 +3,31 @@ import { Canvas as FabricCanvas, PencilBrush } from 'fabric';
 
 export const useSimpleToolSwitching = (
   fabricCanvas: FabricCanvas | null,
-  selectedTool: string
+  selectedTool: string,
+  brushColor?: string,
+  brushSize?: number
 ) => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    console.log('Simple tool switch to:', selectedTool);
+    console.log('Simple tool switch to:', selectedTool, brushColor, brushSize);
 
     // Configure ONLY canvas-level properties, never remove event handlers
     switch (selectedTool) {
-      case 'draw':
+      case 'draw': {
         console.log('Setting up drawing mode...');
         
         // Ensure we have a proper drawing brush
         if (!fabricCanvas.freeDrawingBrush || !(fabricCanvas.freeDrawingBrush instanceof PencilBrush)) {
           console.log('Creating new PencilBrush for drawing');
           const brush = new PencilBrush(fabricCanvas);
-          brush.color = '#00FF00'; // Bright green for visibility
-          brush.width = 5;
+          brush.color = brushColor || '#e5e5e5';
+          brush.width = brushSize || 16;
           fabricCanvas.freeDrawingBrush = brush;
         } else {
           // Update existing brush properties
-          fabricCanvas.freeDrawingBrush.color = '#00FF00';
-          fabricCanvas.freeDrawingBrush.width = 5;
+          fabricCanvas.freeDrawingBrush.color = brushColor || '#e5e5e5';
+          fabricCanvas.freeDrawingBrush.width = brushSize || 16;
         }
         
         // Enable drawing mode
@@ -47,6 +49,7 @@ export const useSimpleToolSwitching = (
           skipTargetFind: fabricCanvas.skipTargetFind
         });
         break;
+      }
         
       case 'select':
         fabricCanvas.isDrawingMode = false;
@@ -99,5 +102,5 @@ export const useSimpleToolSwitching = (
     }
 
     fabricCanvas.renderAll();
-  }, [selectedTool, fabricCanvas]);
+  }, [selectedTool, fabricCanvas, brushColor, brushSize]);
 };

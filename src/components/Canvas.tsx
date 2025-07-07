@@ -14,6 +14,8 @@ interface CanvasProps {
   className?: string;
   selectedTool?: string;
   onSelectedImageSrcChange?: (src: string | null) => void;
+  brushColor?: string;
+  brushSize?: number;
 }
 
 export interface CanvasHandle {
@@ -21,7 +23,7 @@ export interface CanvasHandle {
 }
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
-  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange }, ref) => {
+  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange, brushColor = '#e5e5e5', brushSize = 16 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isPanning, setIsPanning] = useState(false);
     const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
@@ -37,7 +39,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     }), [fabricCanvas]);
 
     // New simplified architecture
-    useSimpleToolSwitching(fabricCanvas, selectedTool);
+    useSimpleToolSwitching(fabricCanvas, selectedTool, brushColor, brushSize);
     useObjectStateManager(fabricCanvas, selectedTool);
     
     // Tool-specific handlers
