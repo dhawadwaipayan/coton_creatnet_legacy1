@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 interface DrawSubBarProps {
   brushColor: string;
@@ -8,35 +8,103 @@ interface DrawSubBarProps {
 }
 
 export const DrawSubBar: React.FC<DrawSubBarProps> = ({ brushColor, setBrushColor, brushSize, setBrushSize }) => {
-  // For color picker, use a simple input[type=color] for now
   return (
-    <div className="fixed left-[70px] top-1/2 -translate-y-1/2 z-50 w-[45px] h-[240px] bg-[#1a1a1a] border border-[#373737] rounded-xl flex flex-col items-center justify-between py-6 shadow-lg">
-      {/* Brush thickness slider */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <input
-          type="range"
-          min={1}
-          max={40}
-          value={brushSize}
-          onChange={e => setBrushSize(Number(e.target.value))}
-          className="slider-thumb-vertical"
-          style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical', height: 120, width: 30 }}
-        />
-        <div className="mt-2 text-xs text-neutral-400">{brushSize}px</div>
+    <div
+      className="fixed z-50"
+      style={{
+        left: 70, // Sidebar is left:6 (24px) + width:45px + gap:1px (approx)
+        top: 'calc(50% + 48px)', // Sidebar is centered, brush icon is 3rd (2*45px + gaps), adjust as needed
+        transform: 'translateY(-50%)',
+      }}
+    >
+      <div
+        className="w-[56px] h-[220px] bg-[#1a1a1a] border border-[#373737] rounded-xl flex flex-col items-center justify-between shadow-lg"
+        style={{ padding: '18px 0' }}
+      >
+        {/* Brush thickness slider */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <input
+            type="range"
+            min={1}
+            max={40}
+            value={brushSize}
+            onChange={e => setBrushSize(Number(e.target.value))}
+            className="appearance-none h-[140px] w-[24px] bg-transparent slider-vertical"
+            style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical' }}
+          />
+        </div>
+        {/* Color picker */}
+        <label className="mb-0 cursor-pointer flex items-center justify-center">
+          <input
+            type="color"
+            value={brushColor}
+            onChange={e => setBrushColor(e.target.value)}
+            className="opacity-0 w-0 h-0"
+          />
+          <div
+            className="rounded-full border border-neutral-700"
+            style={{ width: 20, height: 20, background: brushColor }}
+          />
+        </label>
       </div>
-      {/* Color picker */}
-      <label className="mb-2 cursor-pointer">
-        <input
-          type="color"
-          value={brushColor}
-          onChange={e => setBrushColor(e.target.value)}
-          className="opacity-0 w-0 h-0"
-        />
-        <div
-          className="rounded-full border border-neutral-700"
-          style={{ width: 40, height: 40, background: brushColor }}
-        />
-      </label>
+      <style>{`
+        .slider-vertical::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 24px;
+          height: 12px;
+          border-radius: 6px;
+          background: #232323;
+          border: 2px solid #373737;
+          box-shadow: 0 0 0 2px #232323;
+        }
+        .slider-vertical::-webkit-slider-runnable-track {
+          width: 6px;
+          height: 140px;
+          background: #232323;
+          border-radius: 3px;
+        }
+        .slider-vertical:focus::-webkit-slider-thumb {
+          outline: none;
+          border-color: #E1FF00;
+        }
+        .slider-vertical::-moz-range-thumb {
+          width: 24px;
+          height: 12px;
+          border-radius: 6px;
+          background: #232323;
+          border: 2px solid #373737;
+        }
+        .slider-vertical::-moz-range-track {
+          width: 6px;
+          height: 140px;
+          background: #232323;
+          border-radius: 3px;
+        }
+        .slider-vertical:focus::-moz-range-thumb {
+          outline: none;
+          border-color: #E1FF00;
+        }
+        .slider-vertical::-ms-thumb {
+          width: 24px;
+          height: 12px;
+          border-radius: 6px;
+          background: #232323;
+          border: 2px solid #373737;
+        }
+        .slider-vertical::-ms-fill-lower,
+        .slider-vertical::-ms-fill-upper {
+          background: #232323;
+          border-radius: 3px;
+        }
+        .slider-vertical:focus::-ms-thumb {
+          outline: none;
+          border-color: #E1FF00;
+        }
+        .slider-vertical {
+          outline: none;
+        }
+      `}</style>
     </div>
   );
 }; 
