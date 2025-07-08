@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useRef } from "react";
+import { HexColorPicker } from "react-colorful";
 
 interface BrushSubBarProps {
   brushColor: string;
@@ -9,93 +10,159 @@ interface BrushSubBarProps {
 }
 
 export const BrushSubBar: React.FC<BrushSubBarProps> = ({ brushColor, setBrushColor, brushSize, setBrushSize, className = "" }) => {
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Sidebar: left 24px, width 45px
+  // Sidebar is vertically centered: top 50%, translateY(-50%)
+  // Brush icon is the third button (index 2), each button 30px, gap 12px, padding 16px
+  const sidebarLeft = 24;
+  const sidebarWidth = 45;
+  const brushIndex = 2;
+  const buttonHeight = 30;
+  const gap = 12;
+  const offset = 16 + (buttonHeight + gap) * brushIndex + buttonHeight / 2 - 75 - 70 - 20; // Move bar up by 90px total
+
+  // Slider values
+  const min = 1;
+  const max = 20;
+  const percent = ((brushSize - min) / (max - min)) * 100;
+  const invertedPercent = 100 - percent;
+
+  // Close picker on outside click
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setShowPicker(false);
+      }
+    }
+    if (showPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showPicker]);
+
   return (
     <div
-      className={`box-border inline-flex gap-2.5 items-center px-2.5 py-3 rounded-xl border border-solid bg-zinc-900 border-white border-opacity-10 h-[105px] w-[42px] max-md:px-2.5 max-md:py-2.5 max-md:h-[95px] max-md:w-[38px] max-sm:px-2 max-sm:py-2.5 max-sm:h-[85px] max-sm:w-[34px] ${className}`}
+      className={`fixed z-50 bg-[#1a1a1a] border border-[#373737] rounded-xl flex flex-col items-center justify-between ${className}`}
+      style={{
+        left: `${sidebarLeft + sidebarWidth + 12}px`,
+        top: '50%',
+        transform: `translateY(-50%) translateY(${offset}px)` ,
+        width: `${sidebarWidth}px`,
+        height: '170px',
+        paddingTop: 20,
+        paddingBottom: 20,
+        boxSizing: 'border-box',
+        overflow: 'visible',
+      }}
     >
-      <div className="flex relative flex-col gap-2.5 items-center w-[22px] max-md:gap-2 max-md:w-5 max-sm:gap-2 max-sm:w-[18px]">
-        <div className="flex relative flex-col gap-0 justify-end items-center self-stretch h-[55px] max-md:h-[50px] max-sm:h-[45px]">
+      <div style={{paddingTop: 0, paddingBottom: 0, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center'}}>
+        {/* Custom vertical slider */}
+        <div style={{position: 'relative', height: 90, width: 16, display: 'flex', alignItems: 'center', marginBottom: 20}}>
+          {/* Track background */}
+          <div style={{position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', width: 4, height: '100%', background: '#373737', borderRadius: 2}} />
+          {/* Green fill */}
+          <div style={{position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: 4, height: `${percent}%`, background: '#E1FF00', borderRadius: 2}} />
+          {/* Range input (transparent, overlays for interaction) */}
           <input
             type="range"
-            min={1}
-            max={40}
+            min={min}
+            max={max}
             value={brushSize}
-            onChange={e => setBrushSize(Number(e.target.value))}
-            className="absolute left-1/2 -translate-x-1/2 slider-vertical appearance-none h-[55px] w-[22px] bg-transparent"
-            style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical', zIndex: 2 }}
+            onChange={(e) => setBrushSize(Number(e.target.value))}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: 16,
+              height: 90,
+              opacity: 0,
+              zIndex: 2,
+              writingMode: 'vertical-lr',
+              WebkitAppearance: 'slider-vertical',
+              direction: 'rtl',
+              margin: 0,
+              padding: 0,
+              cursor: 'pointer',
+            }}
           />
-          <div className="box-border flex relative flex-col shrink-0 gap-3.5 justify-center items-center px-0 py-3 rounded-lg border-solid rotate-90 bg-neutral-800 border-[0.475px] border-white border-opacity-10 h-[3.8px] w-[54px] max-md:h-[3.4px] max-md:w-[49px] max-sm:w-11 max-sm:h-[3px] pointer-events-none" />
-          <div className="box-border flex relative flex-col shrink-0 gap-3.5 justify-center items-center px-0 py-3 rounded-xl border-solid bg-neutral-800 border-[0.475px] border-white border-opacity-10 h-[7px] w-[22px] max-md:w-5 max-md:h-1.5 max-sm:h-[5.5px] max-sm:w-[18px] pointer-events-none" />
-        </div>
-        <label className="mt-2 cursor-pointer flex items-center justify-center">
-          <input
-            type="color"
-            value={brushColor}
-            onChange={e => setBrushColor(e.target.value)}
-            className="opacity-0 w-0 h-0"
-          />
+          {/* Custom thumb */}
           <div
-            className="rounded-full border border-neutral-700"
-            style={{ width: 19, height: 19, background: brushColor }}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              bottom: `calc(${percent}% - 7px)`, // 7px is half the thumb size
+              transform: 'translateX(-50%)',
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: '#1A1A1A',
+              border: '2px solid #373737',
+              zIndex: 1,
+              pointerEvents: 'none',
+              boxSizing: 'border-box',
+            }}
           />
-        </label>
+        </div>
+        {/* Color picker inside the bar, centered at the bottom */}
+        <div className="flex items-center justify-center w-full" style={{position: 'relative'}}>
+          <div
+            className="rounded-full cursor-pointer"
+            style={{
+              width: 20,
+              height: 20,
+              border: 'none',
+              background: brushColor,
+              padding: 0,
+              margin: 0,
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              display: 'block',
+            }}
+            onClick={() => setShowPicker((v) => !v)}
+          />
+          {showPicker && (
+            <div
+              ref={pickerRef}
+              style={{
+                position: 'absolute',
+                left: 'calc(100% + 16px)', // 16px gap to the right of the bar
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: '#232323',
+                border: '1.5px solid #373737',
+                borderRadius: 12,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
+                padding: 16,
+                zIndex: 100,
+              }}
+            >
+              <HexColorPicker color={brushColor} onChange={setBrushColor} style={{width: 180, height: 120}} />
+            </div>
+          )}
+        </div>
       </div>
       <style>{`
-        .slider-vertical::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 22px;
-          height: 7px;
-          border-radius: 6px;
-          background: #232323;
-          border: 2px solid #373737;
-          box-shadow: 0 0 0 2px #232323;
+        input[type='color'].rounded-full {
+          border-radius: 50%;
+          overflow: hidden;
         }
-        .slider-vertical::-webkit-slider-runnable-track {
-          width: 3.8px;
-          height: 55px;
-          background: #232323;
-          border-radius: 3px;
+        input[type='color'].rounded-full::-webkit-color-swatch {
+          border-radius: 50%;
+          border: none;
         }
-        .slider-vertical:focus::-webkit-slider-thumb {
-          outline: none;
-          border-color: #E1FF00;
+        input[type='color'].rounded-full::-webkit-color-swatch-wrapper {
+          border-radius: 50%;
+          padding: 0;
         }
-        .slider-vertical::-moz-range-thumb {
-          width: 22px;
-          height: 7px;
-          border-radius: 6px;
-          background: #232323;
-          border: 2px solid #373737;
-        }
-        .slider-vertical::-moz-range-track {
-          width: 3.8px;
-          height: 55px;
-          background: #232323;
-          border-radius: 3px;
-        }
-        .slider-vertical:focus::-moz-range-thumb {
-          outline: none;
-          border-color: #E1FF00;
-        }
-        .slider-vertical::-ms-thumb {
-          width: 22px;
-          height: 7px;
-          border-radius: 6px;
-          background: #232323;
-          border: 2px solid #373737;
-        }
-        .slider-vertical::-ms-fill-lower,
-        .slider-vertical::-ms-fill-upper {
-          background: #232323;
-          border-radius: 3px;
-        }
-        .slider-vertical:focus::-ms-thumb {
-          outline: none;
-          border-color: #E1FF00;
-        }
-        .slider-vertical {
-          outline: none;
+        input[type='color'].rounded-full::-moz-color-swatch {
+          border-radius: 50%;
+          border: none;
         }
       `}</style>
     </div>

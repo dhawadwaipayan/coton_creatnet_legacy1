@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
-import { DrawSubBar } from './DrawSubBar';
+import { BrushSubBar } from './BrushSubBar';
 import type { CanvasHandle } from './Canvas';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { Image as FabricImage } from 'fabric';
@@ -630,15 +630,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           </div>
         )}
       </div>
-      {/* Draw Tool SubBar */}
-      {selectedMode === 'draw' && (
-        <DrawSubBar
-          brushColor={brushColor}
-          setBrushColor={setBrushColor}
-          brushSize={brushSize}
-          setBrushSize={setBrushSize}
-        />
-      )}
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}

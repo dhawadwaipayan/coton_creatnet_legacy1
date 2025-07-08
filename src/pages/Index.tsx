@@ -6,6 +6,7 @@ import { Canvas, CanvasHandle } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
 import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
+import { BrushSubBar } from '@/components/BrushSubBar';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -69,7 +70,17 @@ const Index = () => {
       
       {/* Sidebar - positioned center left */}
       <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
-      
+
+      {/* BrushSubBar - beside sidebar, only when draw tool is selected */}
+      {selectedTool === 'draw' && (
+        <BrushSubBar
+          brushColor={brushColor}
+          setBrushColor={setBrushColor}
+          brushSize={brushSize}
+          setBrushSize={setBrushSize}
+        />
+      )}
+
       {/* UI Overlay - above canvas */}
       <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
         {/* Top Bar - positioned top left */}
