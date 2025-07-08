@@ -100,7 +100,7 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         {mode === 'signin' && (
           <button
             type="button"
-            className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold text-lg mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
+            className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
             onClick={() => {
               setError(null);
               setMode('signup');
@@ -112,7 +112,7 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         {mode === 'signup' && (
           <button
             type="button"
-            className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold text-lg mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
+            className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
             onClick={() => {
               setError(null);
               setMode('signin');
