@@ -22,8 +22,8 @@ const Index = () => {
   const handleZoomOut = () => setZoom(z => Math.max(z - 10, 10));
 
   // Brush state for draw tool (lifted up)
-  const [brushColor, setBrushColor] = useState('#e5e5e5');
-  const [brushSize, setBrushSize] = useState(16);
+  const [brushColor, setBrushColor] = useState('#FF0000');
+  const [brushSize, setBrushSize] = useState(5);
 
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
