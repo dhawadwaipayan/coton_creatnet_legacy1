@@ -7,6 +7,7 @@ import { TopBar } from '@/components/TopBar';
 import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
+import { TextSubBar } from '@/components/TextSubBar';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -24,6 +25,7 @@ const Index = () => {
   // Brush state for draw tool (lifted up)
   const [brushColor, setBrushColor] = useState('#FF0000');
   const [brushSize, setBrushSize] = useState(5);
+  const [textColor, setTextColor] = useState('#FF0000');
 
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
@@ -57,6 +59,12 @@ const Index = () => {
     setSelectedTool('select');
   };
 
+  // Handler to auto-switch to select tool after adding text
+  const handleTextAdded = () => {
+    setSelectedTool('select');
+    setSelectedMode && setSelectedMode('select');
+  };
+
   return (
     <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
       {/* Canvas Background - behind everything */}
@@ -66,6 +74,8 @@ const Index = () => {
         onSelectedImageSrcChange={setSelectedImageSrc}
         brushColor={brushColor}
         brushSize={brushSize}
+        textColor={textColor}
+        onTextAdded={handleTextAdded}
       />
       
       {/* Sidebar - positioned center left */}
@@ -78,6 +88,14 @@ const Index = () => {
           setBrushColor={setBrushColor}
           brushSize={brushSize}
           setBrushSize={setBrushSize}
+        />
+      )}
+
+      {/* TextSubBar - beside sidebar, only when text tool is selected */}
+      {selectedTool === 'text' && (
+        <TextSubBar
+          textColor={textColor}
+          setTextColor={setTextColor}
         />
       )}
 

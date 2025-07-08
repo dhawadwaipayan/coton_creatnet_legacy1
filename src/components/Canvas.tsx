@@ -16,6 +16,8 @@ interface CanvasProps {
   onSelectedImageSrcChange?: (src: string | null) => void;
   brushColor?: string;
   brushSize?: number;
+  textColor?: string;
+  onTextAdded?: () => void;
 }
 
 export interface CanvasHandle {
@@ -23,7 +25,7 @@ export interface CanvasHandle {
 }
 
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
-  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange, brushColor = '#e5e5e5', brushSize = 16 }, ref) => {
+  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange, brushColor = '#e5e5e5', brushSize = 16, textColor = '#FF0000', onTextAdded }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isPanning, setIsPanning] = useState(false);
     const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
@@ -43,7 +45,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     useObjectStateManager(fabricCanvas, selectedTool);
     
     // Tool-specific handlers
-    useTextTool(fabricCanvas, selectedTool);
+    useTextTool(fabricCanvas, selectedTool, textColor, onTextAdded);
     
     useHandTool({
       fabricCanvas,

@@ -3,7 +3,9 @@ import { Canvas as FabricCanvas, IText } from 'fabric';
 
 export const useTextTool = (
   fabricCanvas: FabricCanvas | null,
-  selectedTool: string
+  selectedTool: string,
+  textColor: string = '#FFFFFF',
+  onTextAdded?: () => void
 ) => {
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -24,7 +26,7 @@ export const useTextTool = (
         left: pointer.x,
         top: pointer.y,
         fontSize: 16,
-        fill: '#FFFFFF',
+        fill: textColor,
         fontFamily: 'Arial',
         selectable: true,
         evented: true,
@@ -34,6 +36,7 @@ export const useTextTool = (
       fabricCanvas.setActiveObject(text);
       text.enterEditing();
       fabricCanvas.renderAll();
+      if (onTextAdded) onTextAdded();
     };
 
     fabricCanvas.on('mouse:down', handleTextCreation);
@@ -41,5 +44,5 @@ export const useTextTool = (
     return () => {
       fabricCanvas.off('mouse:down', handleTextCreation);
     };
-  }, [fabricCanvas, selectedTool]);
+  }, [fabricCanvas, selectedTool, textColor, onTextAdded]);
 };
