@@ -8,6 +8,8 @@ import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
+import AuthOverlay from '../components/AuthOverlay';
+import { getUser } from '../lib/utils';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -26,6 +28,18 @@ const Index = () => {
   const [brushColor, setBrushColor] = useState('#FF0000');
   const [brushSize, setBrushSize] = useState(5);
   const [textColor, setTextColor] = useState('#FF0000');
+
+  const [showAuth, setShowAuth] = useState(false);
+
+  React.useEffect(() => {
+    getUser().then(({ data }) => {
+      setShowAuth(!data?.user);
+    });
+  }, []);
+
+  const handleAuthSuccess = () => {
+    setShowAuth(false);
+  };
 
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
@@ -77,9 +91,12 @@ const Index = () => {
         textColor={textColor}
         onTextAdded={handleTextAdded}
       />
-      
+
       {/* Sidebar - positioned center left */}
       <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+
+      {/* Auth Overlay - always rendered last for highest z-index */}
+      {showAuth && <AuthOverlay onAuthSuccess={handleAuthSuccess} />}
 
       {/* BrushSubBar - beside sidebar, only when draw tool is selected */}
       {selectedTool === 'draw' && (
@@ -107,9 +124,11 @@ const Index = () => {
         </div>
         
         {/* User Bar - positioned top right */}
-        <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
-          <UserBar />
-        </div>
+        {!showAuth && (
+          <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
+            <UserBar onLogout={() => setShowAuth(true)} />
+          </div>
+        )}
         
         <div className="flex flex-1 relative">
           <div className="flex-1" />

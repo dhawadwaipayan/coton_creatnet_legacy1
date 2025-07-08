@@ -1,7 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { signOut, getUser } from '../lib/utils';
 
-const UserBar: React.FC = () => {
+const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [activeBtn, setActiveBtn] = useState<'share' | 'logout' | null>(null);
+  const [userInitials, setUserInitials] = useState('U1');
+
+  useEffect(() => {
+    getUser().then(({ data }) => {
+      const name = data?.user?.user_metadata?.name;
+      if (name && typeof name === 'string' && name.trim().length > 0) {
+        setUserInitials(name.trim().slice(0, 2));
+      } else {
+        setUserInitials('U1');
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut();
+    if (onLogout) onLogout();
+  };
 
   const getTextColor = (btn: 'share' | 'logout') =>
     activeBtn === btn
@@ -24,13 +42,14 @@ const UserBar: React.FC = () => {
         onMouseDown={() => setActiveBtn('logout')}
         onMouseUp={() => setActiveBtn(null)}
         onMouseLeave={() => setActiveBtn(null)}
+        onClick={handleLogout}
         type="button"
       >
         Log out
       </button>
       <div className="h-8 w-px bg-[#232323] mx-2" />
       <div className="w-[25px] h-[25px] rounded-full bg-[#EDEDED] flex items-center justify-center">
-        <span className="font-gilroy text-sm text-[#232323] font-bold leading-none" style={{fontSize: '14px'}}>U1</span>
+        <span className="font-gilroy text-sm text-[#232323] font-bold leading-none" style={{fontSize: '14px'}}>{userInitials}</span>
       </div>
     </div>
   );
