@@ -6,6 +6,20 @@ interface UseHandToolProps {
   selectedTool: string;
 }
 
+// Clamp pan so viewport stays within 5000x5000 canvas
+function clampPan(fabricCanvas: any) {
+  const vpt = fabricCanvas.viewportTransform;
+  const canvasWidth = fabricCanvas.getWidth();
+  const canvasHeight = fabricCanvas.getHeight();
+  const workWidth = 5000;
+  const workHeight = 5000;
+  // Clamp X
+  vpt[4] = Math.min(0, Math.max(vpt[4], canvasWidth - workWidth * vpt[0]));
+  // Clamp Y
+  vpt[5] = Math.min(0, Math.max(vpt[5], canvasHeight - workHeight * vpt[3]));
+  fabricCanvas.setViewportTransform(vpt);
+}
+
 export const useHandTool = ({
   fabricCanvas,
   selectedTool,
@@ -33,6 +47,7 @@ export const useHandTool = ({
       const deltaX = opt.e.clientX - x;
       const deltaY = opt.e.clientY - y;
       fabricCanvas.relativePan(new Point(deltaX, deltaY));
+      clampPan(fabricCanvas);
       lastScreenPos.current = { x: opt.e.clientX, y: opt.e.clientY };
       opt.e.preventDefault();
     };

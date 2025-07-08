@@ -132,8 +132,8 @@ const Index = () => {
             />
           </div>
         </div>
-        {/* ZoomBar: bottom right, inside the same container as TopBar, right-6 for perfect gap */}
-        <div className="pointer-events-auto absolute right-6 bottom-0 z-20 mb-[34px]">
+        {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap */}
+        <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
           <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
         </div>
       </div>

@@ -14,8 +14,8 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
     });
 
     const canvas = new FabricCanvas(canvasRef.current, {
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: 5000,
+      height: 5000,
       backgroundColor: '#1E1E1E',
       preserveObjectStacking: true,
       enableRetinaScaling: true,
@@ -73,23 +73,8 @@ export const useCanvasInitialization = (canvasRef: React.RefObject<HTMLCanvasEle
 
     setFabricCanvas(canvas);
 
-    // Handle window resize
-    const handleResize = () => {
-      const newWidth = window.innerWidth;
-      const newHeight = window.innerHeight;
-      console.log('Resizing canvas to:', { newWidth, newHeight });
-      
-      canvas.setDimensions({
-        width: newWidth,
-        height: newHeight
-      });
-      canvas.renderAll();
-    };
-
-    window.addEventListener('resize', handleResize);
-
+    // No window resize: keep canvas fixed at 5000x5000
     return () => {
-      window.removeEventListener('resize', handleResize);
       canvas.dispose();
     };
   }, [canvasRef]);
