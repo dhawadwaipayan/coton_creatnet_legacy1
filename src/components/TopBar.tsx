@@ -42,7 +42,7 @@ const TopBarButton: React.FC<ButtonProps> = ({
   );
 };
 
-export const TopBar: React.FC = () => {
+export const TopBar: React.FC<{ canvasRef: React.RefObject<any> }> = ({ canvasRef }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleImport = () => {
@@ -55,8 +55,13 @@ export const TopBar: React.FC = () => {
     console.log('TopBar: File selected:', file?.name, file?.type);
     if (file && file.type.startsWith('image/')) {
       console.log('TopBar: Valid image file, calling canvas import handler');
-      if ((window as any).handleCanvasImageImport) {
-        (window as any).handleCanvasImageImport(file);
+      if (canvasRef.current && typeof canvasRef.current.importImage === 'function') {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string;
+          canvasRef.current?.importImage(dataUrl);
+        };
+        reader.readAsDataURL(file);
         console.log('TopBar: Canvas import handler called successfully');
       } else {
         console.error('TopBar: Canvas import handler not found on window object');
