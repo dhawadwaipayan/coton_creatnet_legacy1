@@ -1,25 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { signOut, getUser } from '../lib/utils';
 
 const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
+  // REMOVE AUTH LOGIC: show static initials
+  // const [activeBtn, setActiveBtn] = useState<'share' | 'logout' | null>(null);
+  // const [userInitials, setUserInitials] = useState('U1');
+  // useEffect(() => {
+  //   getUser().then(({ data }) => {
+  //     const name = data?.user?.user_metadata?.name;
+  //     if (name && typeof name === 'string' && name.trim().length > 0) {
+  //       setUserInitials(name.trim().slice(0, 2));
+  //     } else {
+  //       setUserInitials('U1');
+  //     }
+  //   });
+  // }, []);
   const [activeBtn, setActiveBtn] = useState<'share' | 'logout' | null>(null);
-  const [userInitials, setUserInitials] = useState('U1');
+  const userInitials = 'U1';
 
-  useEffect(() => {
-    getUser().then(({ data }) => {
-      const name = data?.user?.user_metadata?.name;
-      if (name && typeof name === 'string' && name.trim().length > 0) {
-        setUserInitials(name.trim().slice(0, 2));
-      } else {
-        setUserInitials('U1');
-      }
-    });
-  }, []);
-
-  const handleLogout = async () => {
-    await signOut();
-    if (onLogout) onLogout();
-  };
+  // Disable logout
+  // const handleLogout = async () => {
+  //   await signOut();
+  //   if (onLogout) onLogout();
+  // };
+  const handleLogout = () => {};
 
   const getTextColor = (btn: 'share' | 'logout') =>
     activeBtn === btn
@@ -44,6 +48,7 @@ const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         onMouseLeave={() => setActiveBtn(null)}
         onClick={handleLogout}
         type="button"
+        disabled
       >
         Log out
       </button>

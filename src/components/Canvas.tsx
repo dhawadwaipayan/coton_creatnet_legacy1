@@ -1,178 +1,121 @@
-import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { Image as FabricImage } from 'fabric';
-import type { Canvas as FabricCanvas } from 'fabric';
-import { useCanvasInitialization } from '@/hooks/useCanvasInitialization';
-import { useSimpleToolSwitching } from '@/hooks/useSimpleToolSwitching';
-import { useObjectStateManager } from '@/hooks/useObjectStateManager';
-import { useTextTool } from '@/hooks/useTextTool';
-import { useHandTool } from '@/hooks/useHandTool';
-import { useDeleteHandler } from '@/hooks/useDeleteHandler';
-import { useFrameTool } from '@/hooks/useFrameTool';
-import { CanvasToolIndicator } from './CanvasToolIndicator';
+import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import { Stage, Layer, Line } from 'react-konva';
 
-interface CanvasProps {
-  className?: string;
-  selectedTool?: string;
-  onSelectedImageSrcChange?: (src: string | null) => void;
-  brushColor?: string;
-  brushSize?: number;
-  textColor?: string;
-  onTextAdded?: () => void;
-}
-
-export interface CanvasHandle {
-  getFabricCanvas: () => FabricCanvas | null;
-}
-
-export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
-  ({ className = '', selectedTool = 'select', onSelectedImageSrcChange, brushColor = '#e5e5e5', brushSize = 16, textColor = '#FF0000', onTextAdded }, ref) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isPanning, setIsPanning] = useState(false);
-    const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
-    const [isCreatingFrame, setIsCreatingFrame] = useState(false);
-    const [frames, setFrames] = useState<any[]>([]);
-
-    // Initialize Fabric.js canvas
-    const fabricCanvas = useCanvasInitialization(canvasRef);
-
-    // Expose fabricCanvas to parent
-    useImperativeHandle(ref, () => ({
-      getFabricCanvas: () => fabricCanvas
-    }), [fabricCanvas]);
-
-    // New simplified architecture
-    useSimpleToolSwitching(fabricCanvas, selectedTool, brushColor, brushSize);
-    useObjectStateManager(fabricCanvas, selectedTool);
-    
-    // Tool-specific handlers
-    useTextTool(fabricCanvas, selectedTool, textColor, onTextAdded);
-    
-    useHandTool({
-      fabricCanvas,
-      selectedTool
-    });
-    
-    useDeleteHandler(fabricCanvas, selectedTool);
-    
-    // Frame tool integration
-    useFrameTool({
-      fabricCanvas,
-      selectedTool,
-      isCreatingFrame,
-      setIsCreatingFrame,
-      setFrames
-    });
-
-    // Make drawn paths selectable when created
-    useEffect(() => {
-      if (!fabricCanvas) return;
-
-      const handlePathCreated = (e: any) => {
-        const path = e.path;
-        if (path) {
-          path.set({
-            selectable: true,
-            evented: true,
-          });
-          console.log('Path created and made selectable:', path);
-        }
-      };
-
-      fabricCanvas.on('path:created', handlePathCreated);
-
-      return () => {
-        fabricCanvas.off('path:created', handlePathCreated);
-      };
-    }, [fabricCanvas]);
-
-    // Register global image import handler for TopBar
-    useEffect(() => {
-      if (!fabricCanvas) return;
-
-      const handleImageImport = (file: File) => {
-        console.log('Canvas: Received image import request for:', file.name);
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result as string;
-          console.log('Canvas: FileReader loaded, creating Fabric image');
-          
-          FabricImage.fromURL(result)
-            .then((img) => {
-              console.log('Canvas: Fabric image created, adding to canvas');
-              img.set({
-                left: 100,
-                top: 100,
-                scaleX: 0.5,
-                scaleY: 0.5,
-                selectable: true,
-                evented: true,
-              });
-              fabricCanvas.add(img);
-              fabricCanvas.renderAll();
-              console.log('Canvas: Image added successfully');
-            })
-            .catch((error) => {
-              console.error('Canvas: Error creating Fabric image:', error);
-            });
-        };
-        
-        reader.onerror = (error) => {
-          console.error('Canvas: FileReader error:', error);
-        };
-        
-        reader.readAsDataURL(file);
-      };
-
-      // Register handler on window object for TopBar to use
-      (window as any).handleCanvasImageImport = handleImageImport;
-      console.log('Canvas: Image import handler registered on window');
-
-      return () => {
-        delete (window as any).handleCanvasImageImport;
-        console.log('Canvas: Image import handler removed from window');
-      };
-    }, [fabricCanvas]);
-
-    // Add state to track last selected image src
-    useEffect(() => {
-      if (!fabricCanvas || !onSelectedImageSrcChange) return;
-
-      const handleSelection = () => {
-        const active = fabricCanvas.getActiveObject();
-        if (active && active.type === 'image' && (active as any).getSrc) {
-          // For Fabric.Image, getSrc() returns the image src
-          onSelectedImageSrcChange((active as any).getSrc());
-        } else {
-          onSelectedImageSrcChange(null);
-        }
-      };
-      fabricCanvas.on('selection:created', handleSelection);
-      fabricCanvas.on('selection:updated', handleSelection);
-      fabricCanvas.on('selection:cleared', handleSelection);
-      // Initial check
-      handleSelection();
-      return () => {
-        fabricCanvas.off('selection:created', handleSelection);
-        fabricCanvas.off('selection:updated', handleSelection);
-        fabricCanvas.off('selection:cleared', handleSelection);
-      };
-    }, [fabricCanvas, onSelectedImageSrcChange]);
-
-    return (
-      <div className={`fixed inset-0 z-0 overflow-hidden ${className}`}>
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0"
-          style={{ 
-            cursor: selectedTool === 'draw' ? 'crosshair' : 'default',
-            touchAction: 'none', // Prevent touch scrolling on mobile
-            pointerEvents: 'auto' // Ensure mouse events are captured
-          }}
-        />
-        
-        {/* <CanvasToolIndicator selectedTool={selectedTool} /> */}
-      </div>
-    );
+// Helper to generate grid lines for a 5000x5000 board
+function generateGridLines(size = 5000, gridSize = 20) {
+  const lines = [];
+  // Vertical lines
+  for (let x = 0; x <= size; x += gridSize) {
+    lines.push({ points: [x, 0, x, size] });
   }
-);
+  // Horizontal lines
+  for (let y = 0; y <= size; y += gridSize) {
+    lines.push({ points: [0, y, size, y] });
+  }
+  return lines;
+}
+
+function clamp(val: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, val));
+}
+
+export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
+  useImperativeHandle(ref, () => ({
+    getFabricCanvas: () => null
+  }), []);
+
+  const stageRef = useRef<any>(null);
+  const layerRef = useRef<any>(null);
+
+  const boardWidth = 5000;
+  const boardHeight = 5000;
+  const gridLines = generateGridLines(boardWidth, 20);
+
+  // Get viewport size
+  const [viewport, setViewport] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Hand tool state
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastPos, setLastPos] = useState<{x: number, y: number} | null>(null);
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+
+  // Clamp stage position so you can't pan outside the board
+  function clampStagePos(pos: {x: number, y: number}) {
+    const minX = Math.min(0, viewport.width - boardWidth);
+    const minY = Math.min(0, viewport.height - boardHeight);
+    const maxX = 0;
+    const maxY = 0;
+    return {
+      x: clamp(pos.x, minX, maxX),
+      y: clamp(pos.y, minY, maxY)
+    };
+  }
+
+  // Mouse down: start dragging
+  const handleMouseDown = (e: any) => {
+    setIsDragging(true);
+    setLastPos({
+      x: e.evt.clientX,
+      y: e.evt.clientY
+    });
+  };
+
+  // Mouse move: update stage position
+  const handleMouseMove = (e: any) => {
+    if (!isDragging || !lastPos) return;
+    const dx = e.evt.clientX - lastPos.x;
+    const dy = e.evt.clientY - lastPos.y;
+    setStagePos(prev => clampStagePos({ x: prev.x + dx, y: prev.y + dy }));
+    setLastPos({ x: e.evt.clientX, y: e.evt.clientY });
+  };
+
+  // Mouse up: stop dragging
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setLastPos(null);
+  };
+
+  return (
+    <div className={`fixed inset-0 z-0 overflow-hidden ${props.className || ''}`} style={{ background: '#1E1E1E' }}>
+      <Stage
+        width={viewport.width}
+        height={viewport.height}
+        ref={stageRef}
+        style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: isDragging ? 'grabbing' : 'grab' }}
+        x={stagePos.x}
+        y={stagePos.y}
+        draggable={false}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onTouchMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchEnd={handleMouseUp}
+      >
+        <Layer ref={layerRef} width={boardWidth} height={boardHeight}>
+          {/* Draw grid lines */}
+          {gridLines.map((line, i) => (
+            <Line
+              key={i}
+              points={line.points}
+              stroke="#333"
+              strokeWidth={0.5}
+              listening={false}
+            />
+          ))}
+        </Layer>
+      </Stage>
+    </div>
+  );
+});
