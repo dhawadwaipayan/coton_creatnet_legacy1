@@ -3,7 +3,7 @@ import { signIn, signUp, getUser } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
-const LOGO_IMAGE = '/wwbdrk.svg';
+const LOGO_IMAGE = '/cotonlogo_drk.svg';
 
 const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -52,7 +52,7 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         <div className="w-full h-[270px] rounded-t-2xl overflow-hidden relative flex items-center justify-center">
           <img src={BG_IMAGE} alt="Auth background" className="absolute inset-0 w-full h-full object-cover" />
           <div className="relative z-10 flex items-center justify-center">
-            <img src={LOGO_IMAGE} alt="Logo" className="w-28" />
+            <img src={LOGO_IMAGE} alt="Logo" className="w-32" />
           </div>
         </div>
         {/* Bottom: Form */}

@@ -93,9 +93,9 @@ export const TopBar: React.FC = () => {
       {/* Logo */}
       <div className="flex items-center">
         <img 
-          src="/BRANDLOGO.svg" 
-          alt="wwb Logo" 
-          className="h-[15px] w-[38px] object-contain" 
+          src="/cotonlogo_main.svg" 
+          alt="weweaveboard Logo" 
+          className="h-[15px] w-auto object-contain" 
         />
       </div>
       
