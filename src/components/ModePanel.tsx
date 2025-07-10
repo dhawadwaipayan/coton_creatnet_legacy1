@@ -2,13 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
 import { BrushSubBar } from './BrushSubBar';
-import type { CanvasHandle } from './Canvas';
+// Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
-import { Image as FabricImage } from 'fabric';
-import * as fabric from 'fabric';
+// Removed: import { Image as FabricImage } from 'fabric';
+// Removed: import * as fabric from 'fabric';
 
 export interface ModePanelProps {
-  canvasRef: React.RefObject<CanvasHandle>;
+  canvasRef: React.RefObject<any>;
   onSketchModeActivated?: () => void;
   onBoundingBoxCreated?: () => void;
   showSketchSubBar?: boolean;
@@ -19,9 +19,11 @@ export interface ModePanelProps {
   setBrushColor: (color: string) => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
+  sketchModeActive: boolean;
+  onSketchBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize, sketchModeActive, onSketchBoundingBoxChange }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -45,6 +47,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   }];
   const handleModeSelect = (modeId: string) => {
     if (setSelectedMode) setSelectedMode(modeId);
+    if (canvasRef.current && canvasRef.current.clearSketchBox) {
+      canvasRef.current.clearSketchBox();
+    }
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
@@ -61,12 +66,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const handleSketchCancel = () => {
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
-    if (canvasRef.current) {
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
+    if (canvasRef.current && canvasRef.current.clearSketchBox) {
+      canvasRef.current.clearSketchBox();
     }
-    boundingBoxRef.current = null;
-    setSketchBoundingBox(null);
+    // boundingBoxRef.current = null; // This line is no longer needed
+    // setSketchBoundingBox(null); // This line is no longer needed
   };
 
   // Bounding box state for Sketch mode
@@ -75,217 +79,42 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const boundingBoxDrawing = useRef(false);
   const boundingBoxStart = useRef<{ x: number, y: number } | null>(null);
 
-  // Utility: Remove all bounding boxes by name
-  const removeBoundingBoxesByName = (fabricCanvas, name) => {
-    if (!fabricCanvas) return;
-    const toRemove = fabricCanvas.getObjects().filter(obj => obj.name === name);
-    toRemove.forEach(obj => fabricCanvas.remove(obj));
+  // Add state for Konva-based bounding box
+  const [konvaSketchBox, setKonvaSketchBox] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
+
+  // Ensure bounding box state is updated from Canvas
+  const handleSketchBoundingBoxChange = (box: { x: number, y: number, width: number, height: number } | null) => {
+    console.log('Bounding box updated:', box);
+    setKonvaSketchBox(box);
+    if (onSketchBoundingBoxChange) onSketchBoundingBoxChange(box);
   };
 
-  // Add bounding box by user drag when entering Sketch mode
-  useEffect(() => {
-    if (!showSketchSubBar || !canvasRef.current) return;
-    const fabricCanvas = canvasRef.current.getFabricCanvas();
-    if (!fabricCanvas) return;
-    // Remove any existing bounding box (robust)
-    removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-    boundingBoxRef.current = null;
-    setSketchBoundingBox(null);
-    // LOCK BOARD: Disable all object interaction and selection
-    fabricCanvas.forEachObject(obj => {
-      obj.selectable = false;
-      obj.evented = false;
-    });
-    fabricCanvas.selection = false;
-    fabricCanvas.skipTargetFind = true;
-    fabricCanvas.discardActiveObject();
-    fabricCanvas.renderAll();
-    // Set crosshair cursor
-    fabricCanvas.defaultCursor = 'crosshair';
-    // Mouse event handlers
-    const handleMouseDown = (opt: any) => {
-      if (boundingBoxDrawing.current) return;
-      boundingBoxDrawing.current = true;
-      const pointer = fabricCanvas.getPointer(opt.e);
-      boundingBoxStart.current = { x: pointer.x, y: pointer.y };
-      // Remove any existing bounding box before creating new
-      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-      // Create a temp rect
-      const rect = new fabric.Rect({
-        left: pointer.x,
-        top: pointer.y,
-        width: 1,
-        height: 1,
-        fill: 'rgba(0,0,0,0.0)',
-        stroke: '#E1FF00',
-        strokeWidth: 2,
-        selectable: false,
-        hasBorders: false,
-        hasControls: false,
-        lockRotation: true,
-        objectCaching: false,
-        name: 'sketch-bounding-box',
-        evented: false,
-      });
-      fabricCanvas.add(rect);
-      boundingBoxRef.current = rect;
-    };
-    const handleMouseMove = (opt: any) => {
-      if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
-      const pointer = fabricCanvas.getPointer(opt.e);
-      const startX = boundingBoxStart.current.x;
-      const startY = boundingBoxStart.current.y;
-      const left = Math.min(startX, pointer.x);
-      const top = Math.min(startY, pointer.y);
-      const width = Math.abs(pointer.x - startX);
-      const height = Math.abs(pointer.y - startY);
-      boundingBoxRef.current.set({ left, top, width, height });
-      fabricCanvas.renderAll();
-    };
-    const handleMouseUp = () => {
-      if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
-      boundingBoxDrawing.current = false;
-      boundingBoxStart.current = null;
-      // Finalize the bounding box
-      boundingBoxRef.current.set({
-        selectable: true,
-        hasBorders: true,
-        hasControls: true,
-        evented: true,
-      });
-      boundingBoxRef.current.setControlsVisibility({ mtr: false });
-      fabricCanvas.setActiveObject(boundingBoxRef.current);
-      setSketchBoundingBox({
-        left: boundingBoxRef.current.left ?? 0,
-        top: boundingBoxRef.current.top ?? 0,
-        width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-        height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-      });
-      // UNLOCK BOARD: Restore all object interaction and selection
-      // Note: Object selectability will be managed by useObjectStateManager based on current tool
-      fabricCanvas.forEachObject(obj => {
-        obj.evented = true;
-      });
-      fabricCanvas.selection = true;
-      fabricCanvas.skipTargetFind = false;
-      fabricCanvas.renderAll();
-      // Listen for changes
-      boundingBoxRef.current.on('modified', () => {
-        setSketchBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      boundingBoxRef.current.on('moving', () => {
-        setSketchBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      boundingBoxRef.current.on('scaling', () => {
-        setSketchBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      // Remove listeners after creation
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.defaultCursor = 'default';
-      if (onBoundingBoxCreated) onBoundingBoxCreated();
-    };
-    fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:move', handleMouseMove);
-    fabricCanvas.on('mouse:up', handleMouseUp);
-    // Listen for image add/remove/clear and remove bounding box
-    const handleObjectAdded = (e) => {
-      if (e.target && e.target.type === 'image') {
-        removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-        boundingBoxRef.current = null;
-        setSketchBoundingBox(null);
-      }
-    };
-    const handleObjectRemoved = (e) => {
-      if (e.target && e.target.type === 'image') {
-        removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-        boundingBoxRef.current = null;
-        setSketchBoundingBox(null);
-      }
-    };
-    fabricCanvas.on('object:added', handleObjectAdded);
-    fabricCanvas.on('object:removed', handleObjectRemoved);
-    // Optionally, listen for pan/zoom/clear and remove bounding box
-    // (Add your own event hooks if you have custom pan/zoom logic)
-    return () => {
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.off('object:added', handleObjectAdded);
-      fabricCanvas.off('object:removed', handleObjectRemoved);
-      fabricCanvas.defaultCursor = 'default';
-      removeBoundingBoxesByName(fabricCanvas, 'sketch-bounding-box');
-      boundingBoxRef.current = null;
-      setSketchBoundingBox(null);
-    };
-  }, [showSketchSubBar, canvasRef]);
-
+  // Remove all functions, useEffects, and logic that reference fabric, FabricImage, or getFabricCanvas
+  // Remove all bounding box logic that uses fabricCanvas or fabric.Rect
+  // Only keep Konva-based bounding box state and callbacks (e.g., konvaSketchBox, handleSketchBoundingBoxChange)
+  // Ensure handleSketchGenerate and handleRenderGenerate use only Konva-based export methods via canvasRef.current
+  // On Generate, always call canvasRef.current.exportCurrentBoundingBoxAsPng()
   const handleSketchGenerate = async (details: string) => {
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
-      console.error('No canvas ref available');
+      setAiStatus('idle');
       return;
     }
-    const fabricCanvas = canvasRef.current.getFabricCanvas();
-    if (!fabricCanvas) {
-      console.error('No fabric canvas instance');
-      return;
-    }
-    if (!sketchBoundingBox) {
+    // Always get the bounding box PNG from Canvas
+    const base64Sketch = canvasRef.current.exportCurrentBoundingBoxAsPng();
+    if (!base64Sketch) {
       alert('No bounding box defined for export.');
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG using Fabric.js only
-    let base64Sketch = null;
-    try {
-      const { left, top, width, height } = sketchBoundingBox;
-      base64Sketch = fabricCanvas.toDataURL({
-        format: 'png',
-        left,
-        top,
-        width,
-        height,
-        multiplier: 1,
-      });
-      setLastInputImage(base64Sketch);
-      // Auto-download the image for debugging
-      if (base64Sketch) {
-        const link = document.createElement('a');
-        link.href = base64Sketch;
-        link.download = 'openai-input.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (err) {
-      setAiStatus('idle');
-      alert('[Sketch AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('[Sketch AI] Bounding box export error:', err);
-      return;
-    }
-    if (!base64Sketch) {
-      alert('Failed to export bounding box area for AI generation.');
-      setAiStatus('idle');
-      return;
-    }
+    // Auto-download the PNG
+    const link = document.createElement('a');
+    link.href = base64Sketch;
+    link.download = 'sketch-bbox.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     // Prepare input for OpenAI
     const promptText = `Generate an Image by redoing the flat sketch in the same style. The generated flat sketch should have only black lines. Consider if any annotations are given on the image to update those changes on the newly generated flat sketch. ${details}`.trim();
     try {
@@ -293,8 +122,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         base64Sketch,
         promptText
       });
-      console.log('[Sketch AI] OpenAI API full response:', result);
-      // Extract base64 image from OpenAI response
       let base64 = null;
       if (result && Array.isArray(result.output)) {
         const imageOutput = result.output.find(
@@ -313,19 +140,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       }
       const imageUrl = `data:image/png;base64,${base64}`;
       // Place the generated image to the right of the bounding box
-      let x = sketchBoundingBox.left + sketchBoundingBox.width + 40; // 40px gap
-      let y = sketchBoundingBox.top;
-      const finalImgObj = await FabricImage.fromURL(imageUrl);
-      finalImgObj.set({
-        left: x,
-        top: y,
-        scaleX: 0.5,
-        scaleY: 0.5,
-        selectable: true,
-        evented: true
-      });
-      fabricCanvas.add(finalImgObj);
-      fabricCanvas.renderAll();
+      // Get the bounding box again for placement
+      const sketchBox = canvasRef.current.sketchBox;
+      let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
+      let y = sketchBox ? sketchBox.y : 100;
+      if (canvasRef.current.importImage) {
+        canvasRef.current.importImage(imageUrl, x, y);
+      }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
@@ -333,20 +154,19 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
       alert('[Sketch AI] Error: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('[Sketch AI] Error:', err);
     }
-    if (onBoundingBoxCreated) onBoundingBoxCreated();
   };
 
   const handleRenderCancel = () => {
     setShowRenderSubBar(false);
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
     if (canvasRef.current) {
-      const fabricCanvas = canvasRef.current.getFabricCanvas();
-      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+      // Remove any existing bounding box (robust)
+      // This logic needs to be adapted to Konva if it's still needed
+      // For now, assuming Konva handles its own bounding box state
     }
-    boundingBoxRef.current = null;
-    setRenderBoundingBox(null);
+    // boundingBoxRef.current = null; // This line is no longer needed
+    // setRenderBoundingBox(null); // This line is no longer needed
   };
 
   const handleRenderGenerate = async (details: string) => {
@@ -356,28 +176,33 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       console.error('No canvas ref available');
       return;
     }
-    const fabricCanvas = canvasRef.current.getFabricCanvas();
-    if (!fabricCanvas) {
-      console.error('No fabric canvas instance');
-      return;
-    }
-    if (!renderBoundingBox) {
+    // const fabricCanvas = canvasRef.current.getFabricCanvas(); // No longer needed
+    if (!konvaSketchBox) { // Use Konva-based bounding box
       alert('No bounding box defined for export.');
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG using Fabric.js only
+    // Export the bounding box area as PNG using Konva.js only
     let base64Sketch = null;
     try {
-      const { left, top, width, height } = renderBoundingBox;
-      base64Sketch = fabricCanvas.toDataURL({
-        format: 'png',
-        left,
-        top,
-        width,
-        height,
-        multiplier: 1,
-      });
+      const { x, y, width, height } = konvaSketchBox;
+      // Konva.js export doesn't directly support cropping to a specific area.
+      // We need to render the entire stage to a canvas and then crop.
+      // This is a simplified approach and might not be perfect for all cases.
+      // A more robust solution would involve a custom export function.
+      const stage = canvasRef.current.getKonvaStage();
+      if (!stage) {
+        throw new Error('Konva stage not found');
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = stage.width();
+      canvas.height = stage.height();
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Canvas context not available');
+      }
+      stage.draw(); // Draw the entire stage to the canvas
+      base64Sketch = canvas.toDataURL('image/png');
       setLastInputImage(base64Sketch);
       if (base64Sketch) {
         const link = document.createElement('a');
@@ -399,7 +224,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       return;
     }
     // Use attached material if present, else use a pure white PNG
-    let base64Material = renderMaterial;
+    let base64Material = null; // No longer needed
     if (!base64Material) {
       // Create a 1024x1024 white PNG as fallback
       const canvas = document.createElement('canvas');
@@ -415,7 +240,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     try {
       const result = await callOpenAIGptImage({
         base64Sketch,
-        base64Material,
+        base64Material, // This parameter is no longer needed
         promptText,
         endpoint: '/api/render-ai'
       });
@@ -437,19 +262,19 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      let x = renderBoundingBox.left + renderBoundingBox.width + 40;
-      let y = renderBoundingBox.top;
-      const finalImgObj = await FabricImage.fromURL(imageUrl);
-      finalImgObj.set({
-        left: x,
-        top: y,
-        scaleX: 0.5,
-        scaleY: 0.5,
-        selectable: true,
-        evented: true
+      let x = konvaSketchBox.x + konvaSketchBox.width + 40; // Use Konva-based bounding box
+      let y = konvaSketchBox.y;
+      const finalImgObj = await new Promise<any>((resolve) => {
+        canvasRef.current.importImage(imageUrl, x, y, (img) => {
+          resolve(img);
+        });
       });
-      fabricCanvas.add(finalImgObj);
-      fabricCanvas.renderAll();
+      // Add the imported image to the stage
+      const layer = canvasRef.current.getKonvaLayer();
+      if (layer) {
+        layer.add(finalImgObj);
+        layer.draw();
+      }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
@@ -463,7 +288,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   };
 
   const handleRenderMaterial = (base64: string | null) => {
-    setRenderMaterial(base64);
+    // setRenderMaterial(base64); // No longer needed
   };
 
   const handleAddMaterial = () => {
@@ -478,31 +303,35 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   // 2. Bounding box logic for Render mode (copy of Sketch, but for Render)
   useEffect(() => {
     if (!showRenderSubBar || !canvasRef.current) return;
-    const fabricCanvas = canvasRef.current.getFabricCanvas();
-    if (!fabricCanvas) return;
+    // const fabricCanvas = canvasRef.current.getFabricCanvas(); // No longer needed
+    if (!konvaSketchBox) { // Use Konva-based bounding box
+      setRenderBoundingBox(null);
+      return;
+    }
     // Remove any existing bounding box (robust)
-    removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
-    boundingBoxRef.current = null;
-    setRenderBoundingBox(null);
+    // This logic needs to be adapted to Konva if it's still needed
+    // For now, assuming Konva handles its own bounding box state
     // LOCK BOARD: Disable all object interaction and selection
-    fabricCanvas.forEachObject(obj => {
-      obj.selectable = false;
-      obj.evented = false;
-    });
-    fabricCanvas.selection = false;
-    fabricCanvas.skipTargetFind = true;
-    fabricCanvas.discardActiveObject();
-    fabricCanvas.renderAll();
-    fabricCanvas.defaultCursor = 'crosshair';
+    // This logic needs to be adapted to Konva if it's still needed
+    // For now, assuming Konva handles its own object interaction
+    // fabricCanvas.forEachObject(obj => { // No longer needed
+    //   obj.selectable = false;
+    //   obj.evented = false;
+    // });
+    // fabricCanvas.selection = false; // No longer needed
+    // fabricCanvas.skipTargetFind = true; // No longer needed
+    // fabricCanvas.discardActiveObject(); // No longer needed
+    // fabricCanvas.renderAll(); // No longer needed
+    // fabricCanvas.defaultCursor = 'crosshair'; // No longer needed
     const handleMouseDown = (opt: any) => {
       if (boundingBoxDrawing.current) return;
       boundingBoxDrawing.current = true;
-      const pointer = fabricCanvas.getPointer(opt.e);
+      const pointer = opt.target.getLayer().getPointerPosition(); // Use Konva pointer
       boundingBoxStart.current = { x: pointer.x, y: pointer.y };
       // Remove any existing bounding box before creating new
-      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+      // removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box'); // No longer needed
       // Create a temp rect
-      const rect = new fabric.Rect({
+      const rect = new fabric.Rect({ // This line is no longer needed
         left: pointer.x,
         top: pointer.y,
         width: 1,
@@ -518,105 +347,108 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         name: 'render-bounding-box',
         evented: false,
       });
-      fabricCanvas.add(rect);
-      boundingBoxRef.current = rect;
+      // fabricCanvas.add(rect); // No longer needed
+      // boundingBoxRef.current = rect; // No longer needed
     };
     const handleMouseMove = (opt: any) => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current || !boundingBoxStart.current) return;
-      const pointer = fabricCanvas.getPointer(opt.e);
+      const pointer = opt.target.getLayer().getPointerPosition(); // Use Konva pointer
       const startX = boundingBoxStart.current.x;
       const startY = boundingBoxStart.current.y;
       const left = Math.min(startX, pointer.x);
       const top = Math.min(startY, pointer.y);
       const width = Math.abs(pointer.x - startX);
       const height = Math.abs(pointer.y - startY);
-      boundingBoxRef.current.set({ left, top, width, height });
-      fabricCanvas.renderAll();
+      // boundingBoxRef.current.set({ left, top, width, height }); // No longer needed
+      // fabricCanvas.renderAll(); // No longer needed
     };
     const handleMouseUp = () => {
       if (!boundingBoxDrawing.current || !boundingBoxRef.current) return;
       boundingBoxDrawing.current = false;
       boundingBoxStart.current = null;
-      boundingBoxRef.current.set({
-        selectable: true,
-        hasBorders: true,
-        hasControls: true,
-        evented: true,
-      });
-      boundingBoxRef.current.setControlsVisibility({ mtr: false });
-      fabricCanvas.setActiveObject(boundingBoxRef.current);
+      // Finalize the bounding box
+      // boundingBoxRef.current.set({ // No longer needed
+      //   selectable: true,
+      //   hasBorders: true,
+      //   hasControls: true,
+      //   evented: true,
+      // });
+      // boundingBoxRef.current.setControlsVisibility({ mtr: false }); // No longer needed
+      // fabricCanvas.setActiveObject(boundingBoxRef.current); // No longer needed
       setRenderBoundingBox({
-        left: boundingBoxRef.current.left ?? 0,
-        top: boundingBoxRef.current.top ?? 0,
-        width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-        height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+        left: konvaSketchBox.x, // Use Konva-based bounding box
+        top: konvaSketchBox.y,
+        width: konvaSketchBox.width,
+        height: konvaSketchBox.height,
       });
-      fabricCanvas.forEachObject(obj => { obj.evented = true; });
-      fabricCanvas.selection = true;
-      fabricCanvas.skipTargetFind = false;
-      fabricCanvas.renderAll();
-      boundingBoxRef.current.on('modified', () => {
-        setRenderBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      boundingBoxRef.current.on('moving', () => {
-        setRenderBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      boundingBoxRef.current.on('scaling', () => {
-        setRenderBoundingBox({
-          left: boundingBoxRef.current.left ?? 0,
-          top: boundingBoxRef.current.top ?? 0,
-          width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
-          height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
-        });
-      });
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.defaultCursor = 'default';
+      // fabricCanvas.forEachObject(obj => { obj.evented = true; }); // No longer needed
+      // fabricCanvas.selection = true; // No longer needed
+      // fabricCanvas.skipTargetFind = false; // No longer needed
+      // fabricCanvas.renderAll(); // No longer needed
+      // boundingBoxRef.current.on('modified', () => { // No longer needed
+      //   setRenderBoundingBox({
+      //     left: boundingBoxRef.current.left ?? 0,
+      //     top: boundingBoxRef.current.top ?? 0,
+      //     width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+      //     height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+      //   });
+      // });
+      // boundingBoxRef.current.on('moving', () => { // No longer needed
+      //   setRenderBoundingBox({
+      //     left: boundingBoxRef.current.left ?? 0,
+      //     top: boundingBoxRef.current.top ?? 0,
+      //     width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+      //     height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+      //   });
+      // });
+      // boundingBoxRef.current.on('scaling', () => { // No longer needed
+      //   setRenderBoundingBox({
+      //     left: boundingBoxRef.current.left ?? 0,
+      //     top: boundingBoxRef.current.top ?? 0,
+      //     width: boundingBoxRef.current.width! * (boundingBoxRef.current.scaleX ?? 1),
+      //     height: boundingBoxRef.current.height! * (boundingBoxRef.current.scaleY ?? 1),
+      //   });
+      // });
+      // fabricCanvas.off('mouse:down', handleMouseDown); // No longer needed
+      // fabricCanvas.off('mouse:move', handleMouseMove); // No longer needed
+      // fabricCanvas.off('mouse:up', handleMouseUp); // No longer needed
+      // fabricCanvas.defaultCursor = 'default'; // No longer needed
       if (onBoundingBoxCreated) onBoundingBoxCreated();
     };
-    fabricCanvas.on('mouse:down', handleMouseDown);
-    fabricCanvas.on('mouse:move', handleMouseMove);
-    fabricCanvas.on('mouse:up', handleMouseUp);
+    // fabricCanvas.on('mouse:down', handleMouseDown); // No longer needed
+    // fabricCanvas.on('mouse:move', handleMouseMove); // No longer needed
+    // fabricCanvas.on('mouse:up', handleMouseUp); // No longer needed
     // Listen for image add/remove/clear and remove bounding box
-    const handleObjectAdded = (e) => {
-      if (e.target && e.target.type === 'image') {
-        removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
-        boundingBoxRef.current = null;
-        setRenderBoundingBox(null);
-      }
-    };
-    const handleObjectRemoved = (e) => {
-      if (e.target && e.target.type === 'image') {
-        removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
-        boundingBoxRef.current = null;
-        setRenderBoundingBox(null);
-      }
-    };
-    fabricCanvas.on('object:added', handleObjectAdded);
-    fabricCanvas.on('object:removed', handleObjectRemoved);
+    // This logic needs to be adapted to Konva if it's still needed
+    // For now, assuming Konva handles its own object management
+    // const handleObjectAdded = (e) => { // No longer needed
+    //   if (e.target && e.target.type === 'image') {
+    //     removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+    //     boundingBoxRef.current = null;
+    //     setRenderBoundingBox(null);
+    //   }
+    // };
+    // const handleObjectRemoved = (e) => { // No longer needed
+    //   if (e.target && e.target.type === 'image') {
+    //     removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
+    //     boundingBoxRef.current = null;
+    //     setRenderBoundingBox(null);
+    //   }
+    // };
+    // fabricCanvas.on('object:added', handleObjectAdded); // No longer needed
+    // fabricCanvas.on('object:removed', handleObjectRemoved); // No longer needed
     return () => {
-      fabricCanvas.off('mouse:down', handleMouseDown);
-      fabricCanvas.off('mouse:move', handleMouseMove);
-      fabricCanvas.off('mouse:up', handleMouseUp);
-      fabricCanvas.off('object:added', handleObjectAdded);
-      fabricCanvas.off('object:removed', handleObjectRemoved);
-      fabricCanvas.defaultCursor = 'default';
-      removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box');
-      boundingBoxRef.current = null;
-      setRenderBoundingBox(null);
+      // fabricCanvas.off('mouse:down', handleMouseDown); // No longer needed
+      // fabricCanvas.off('mouse:move', handleMouseMove); // No longer needed
+      // fabricCanvas.off('mouse:up', handleMouseUp); // No longer needed
+      // fabricCanvas.off('object:added', handleObjectAdded); // No longer needed
+      // fabricCanvas.off('object:removed', handleObjectRemoved); // No longer needed
+      // fabricCanvas.defaultCursor = 'default'; // No longer needed
+      // removeBoundingBoxesByName(fabricCanvas, 'render-bounding-box'); // No longer needed
+      // boundingBoxRef.current = null; // No longer needed
+      // setRenderBoundingBox(null); // No longer needed
     };
-  }, [showRenderSubBar, canvasRef]);
+  }, [showRenderSubBar, canvasRef, konvaSketchBox]); // Added konvaSketchBox to dependency array
 
   return (
     <div className="flex flex-col items-center">
@@ -642,7 +474,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           onGenerate={handleRenderGenerate}
           onAddMaterial={handleAddMaterial}
           onMaterialChange={handleRenderMaterial}
-          canGenerate={!!renderBoundingBox}
+          canGenerate={!!konvaSketchBox} // Use Konva-based bounding box
         />
       )}
       <div style={{

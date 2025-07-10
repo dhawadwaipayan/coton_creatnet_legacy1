@@ -1,5 +1,5 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react';
-import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText } from 'react-konva';
+import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect } from 'react-konva';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -75,20 +75,40 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Add state for Sketch mode bounding box
+  const [sketchBox, setSketchBox] = useState<null | { x: number, y: number, width: number, height: number }>(null);
+  const [sketchBoxDrawing, setSketchBoxDrawing] = useState(false);
+  const [sketchBoxStart, setSketchBoxStart] = useState<{ x: number, y: number } | null>(null);
+  const sketchBoxRef = useRef<any>(null);
+  const sketchBoxTransformerRef = useRef<any>(null);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
-    getFabricCanvas: () => null,
-    importImage: (src: string) => {
+    exportCurrentBoundingBoxAsPng: () => {
+      if (!sketchBox) return null;
+      const stage = stageRef.current;
+      if (!stage) return null;
+      // Add stagePos to sketchBox coordinates for correct cropping
+      return stage.toDataURL({
+        x: sketchBox.x + stagePos.x,
+        y: sketchBox.y + stagePos.y,
+        width: sketchBox.width,
+        height: sketchBox.height,
+        pixelRatio: 1,
+      });
+    },
+    importImage: (src: string, x?: number, y?: number) => {
       const img = new window.Image();
       img.src = src;
       img.onload = () => {
         setImages(prev => [
           ...prev,
-          { id: Date.now().toString(), image: img, x: 100, y: 100, width: 200, height: 200, rotation: 0, timestamp: Date.now() }
+          { id: Date.now().toString(), image: img, x: x ?? 100, y: y ?? 100, width: 200, height: 200, rotation: 0, timestamp: Date.now() }
         ]);
       };
-    }
-  }), []);
+    },
+    clearSketchBox: () => setSketchBox(null),
+  }), [sketchBox, stageRef, stagePos]);
 
   // Clamp stage position so you can't pan outside the board
   function clampStagePos(pos: {x: number, y: number}) {
@@ -342,7 +362,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setSelectionRect(null);
       setSelectionStart(null);
     } else {
-      handleMouseUp(e);
+      handleMouseUp();
     }
   };
 
@@ -466,10 +486,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
         setSelectedIds([]);
       }
+      // Allow deleting the bounding box with Delete/Backspace
+      if ((e.key === 'Delete' || e.key === 'Backspace') && sketchBox) {
+        setSketchBox(null);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds]);
+  }, [selectedIds, sketchBox]);
 
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
@@ -519,6 +543,60 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [editingText]);
 
+  // Handle mouse events for sketch mode bounding box
+  const handleSketchBoxMouseDown = (e: any) => {
+    if (!props.sketchModeActive) return;
+    if (sketchBox) return; // Only one at a time
+    const stage = stageRef.current;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    setSketchBoxDrawing(true);
+    // Adjust for stage position (panning)
+    const startX = pointer.x - stagePos.x;
+    const startY = pointer.y - stagePos.y;
+    setSketchBoxStart({ x: startX, y: startY });
+    setSketchBox({ x: startX, y: startY, width: 1, height: 1 });
+  };
+  const handleSketchBoxMouseMove = (e: any) => {
+    if (!props.sketchModeActive) return;
+    if (!sketchBoxDrawing || !sketchBoxStart) return;
+    const stage = stageRef.current;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    // Adjust for stage position (panning)
+    const currX = pointer.x - stagePos.x;
+    const currY = pointer.y - stagePos.y;
+    const x = Math.min(sketchBoxStart.x, currX);
+    const y = Math.min(sketchBoxStart.y, currY);
+    const width = Math.abs(currX - sketchBoxStart.x);
+    const height = Math.abs(currY - sketchBoxStart.y);
+    setSketchBox({ x, y, width, height });
+  };
+  const handleSketchBoxMouseUp = (e: any) => {
+    if (!props.sketchModeActive) return;
+    if (!sketchBoxDrawing) return;
+    setSketchBoxDrawing(false);
+    setSketchBoxStart(null);
+  };
+  // Handle transform (move/resize) of bounding box
+  const handleSketchBoxTransform = (e: any) => {
+    if (!props.sketchModeActive) return;
+    const node = sketchBoxRef.current;
+    if (!node) return;
+    const x = node.x();
+    const y = node.y();
+    const width = Math.max(10, node.width() * node.scaleX());
+    const height = Math.max(10, node.height() * node.scaleY());
+    setSketchBox({ x, y, width, height });
+    node.scaleX(1);
+    node.scaleY(1);
+  };
+
+  // Add a function to clear the bounding box
+  const clearSketchBox = () => {
+    setSketchBox(null);
+  };
+
   return (
     <div className={`fixed inset-0 z-0 overflow-hidden ${props.className || ''}`} style={{ background: '#1E1E1E' }}>
       <Stage
@@ -529,12 +607,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         x={stagePos.x}
         y={stagePos.y}
         draggable={false}
-        onMouseDown={handleStageMouseDown}
-        onTouchStart={handleStageMouseDown}
-        onMouseMove={handleStageMouseMove}
-        onTouchMove={handleStageMouseMove}
-        onMouseUp={handleStageMouseUp}
-        onTouchEnd={handleStageMouseUp}
+        onMouseDown={props.sketchModeActive ? handleSketchBoxMouseDown : handleStageMouseDown}
+        onTouchStart={props.sketchModeActive ? handleSketchBoxMouseDown : handleStageMouseDown}
+        onMouseMove={props.sketchModeActive ? handleSketchBoxMouseMove : handleStageMouseMove}
+        onTouchMove={props.sketchModeActive ? handleSketchBoxMouseMove : handleStageMouseMove}
+        onMouseUp={props.sketchModeActive ? handleSketchBoxMouseUp : handleStageMouseUp}
+        onTouchEnd={props.sketchModeActive ? handleSketchBoxMouseUp : handleStageMouseUp}
         onClick={handleStageClick}
       >
         <Layer ref={layerRef} width={boardWidth} height={boardHeight}>
@@ -703,6 +781,37 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               closed={false}
               listening={false}
             />
+          )}
+          {/* Render sketch bounding box if in sketch mode */}
+          {props.sketchModeActive && sketchBox && (
+            <>
+              <Rect
+                ref={sketchBoxRef}
+                x={sketchBox.x}
+                y={sketchBox.y}
+                width={sketchBox.width}
+                height={sketchBox.height}
+                stroke="#E1FF00"
+                strokeWidth={2}
+                dash={[6, 4]}
+                fill="rgba(0,0,0,0.0)"
+                draggable
+                onTransformEnd={handleSketchBoxTransform}
+                onDragEnd={handleSketchBoxTransform}
+              />
+              <Transformer
+                ref={sketchBoxTransformerRef}
+                nodes={sketchBoxRef.current ? [sketchBoxRef.current] : []}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+                borderStroke="#E1FF00"
+                anchorStroke="#E1FF00"
+                anchorFill="#fff"
+                anchorSize={8}
+                anchorCornerRadius={4}
+                anchorStrokeWidth={2}
+                anchorDash={[2, 2]}
+              />
+            </>
           )}
         </Layer>
       </Stage>
