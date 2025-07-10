@@ -123,28 +123,23 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     get stagePos() { return stagePos; },
     // Expose current bounding box for correct AI image placement
     get sketchBox() { return sketchBox; },
-    replaceImageAt: (x: number, y: number, width: number, height: number, newSrc: string) => {
+    replaceImageById: (id: string, newSrc: string) => {
       setImages(prev => {
-        // Find the image at (x, y) with the given width/height
-        const idx = prev.findIndex(img =>
-          Math.abs(img.x - x) < 2 && Math.abs(img.y - y) < 2 &&
-          Math.abs((img.width || 200) - width) < 2 && Math.abs((img.height || 200) - height) < 2
-        );
+        const idx = prev.findIndex(img => img.id === id);
         if (idx === -1) return prev;
-        // Remove the old image and add the new one at the same position
+        const oldImg = prev[idx];
         const newImg = new window.Image();
         newImg.src = newSrc;
         const newImageObj = {
-          id: Date.now().toString(),
+          id,
           image: newImg,
-          x,
-          y,
-          width,
-          height,
-          rotation: 0,
+          x: oldImg.x,
+          y: oldImg.y,
+          width: oldImg.width,
+          height: oldImg.height,
+          rotation: oldImg.rotation,
           timestamp: Date.now()
         };
-        // Wait for image to load before updating state
         newImg.onload = () => {
           setImages(current => [
             ...current.slice(0, idx),

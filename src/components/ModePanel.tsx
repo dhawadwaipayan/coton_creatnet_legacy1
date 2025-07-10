@@ -116,8 +116,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     x += stagePos.x;
     y += stagePos.y;
     const placeholderUrl = '/Placeholder_Image.png';
-    const placeholderWidth = 200;
-    const placeholderHeight = 200;
+    const placeholderWidth = 500;
+    const placeholderHeight = 500;
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
       if (canvasRef.current.importImage) {
@@ -161,9 +161,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       }
       const imageUrl = `data:image/png;base64,${base64}`;
       // Remove the placeholder and add the real image in the same spot
-      // (Find the placeholder by its coordinates and size)
-      if (canvasRef.current && canvasRef.current.replaceImageAt) {
-        canvasRef.current.replaceImageAt(x, y, placeholderWidth, placeholderHeight, imageUrl);
+      if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+        canvasRef.current.replaceImageById(placeholderId, imageUrl);
       } else if (canvasRef.current.importImage) {
         canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
@@ -193,74 +192,49 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
-      console.error('No canvas ref available');
+      setAiStatus('idle');
       return;
     }
-    // const fabricCanvas = canvasRef.current.getFabricCanvas(); // No longer needed
-    if (!konvaSketchBox) { // Use Konva-based bounding box
+    // Always get the bounding box PNG from Canvas
+    const base64Sketch = canvasRef.current.exportCurrentBoundingBoxAsPng();
+    if (!base64Sketch) {
       alert('No bounding box defined for export.');
       setAiStatus('idle');
       return;
     }
-    // Export the bounding box area as PNG using Konva.js only
-    let base64Sketch = null;
-    try {
-      const { x, y, width, height } = konvaSketchBox;
-      // Konva.js export doesn't directly support cropping to a specific area.
-      // We need to render the entire stage to a canvas and then crop.
-      // This is a simplified approach and might not be perfect for all cases.
-      // A more robust solution would involve a custom export function.
-      const stage = canvasRef.current.getKonvaStage();
-      if (!stage) {
-        throw new Error('Konva stage not found');
+    // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
+    const sketchBox = canvasRef.current.sketchBox;
+    const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
+    let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
+    let y = sketchBox ? sketchBox.y : 100;
+    x += stagePos.x;
+    y += stagePos.y;
+    const placeholderUrl = '/Placeholder_Image.png';
+    const placeholderWidth = 500;
+    const placeholderHeight = 500;
+    let placeholderId: string | null = null;
+    await new Promise<void>(resolve => {
+      if (canvasRef.current.importImage) {
+        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+          // After image is loaded, select it
+          if (canvasRef.current && canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = stage.width();
-      canvas.height = stage.height();
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Canvas context not available');
-      }
-      stage.draw(); // Draw the entire stage to the canvas
-      base64Sketch = canvas.toDataURL('image/png');
-      setLastInputImage(base64Sketch);
-      if (base64Sketch) {
-        const link = document.createElement('a');
-        link.href = base64Sketch;
-        link.download = 'openai-input.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (err) {
-      setAiStatus('idle');
-      alert('[Render AI] Bounding box export failed: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('[Render AI] Bounding box export error:', err);
-      return;
-    }
-    if (!base64Sketch) {
-      alert('Failed to export bounding box area for AI generation.');
-      setAiStatus('idle');
-      return;
-    }
-    // Use attached material if present, else use a pure white PNG
-    let base64Material = null; // No longer needed
-    if (!base64Material) {
-      // Create a 1024x1024 white PNG as fallback
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, 1024, 1024);
-      base64Material = canvas.toDataURL('image/png');
-    }
-    // Prompt for render
+    });
+    // After adding placeholder, close render tab and switch to select tool
+    if (closeSketchBar) closeSketchBar();
+    if (setSelectedMode) setSelectedMode('select');
+    // No overlay/status logic
+    // Prepare input for OpenAI
     const promptText = `Generate an image by using the attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of the same colour. In case any prompt is given on the image or as an additional input, include those changes as well. ${details}`.trim();
     try {
       const result = await callOpenAIGptImage({
         base64Sketch,
-        base64Material, // This parameter is no longer needed
         promptText,
         endpoint: '/api/render-ai'
       });
@@ -282,18 +256,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      let x = konvaSketchBox.x + konvaSketchBox.width + 40; // Use Konva-based bounding box
-      let y = konvaSketchBox.y;
-      const finalImgObj = await new Promise<any>((resolve) => {
-        canvasRef.current.importImage(imageUrl, x, y, (img) => {
-          resolve(img);
-        });
-      });
-      // Add the imported image to the stage
-      const layer = canvasRef.current.getKonvaLayer();
-      if (layer) {
-        layer.add(finalImgObj);
-        layer.draw();
+      // Replace the placeholder with the real image
+      if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+        canvasRef.current.replaceImageById(placeholderId, imageUrl);
+      } else if (canvasRef.current.importImage) {
+        canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
@@ -302,9 +269,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
       alert('[Render AI] Error: ' + (err instanceof Error ? err.message : String(err)));
-      console.error('[Render AI] Error:', err);
     }
-    if (onBoundingBoxCreated) onBoundingBoxCreated();
   };
 
   const handleRenderMaterial = (base64: string | null) => {
