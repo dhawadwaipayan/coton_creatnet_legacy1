@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
-import { Canvas, CanvasHandle } from '@/components/Canvas';
+import { Canvas } from '@/components/Canvas';
 import { TopBar } from '@/components/TopBar';
 import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
@@ -17,7 +17,7 @@ const Index = () => {
   const [sketchBarOpen, setSketchBarOpen] = useState(false);
   const [boundingBoxCreated, setBoundingBoxCreated] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string>('');
-  const canvasRef = useRef<CanvasHandle>(null);
+  const canvasRef = useRef<any>(null);
   
   // Zoom state for demo
   const [zoom, setZoom] = useState(100);
@@ -32,6 +32,9 @@ const Index = () => {
   // Add state for Konva-based Sketch mode
   const sketchModeActive = sketchBarOpen && selectedMode === 'sketch';
   const [sketchBoundingBox, setSketchBoundingBox] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
+
+  // Add state for Konva-based Render mode
+  const renderModeActive = selectedMode === 'render';
 
   // REMOVE AUTH SYSTEM: always show main UI
   // const [showAuth, setShowAuth] = useState(false);
@@ -50,6 +53,13 @@ const Index = () => {
       setSelectedTool(toolId);
       setSelectedMode('');
       return;
+    }
+    // Close render bar and clear render bounding box when any tool is selected
+    if (selectedMode === 'render') {
+      handleCloseRenderBar();
+      if (canvasRef.current && canvasRef.current.clearRenderBox) {
+        canvasRef.current.clearRenderBox();
+      }
     }
     setSelectedTool(toolId);
     setSelectedMode(toolId);
@@ -76,6 +86,12 @@ const Index = () => {
     setSelectedTool('select');
   };
 
+  // Handler to close Render bar
+  const handleCloseRenderBar = () => {
+    setSelectedMode('');
+    setSelectedTool('select');
+  };
+
   // Handler to auto-switch to select tool after adding text
   const handleTextAdded = () => {
     setSelectedTool('select');
@@ -94,6 +110,7 @@ const Index = () => {
         textColor={textColor}
         onTextAdded={handleTextAdded}
         sketchModeActive={sketchModeActive}
+        renderModeActive={renderModeActive}
       />
 
       {/* Sidebar - positioned center left */}
@@ -153,6 +170,7 @@ const Index = () => {
               setBrushSize={setBrushSize}
               sketchModeActive={sketchModeActive}
               onSketchBoundingBoxChange={setSketchBoundingBox}
+              closeRenderBar={handleCloseRenderBar}
             />
           </div>
         </div>

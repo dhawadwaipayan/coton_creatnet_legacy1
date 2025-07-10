@@ -13,6 +13,7 @@ export interface ModePanelProps {
   onBoundingBoxCreated?: () => void;
   showSketchSubBar?: boolean;
   closeSketchBar?: () => void;
+  closeRenderBar?: () => void;
   selectedMode?: string;
   setSelectedMode?: (mode: string) => void;
   brushColor: string;
@@ -23,7 +24,7 @@ export interface ModePanelProps {
   onSketchBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize, sketchModeActive, onSketchBoundingBoxChange }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, closeRenderBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize, sketchModeActive, onSketchBoundingBoxChange }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -49,6 +50,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     if (setSelectedMode) setSelectedMode(modeId);
     if (canvasRef.current && canvasRef.current.clearSketchBox) {
       canvasRef.current.clearSketchBox();
+    }
+    if (canvasRef.current && canvasRef.current.clearRenderBox) {
+      canvasRef.current.clearRenderBox();
     }
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
@@ -179,13 +183,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
   const handleRenderCancel = () => {
     setShowRenderSubBar(false);
     if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
-    if (canvasRef.current) {
-      // Remove any existing bounding box (robust)
-      // This logic needs to be adapted to Konva if it's still needed
-      // For now, assuming Konva handles its own bounding box state
+    if (canvasRef.current && canvasRef.current.clearRenderBox) {
+      canvasRef.current.clearRenderBox();
     }
-    // boundingBoxRef.current = null; // This line is no longer needed
-    // setRenderBoundingBox(null); // This line is no longer needed
+    if (closeRenderBar) closeRenderBar();
   };
 
   const handleRenderGenerate = async (details: string) => {
@@ -196,17 +197,17 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       return;
     }
     // Always get the bounding box PNG from Canvas
-    const base64Sketch = canvasRef.current.exportCurrentBoundingBoxAsPng();
+    const base64Sketch = canvasRef.current.exportCurrentRenderBoxAsPng();
     if (!base64Sketch) {
       alert('No bounding box defined for export.');
       setAiStatus('idle');
       return;
     }
     // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
-    const sketchBox = canvasRef.current.sketchBox;
+    const renderBox = canvasRef.current.renderBox;
     const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
-    let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
-    let y = sketchBox ? sketchBox.y : 100;
+    let x = renderBox ? renderBox.x + renderBox.width + 40 : 100;
+    let y = renderBox ? renderBox.y : 100;
     x += stagePos.x;
     y += stagePos.y;
     const placeholderUrl = '/Placeholder_Image.png';

@@ -82,18 +82,40 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const sketchBoxRef = useRef<any>(null);
   const sketchBoxTransformerRef = useRef<any>(null);
 
+  // Add state for Render mode bounding box (completely independent)
+  const [renderBox, setRenderBox] = useState<null | { x: number, y: number, width: number, height: number }>(null);
+  const [renderBoxDrawing, setRenderBoxDrawing] = useState(false);
+  const [renderBoxStart, setRenderBoxStart] = useState<{ x: number, y: number } | null>(null);
+  const renderBoxRef = useRef<any>(null);
+  const renderBoxTransformerRef = useRef<any>(null);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
-      if (!sketchBox) return null;
+      // Use sketchBox for Sketch mode, renderBox for Render mode
+      const activeBox = props.renderModeActive ? renderBox : sketchBox;
+      if (!activeBox) return null;
       const stage = stageRef.current;
       if (!stage) return null;
       // Add stagePos to sketchBox coordinates for correct cropping
       return stage.toDataURL({
-        x: sketchBox.x + stagePos.x,
-        y: sketchBox.y + stagePos.y,
-        width: sketchBox.width,
-        height: sketchBox.height,
+        x: activeBox.x + stagePos.x,
+        y: activeBox.y + stagePos.y,
+        width: activeBox.width,
+        height: activeBox.height,
+        pixelRatio: 1,
+      });
+    },
+    exportCurrentRenderBoxAsPng: () => {
+      if (!renderBox) return null;
+      const stage = stageRef.current;
+      if (!stage) return null;
+      // Add stagePos to renderBox coordinates for correct cropping
+      return stage.toDataURL({
+        x: renderBox.x + stagePos.x,
+        y: renderBox.y + stagePos.y,
+        width: renderBox.width,
+        height: renderBox.height,
         pixelRatio: 1,
       });
     },
@@ -119,10 +141,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return id;
     },
     clearSketchBox: () => setSketchBox(null),
+    clearRenderBox: () => setRenderBox(null),
     // Expose current pan offset for correct AI image placement
     get stagePos() { return stagePos; },
     // Expose current bounding box for correct AI image placement
     get sketchBox() { return sketchBox; },
+    get renderBox() { return renderBox; },
     replaceImageById: (id: string, newSrc: string) => {
       setImages(prev => {
         const idx = prev.findIndex(img => img.id === id);
@@ -152,7 +176,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       });
     },
     setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
-  }), [sketchBox, stageRef, stagePos]);
+  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive]);
 
   // Clamp stage position so you can't pan outside the board
   function clampStagePos(pos: {x: number, y: number}) {
@@ -639,6 +663,72 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Add a function to clear the bounding box
   const clearSketchBox = () => {
     setSketchBox(null);
+    setSketchBoxDrawing(false);
+    setSketchBoxStart(null);
+  };
+
+  // Render mode bounding box handlers (completely independent)
+  const handleRenderBoxMouseDown = (e: any) => {
+    if (!props.renderModeActive) return;
+    e.evt.preventDefault();
+    const stage = stageRef.current;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    
+    setRenderBoxDrawing(true);
+    setRenderBoxStart({ x: pointer.x - stagePos.x, y: pointer.y - stagePos.y });
+    
+    // Clear any existing render box
+    setRenderBox(null);
+  };
+
+  const handleRenderBoxMouseMove = (e: any) => {
+    if (!props.renderModeActive || !renderBoxDrawing || !renderBoxStart) return;
+    e.evt.preventDefault();
+    const stage = stageRef.current;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    
+    const currentX = pointer.x - stagePos.x;
+    const currentY = pointer.y - stagePos.y;
+    
+    const x = Math.min(renderBoxStart.x, currentX);
+    const y = Math.min(renderBoxStart.y, currentY);
+    const width = Math.abs(currentX - renderBoxStart.x);
+    const height = Math.abs(currentY - renderBoxStart.y);
+    
+    setRenderBox({ x, y, width, height });
+  };
+
+  const handleRenderBoxMouseUp = (e: any) => {
+    if (!props.renderModeActive || !renderBoxDrawing) return;
+    e.evt.preventDefault();
+    setRenderBoxDrawing(false);
+    setRenderBoxStart(null);
+  };
+
+  const handleRenderBoxTransform = (e: any) => {
+    if (!props.renderModeActive) return;
+    const node = e.target;
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    const rotation = node.rotation();
+    
+    setRenderBox({
+      x: node.x(),
+      y: node.y(),
+      width: Math.max(20, node.width() * scaleX),
+      height: Math.max(20, node.height() * scaleY)
+    });
+    
+    node.scaleX(1);
+    node.scaleY(1);
+  };
+
+  const clearRenderBox = () => {
+    setRenderBox(null);
+    setRenderBoxDrawing(false);
+    setRenderBoxStart(null);
   };
 
     return (
@@ -651,12 +741,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         x={stagePos.x}
         y={stagePos.y}
         draggable={false}
-        onMouseDown={props.sketchModeActive ? handleSketchBoxMouseDown : handleStageMouseDown}
-        onTouchStart={props.sketchModeActive ? handleSketchBoxMouseDown : handleStageMouseDown}
-        onMouseMove={props.sketchModeActive ? handleSketchBoxMouseMove : handleStageMouseMove}
-        onTouchMove={props.sketchModeActive ? handleSketchBoxMouseMove : handleStageMouseMove}
-        onMouseUp={props.sketchModeActive ? handleSketchBoxMouseUp : handleStageMouseUp}
-        onTouchEnd={props.sketchModeActive ? handleSketchBoxMouseUp : handleStageMouseUp}
+        onMouseDown={props.sketchModeActive ? handleSketchBoxMouseDown : props.renderModeActive ? handleRenderBoxMouseDown : handleStageMouseDown}
+        onTouchStart={props.sketchModeActive ? handleSketchBoxMouseDown : props.renderModeActive ? handleRenderBoxMouseDown : handleStageMouseDown}
+        onMouseMove={props.sketchModeActive ? handleSketchBoxMouseMove : props.renderModeActive ? handleRenderBoxMouseMove : handleStageMouseMove}
+        onTouchMove={props.sketchModeActive ? handleSketchBoxMouseMove : props.renderModeActive ? handleRenderBoxMouseMove : handleStageMouseMove}
+        onMouseUp={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
+        onTouchEnd={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
         onClick={handleStageClick}
       >
         <Layer ref={layerRef} width={boardWidth} height={boardHeight}>
@@ -862,6 +952,37 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               <Transformer
                 ref={sketchBoxTransformerRef}
                 nodes={sketchBoxRef.current ? [sketchBoxRef.current] : []}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+                borderStroke="#E1FF00"
+                anchorStroke="#E1FF00"
+                anchorFill="#fff"
+                anchorSize={8}
+                anchorCornerRadius={4}
+                anchorStrokeWidth={2}
+                anchorDash={[2, 2]}
+              />
+            </>
+          )}
+          {/* Render render bounding box if in render mode */}
+          {props.renderModeActive && renderBox && (
+            <>
+              <Rect
+                ref={renderBoxRef}
+                x={renderBox.x}
+                y={renderBox.y}
+                width={renderBox.width}
+                height={renderBox.height}
+                stroke="#E1FF00"
+                strokeWidth={2}
+                dash={[6, 4]}
+                fill="rgba(0,0,0,0.0)"
+                draggable
+                onTransformEnd={handleRenderBoxTransform}
+                onDragEnd={handleRenderBoxTransform}
+              />
+              <Transformer
+                ref={renderBoxTransformerRef}
+                nodes={renderBoxRef.current ? [renderBoxRef.current] : []}
                 enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
                 borderStroke="#E1FF00"
                 anchorStroke="#E1FF00"
