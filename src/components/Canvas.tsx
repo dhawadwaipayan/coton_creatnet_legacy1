@@ -48,7 +48,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
   // Images state: store loaded HTMLImageElement
-  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number }>>([]);
+  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean }>>([]);
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -97,19 +97,66 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         pixelRatio: 1,
       });
     },
-    importImage: (src: string, x?: number, y?: number) => {
+    importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
       const img = new window.Image();
       img.src = src;
+      const id = Date.now().toString();
       img.onload = () => {
         setImages(prev => [
           ...prev,
-          { id: Date.now().toString(), image: img, x: x ?? 100, y: y ?? 100, width: 200, height: 200, rotation: 0, timestamp: Date.now() }
+          { id, image: img, x: x ?? 100, y: y ?? 100, width: width ?? 200, height: height ?? 200, rotation: 0, timestamp: Date.now() }
         ]);
+        if (onLoadId) onLoadId(id);
       };
+      img.onerror = () => {
+        console.error('Failed to load image:', src);
+        setImages(prev => [
+          ...prev,
+          { id, image: null, x: x ?? 100, y: y ?? 100, width: width ?? 200, height: height ?? 200, rotation: 0, timestamp: Date.now(), error: true }
+        ]);
+        if (onLoadId) onLoadId(id);
+      };
+      return id;
     },
     clearSketchBox: () => setSketchBox(null),
     // Expose current pan offset for correct AI image placement
     get stagePos() { return stagePos; },
+    // Expose current bounding box for correct AI image placement
+    get sketchBox() { return sketchBox; },
+    replaceImageAt: (x: number, y: number, width: number, height: number, newSrc: string) => {
+      setImages(prev => {
+        // Find the image at (x, y) with the given width/height
+        const idx = prev.findIndex(img =>
+          Math.abs(img.x - x) < 2 && Math.abs(img.y - y) < 2 &&
+          Math.abs((img.width || 200) - width) < 2 && Math.abs((img.height || 200) - height) < 2
+        );
+        if (idx === -1) return prev;
+        // Remove the old image and add the new one at the same position
+        const newImg = new window.Image();
+        newImg.src = newSrc;
+        const newImageObj = {
+          id: Date.now().toString(),
+          image: newImg,
+          x,
+          y,
+          width,
+          height,
+          rotation: 0,
+          timestamp: Date.now()
+        };
+        // Wait for image to load before updating state
+        newImg.onload = () => {
+          setImages(current => [
+            ...current.slice(0, idx),
+            newImageObj,
+            ...current.slice(idx + 1)
+          ]);
+        };
+        // Remove the old image for now (will be replaced on load)
+        return prev.filter((_, i) => i !== idx);
+      });
+    },
+    setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
   }), [sketchBox, stageRef, stagePos]);
 
   // Clamp stage position so you can't pan outside the board
@@ -599,7 +646,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setSketchBox(null);
   };
 
-  return (
+    return (
     <div className={`fixed inset-0 z-0 overflow-hidden ${props.className || ''}`} style={{ background: '#1E1E1E' }}>
       <Stage
         width={viewport.width}
@@ -633,27 +680,43 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
             .map(img => (
-              <KonvaImage
-                key={img.id}
-                id={`img-${img.id}`}
-                image={img.image}
-                x={img.x}
-                y={img.y}
-                width={img.width || 200}
-                height={img.height || 200}
-                rotation={img.rotation || 0}
-                draggable={props.selectedTool === 'select' && isSelected(img.id, 'image')}
-                onClick={evt => handleItemClick(img.id, 'image', evt)}
-                onTap={evt => handleItemClick(img.id, 'image', evt)}
-                onDragEnd={e => {
-                  const { x, y } = e.target.position();
-                  setImages(prev => prev.map(im => im.id === img.id ? { ...im, x, y } : im));
-                  handleGroupDragEnd();
-                }}
-                onTransformEnd={e => handleTransformEndImage(img.id, e.target)}
-                onDragStart={e => handleGroupDragStart(e, img.id, 'image')}
-                onDragMove={e => handleGroupDragMove(e, img.id, 'image')}
-              />
+              img.error ? (
+                <Rect
+                  key={img.id}
+                  x={img.x}
+                  y={img.y}
+                  width={img.width || 200}
+                  height={img.height || 200}
+                  fill="#ff3333"
+                  cornerRadius={16}
+                  shadowBlur={8}
+                  shadowColor="#000"
+                  stroke="#fff"
+                  strokeWidth={2}
+                />
+              ) : (
+                <KonvaImage
+                  key={img.id}
+                  id={`img-${img.id}`}
+                  image={img.image}
+                  x={img.x}
+                  y={img.y}
+                  width={img.width || 200}
+                  height={img.height || 200}
+                  rotation={img.rotation || 0}
+                  draggable={props.selectedTool === 'select' && isSelected(img.id, 'image')}
+                  onClick={evt => handleItemClick(img.id, 'image', evt)}
+                  onTap={evt => handleItemClick(img.id, 'image', evt)}
+                  onDragEnd={e => {
+                    const { x, y } = e.target.position();
+                    setImages(prev => prev.map(im => im.id === img.id ? { ...im, x, y } : im));
+                    handleGroupDragEnd();
+                  }}
+                  onTransformEnd={e => handleTransformEndImage(img.id, e.target)}
+                  onDragStart={e => handleGroupDragStart(e, img.id, 'image')}
+                  onDragMove={e => handleGroupDragMove(e, img.id, 'image')}
+                />
+              )
             ))}
           {/* Render all texts after images (oldest to newest) */}
           {texts
@@ -825,7 +888,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           onChange={e => setEditingText(editingText ? { ...editingText, value: e.target.value } : null)}
           onBlur={handleTextareaBlur}
           onKeyDown={handleTextareaKeyDown}
-          style={{
+          style={{ 
             position: 'absolute',
             left: editingText.x + stagePos.x,
             top: editingText.y + stagePos.y,
@@ -857,6 +920,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           spellCheck={false}
         />
       )}
-    </div>
-  );
+      </div>
+    );
 });

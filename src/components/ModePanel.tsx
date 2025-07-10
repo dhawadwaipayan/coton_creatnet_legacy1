@@ -108,13 +108,34 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('idle');
       return;
     }
-    // Auto-download the PNG
-    const link = document.createElement('a');
-    link.href = base64Sketch;
-    link.download = 'sketch-bbox.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
+    const sketchBox = canvasRef.current.sketchBox;
+    const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
+    let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
+    let y = sketchBox ? sketchBox.y : 100;
+    x += stagePos.x;
+    y += stagePos.y;
+    const placeholderUrl = '/Placeholder_Image.png';
+    const placeholderWidth = 200;
+    const placeholderHeight = 200;
+    let placeholderId: string | null = null;
+    await new Promise<void>(resolve => {
+      if (canvasRef.current.importImage) {
+        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+          // After image is loaded, select it
+          if (canvasRef.current && canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+    // After adding placeholder, close sketch tab and switch to select tool
+    if (closeSketchBar) closeSketchBar();
+    if (setSelectedMode) setSelectedMode('select');
+    // No overlay/status logic
     // Prepare input for OpenAI
     const promptText = `Generate an Image by redoing the flat sketch in the same style. The generated flat sketch should have only black lines. Consider if any annotations are given on the image to update those changes on the newly generated flat sketch. ${details}`.trim();
     try {
@@ -139,17 +160,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Place the generated image to the right of the bounding box
-      // Get the bounding box again for placement
-      const sketchBox = canvasRef.current.sketchBox;
-      const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
-      let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
-      let y = sketchBox ? sketchBox.y : 100;
-      // Adjust for current pan offset
-      x += stagePos.x;
-      y += stagePos.y;
-      if (canvasRef.current.importImage) {
-        canvasRef.current.importImage(imageUrl, x, y);
+      // Remove the placeholder and add the real image in the same spot
+      // (Find the placeholder by its coordinates and size)
+      if (canvasRef.current && canvasRef.current.replaceImageAt) {
+        canvasRef.current.replaceImageAt(x, y, placeholderWidth, placeholderHeight, imageUrl);
+      } else if (canvasRef.current.importImage) {
+        canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
@@ -456,16 +472,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
 
   return (
     <div className="flex flex-col items-center">
-      {/* AI Status Indicator */}
-      <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 10000 }}>
-        {aiStatus !== 'idle' && (
-          <div className={`px-4 py-2 rounded shadow-lg text-sm font-medium transition-all duration-300 ${aiStatus === 'generating' ? 'bg-blue-800 text-white' : aiStatus === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-            {aiStatus === 'generating' && 'Generating with AI...'}
-            {aiStatus === 'success' && 'AI image generated!'}
-            {aiStatus === 'error' && (aiError || 'AI error')}
-          </div>
-        )}
-      </div>
       {showSketchSubBar && (
         <SketchSubBar 
           onCancel={handleSketchCancel}
