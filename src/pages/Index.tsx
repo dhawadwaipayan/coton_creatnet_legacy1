@@ -29,6 +29,10 @@ const Index = () => {
   const [brushSize, setBrushSize] = useState(5);
   const [textColor, setTextColor] = useState('#FF0000');
 
+  // Add state for Konva-based Sketch mode
+  const sketchModeActive = sketchBarOpen && selectedMode === 'sketch';
+  const [sketchBoundingBox, setSketchBoundingBox] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
+
   // REMOVE AUTH SYSTEM: always show main UI
   // const [showAuth, setShowAuth] = useState(false);
   // React.useEffect(() => {
@@ -89,6 +93,7 @@ const Index = () => {
         brushSize={brushSize}
         textColor={textColor}
         onTextAdded={handleTextAdded}
+        sketchModeActive={sketchModeActive}
       />
 
       {/* Sidebar - positioned center left */}
@@ -146,6 +151,8 @@ const Index = () => {
               setBrushColor={setBrushColor}
               brushSize={brushSize}
               setBrushSize={setBrushSize}
+              sketchModeActive={sketchModeActive}
+              onSketchBoundingBoxChange={setSketchBoundingBox}
             />
           </div>
         </div>
