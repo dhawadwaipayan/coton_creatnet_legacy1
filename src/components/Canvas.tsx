@@ -108,6 +108,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       };
     },
     clearSketchBox: () => setSketchBox(null),
+    // Expose current pan offset for correct AI image placement
+    get stagePos() { return stagePos; },
   }), [sketchBox, stageRef, stagePos]);
 
   // Clamp stage position so you can't pan outside the board

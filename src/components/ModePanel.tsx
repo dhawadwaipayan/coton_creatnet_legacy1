@@ -142,8 +142,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       // Place the generated image to the right of the bounding box
       // Get the bounding box again for placement
       const sketchBox = canvasRef.current.sketchBox;
+      const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
       let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
       let y = sketchBox ? sketchBox.y : 100;
+      // Adjust for current pan offset
+      x += stagePos.x;
+      y += stagePos.y;
       if (canvasRef.current.importImage) {
         canvasRef.current.importImage(imageUrl, x, y);
       }
