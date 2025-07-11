@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
@@ -9,7 +9,7 @@ import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
-import { getUser } from '../lib/utils';
+import { getUser, signOut } from '../lib/utils';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -37,16 +37,35 @@ const Index = () => {
   const renderModeActive = selectedMode === 'render';
   const [renderBoundingBox, setRenderBoundingBox] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
 
-  // REMOVE AUTH SYSTEM: always show main UI
-  // const [showAuth, setShowAuth] = useState(false);
-  // React.useEffect(() => {
-  //   getUser().then(({ data }) => {
-  //     setShowAuth(!data?.user);
-  //   });
-  // }, []);
-  // const handleAuthSuccess = () => {
-  //   setShowAuth(false);
-  // };
+  const [showAuth, setShowAuth] = useState(false);
+  const [userName, setUserName] = useState<string>('');
+
+  useEffect(() => {
+    getUser().then(({ data }) => {
+      if (data?.user) {
+        setShowAuth(false);
+        const name = data.user.user_metadata?.name || '';
+        setUserName(name);
+      } else {
+        setShowAuth(true);
+        setUserName('');
+      }
+    });
+  }, []);
+
+  const handleAuthSuccess = () => {
+    getUser().then(({ data }) => {
+      setShowAuth(false);
+      const name = data?.user?.user_metadata?.name || '';
+      setUserName(name);
+    });
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setShowAuth(true);
+    setUserName('');
+  };
 
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
@@ -100,89 +119,93 @@ const Index = () => {
   };
 
   return (
-    <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
-      {/* Canvas Background - behind everything */}
-      <Canvas
-        ref={canvasRef}
-        selectedTool={selectedTool || 'select'}
-        onSelectedImageSrcChange={setSelectedImageSrc}
-        brushColor={brushColor}
-        brushSize={brushSize}
-        textColor={textColor}
-        onTextAdded={handleTextAdded}
-        sketchModeActive={sketchModeActive}
-        renderModeActive={renderModeActive}
-        onRenderBoundingBoxChange={setRenderBoundingBox}
-      />
+    <>
+      {/* Auth Overlay - always rendered at the top level for perfect centering */}
+      {showAuth && <AuthOverlay onAuthSuccess={handleAuthSuccess} />}
+      <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
+        <div style={{ pointerEvents: showAuth ? 'none' : 'auto' }}>
+          {/* Canvas Background - behind everything */}
+          <Canvas
+            ref={canvasRef}
+            selectedTool={selectedTool || 'select'}
+            onSelectedImageSrcChange={setSelectedImageSrc}
+            brushColor={brushColor}
+            brushSize={brushSize}
+            textColor={textColor}
+            onTextAdded={handleTextAdded}
+            sketchModeActive={sketchModeActive}
+            renderModeActive={renderModeActive}
+            onRenderBoundingBoxChange={setRenderBoundingBox}
+          />
 
-      {/* Sidebar - positioned center left */}
-      <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+          {/* Sidebar - positioned center left */}
+          <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
 
-      {/* REMOVE AUTH OVERLAY - always show main UI */}
-      {/* {showAuth && <AuthOverlay onAuthSuccess={handleAuthSuccess} />} */}
-
-      {/* BrushSubBar - beside sidebar, only when draw tool is selected */}
-      {selectedTool === 'draw' && (
-        <BrushSubBar
-          brushColor={brushColor}
-          setBrushColor={setBrushColor}
-          brushSize={brushSize}
-          setBrushSize={setBrushSize}
-        />
-      )}
-
-      {/* TextSubBar - beside sidebar, only when text tool is selected */}
-      {selectedTool === 'text' && (
-        <TextSubBar
-          textColor={textColor}
-          setTextColor={setTextColor}
-        />
-      )}
-
-      {/* UI Overlay - above canvas */}
-      <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
-        {/* Top Bar - positioned top left */}
-        <div className="absolute top-[34px] left-6 pointer-events-auto">
-          <TopBar canvasRef={canvasRef} />
-        </div>
-        
-        {/* User Bar - positioned top right */}
-        {/* Always show UserBar, no auth check */}
-        <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
-          <UserBar onLogout={() => {}} />
-        </div>
-        
-        <div className="flex flex-1 relative">
-          <div className="flex-1" />
-          
-          {/* Restore original bottom bar position: centered at bottom */}
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
-            <GenerationPanel />
-            <ModePanel
-              canvasRef={canvasRef}
-              onSketchModeActivated={handleSketchModeActivated}
-              onBoundingBoxCreated={handleBoundingBoxCreated}
-              showSketchSubBar={sketchBarOpen}
-              closeSketchBar={handleCloseSketchBar}
-              selectedMode={selectedMode}
-              setSelectedMode={setSelectedMode}
+          {/* BrushSubBar - beside sidebar, only when draw tool is selected */}
+          {selectedTool === 'draw' && (
+            <BrushSubBar
               brushColor={brushColor}
               setBrushColor={setBrushColor}
               brushSize={brushSize}
               setBrushSize={setBrushSize}
-              sketchModeActive={sketchModeActive}
-              onSketchBoundingBoxChange={setSketchBoundingBox}
-              renderBoundingBox={renderBoundingBox}
-              closeRenderBar={handleCloseRenderBar}
             />
+          )}
+
+          {/* TextSubBar - beside sidebar, only when text tool is selected */}
+          {selectedTool === 'text' && (
+            <TextSubBar
+              textColor={textColor}
+              setTextColor={setTextColor}
+            />
+          )}
+
+          {/* UI Overlay - above canvas */}
+          <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
+            {/* Top Bar - positioned top left */}
+            <div className="absolute top-[34px] left-6 pointer-events-auto">
+              <TopBar canvasRef={canvasRef} />
+            </div>
+            
+            {/* UserBar only visible if authenticated */}
+            {!showAuth && (
+              <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
+                <UserBar userName={userName} onLogout={handleLogout} />
+              </div>
+            )}
+            
+            <div className="flex flex-1 relative">
+              <div className="flex-1" />
+              
+              {/* Restore original bottom bar position: centered at bottom */}
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
+                <GenerationPanel />
+                <ModePanel
+                  canvasRef={canvasRef}
+                  onSketchModeActivated={handleSketchModeActivated}
+                  onBoundingBoxCreated={handleBoundingBoxCreated}
+                  showSketchSubBar={sketchBarOpen}
+                  closeSketchBar={handleCloseSketchBar}
+                  selectedMode={selectedMode}
+                  setSelectedMode={setSelectedMode}
+                  brushColor={brushColor}
+                  setBrushColor={setBrushColor}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                  sketchModeActive={sketchModeActive}
+                  onSketchBoundingBoxChange={setSketchBoundingBox}
+                  renderBoundingBox={renderBoundingBox}
+                  closeRenderBar={handleCloseRenderBar}
+                />
+              </div>
+            </div>
+            {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap */}
+            <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
+              <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+            </div>
           </div>
         </div>
-        {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap */}
-        <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
-          <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
-        </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 };
 

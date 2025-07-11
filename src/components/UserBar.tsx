@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signOut, getUser } from '../lib/utils';
 
-const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
+const UserBar: React.FC<{ userName?: string; onLogout?: () => void }> = ({ userName, onLogout }) => {
   // REMOVE AUTH LOGIC: show static initials
   // const [activeBtn, setActiveBtn] = useState<'share' | 'logout' | null>(null);
   // const [userInitials, setUserInitials] = useState('U1');
@@ -16,14 +16,13 @@ const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   //   });
   // }, []);
   const [activeBtn, setActiveBtn] = useState<'share' | 'logout' | null>(null);
-  const userInitials = 'U1';
+  // Compute initials from userName
+  const userInitials = userName && userName.trim().length > 0 ? userName.trim().slice(0, 2) : 'U1';
 
-  // Disable logout
-  // const handleLogout = async () => {
-  //   await signOut();
-  //   if (onLogout) onLogout();
-  // };
-  const handleLogout = () => {};
+  const handleLogout = async () => {
+    await signOut();
+    if (onLogout) onLogout();
+  };
 
   const getTextColor = (btn: 'share' | 'logout') =>
     activeBtn === btn
@@ -48,7 +47,6 @@ const UserBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         onMouseLeave={() => setActiveBtn(null)}
         onClick={handleLogout}
         type="button"
-        disabled
       >
         Log out
       </button>

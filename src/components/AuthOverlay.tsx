@@ -46,8 +46,11 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
-      <div className="flex flex-col items-center bg-[#181818] rounded-2xl shadow-lg relative border border-[#373737] min-w-[350px] w-[400px] max-w-full" style={{minHeight: 600}}>
+    <div className="fixed top-0 left-0 right-0 bottom-0 w-full h-full min-w-0 min-h-0 z-50 flex items-center justify-center">
+      {/* 70% black overlay */}
+      <div className="absolute inset-0 bg-black" style={{ opacity: 0.7, zIndex: 1 }} />
+      {/* Auth card above overlay */}
+      <div className="relative z-10 flex flex-col items-center bg-[#181818] rounded-2xl shadow-lg border border-[#373737] min-w-[350px] w-[400px] max-w-full" style={{minHeight: 600}}>
         {/* Top: Image + Logo */}
         <div className="w-full h-[270px] rounded-t-2xl overflow-hidden relative flex items-center justify-center">
           <img src={BG_IMAGE} alt="Auth background" className="absolute inset-0 w-full h-full object-cover" />
