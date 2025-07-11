@@ -92,7 +92,7 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
       <div className="flex-1 px-2">
         <input 
           type="text" 
-          placeholder="Additional details" 
+          placeholder="Additional details (material upload is optional)" 
           value={additionalDetails} 
           onChange={e => setAdditionalDetails(e.target.value)} 
           className="w-full bg-transparent text-[#666666] placeholder-[#666666] border-none outline-none text-sm font-gilroy font-medium" 

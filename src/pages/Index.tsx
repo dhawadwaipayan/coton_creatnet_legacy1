@@ -35,6 +35,7 @@ const Index = () => {
 
   // Add state for Konva-based Render mode
   const renderModeActive = selectedMode === 'render';
+  const [renderBoundingBox, setRenderBoundingBox] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
 
   // REMOVE AUTH SYSTEM: always show main UI
   // const [showAuth, setShowAuth] = useState(false);
@@ -111,6 +112,7 @@ const Index = () => {
         onTextAdded={handleTextAdded}
         sketchModeActive={sketchModeActive}
         renderModeActive={renderModeActive}
+        onRenderBoundingBoxChange={setRenderBoundingBox}
       />
 
       {/* Sidebar - positioned center left */}
@@ -170,6 +172,7 @@ const Index = () => {
               setBrushSize={setBrushSize}
               sketchModeActive={sketchModeActive}
               onSketchBoundingBoxChange={setSketchBoundingBox}
+              renderBoundingBox={renderBoundingBox}
               closeRenderBar={handleCloseRenderBar}
             />
           </div>

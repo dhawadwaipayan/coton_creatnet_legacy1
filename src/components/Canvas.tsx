@@ -89,6 +89,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const renderBoxRef = useRef<any>(null);
   const renderBoxTransformerRef = useRef<any>(null);
 
+  // Call onRenderBoundingBoxChange whenever renderBox changes
+  useEffect(() => {
+    if (props.onRenderBoundingBoxChange) {
+      props.onRenderBoundingBoxChange(renderBox);
+    }
+  }, [renderBox]);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
