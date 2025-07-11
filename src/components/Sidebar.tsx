@@ -25,11 +25,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     id: 'draw',
     icon: PaintBrush,
     label: 'Draw'
-  }, {
-    id: 'shape',
-    icon: Shapes,
-    label: 'Shape'
-  }, {
+  },
+  // SHAPE BUTTON REFERENCE (keep for future use)
+  // {
+  //   id: 'shape',
+  //   icon: Shapes,
+  //   label: 'Shape'
+  // },
+  {
     id: 'text',
     icon: TextT,
     label: 'Text'

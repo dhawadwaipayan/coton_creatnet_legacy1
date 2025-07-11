@@ -75,6 +75,33 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Call onSelectedImageSrcChange with the data URL of the selected image (if one image is selected), or null if not
+  useEffect(() => {
+    if (!props.onSelectedImageSrcChange) return;
+    const selectedImageIds = selectedIds.filter(sel => sel.type === 'image');
+    if (selectedImageIds.length === 1) {
+      const imgObj = images.find(img => img.id === selectedImageIds[0].id);
+      if (imgObj && imgObj.image) {
+        // Create a canvas to get the data URL
+        const canvas = document.createElement('canvas');
+        canvas.width = imgObj.width || imgObj.image.width;
+        canvas.height = imgObj.height || imgObj.image.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(imgObj.image, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/png');
+          props.onSelectedImageSrcChange(dataUrl);
+        } else {
+          props.onSelectedImageSrcChange(null);
+        }
+      } else {
+        props.onSelectedImageSrcChange(null);
+      }
+    } else {
+      props.onSelectedImageSrcChange(null);
+    }
+  }, [selectedIds, images]);
+
   // Add state for Sketch mode bounding box
   const [sketchBox, setSketchBox] = useState<null | { x: number, y: number, width: number, height: number }>(null);
   const [sketchBoxDrawing, setSketchBoxDrawing] = useState(false);
