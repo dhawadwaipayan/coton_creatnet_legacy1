@@ -10,6 +10,7 @@ import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut } from '../lib/utils';
+import BoardOverlay from '../components/BoardOverlay';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -39,6 +40,7 @@ const Index = () => {
 
   const [showAuth, setShowAuth] = useState(false);
   const [userName, setUserName] = useState<string>('');
+  const [showBoardOverlay, setShowBoardOverlay] = useState(false);
 
   useEffect(() => {
     getUser().then(({ data }) => {
@@ -123,6 +125,8 @@ const Index = () => {
       {/* Auth Overlay - always rendered at the top level for perfect centering */}
       {showAuth && <AuthOverlay onAuthSuccess={handleAuthSuccess} />}
       <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
+        {/* Board Overlay - open when logo is clicked */}
+        {showBoardOverlay && <BoardOverlay onCancel={() => setShowBoardOverlay(false)} onCreateNew={() => {}} />}
         <div style={{ pointerEvents: showAuth ? 'none' : 'auto' }}>
           {/* Canvas Background - behind everything */}
           <Canvas
@@ -163,7 +167,7 @@ const Index = () => {
           <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
             {/* Top Bar - positioned top left */}
             <div className="absolute top-[34px] left-6 pointer-events-auto">
-              <TopBar canvasRef={canvasRef} />
+              <TopBar canvasRef={canvasRef} onLogoClick={() => setShowBoardOverlay(true)} />
             </div>
             
             {/* UserBar only visible if authenticated */}
