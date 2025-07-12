@@ -33,8 +33,16 @@ export function getUser() {
 }
 
 // Supabase Storage helpers for board images
-export async function uploadBoardImage(boardId: string, imageId: string, imageBlob: Blob) {
-  const filePath = `${boardId}/${imageId}.png`;
+export async function uploadBoardImage(userId: string, boardId: string, imageId: string, imageBlob: Blob) {
+  const filePath = `${userId}/${boardId}/${imageId}.png`;
+  console.log('Uploading image to Supabase Storage:', {
+    userId,
+    boardId,
+    imageId,
+    filePath,
+    blobType: imageBlob?.type,
+    blobSize: imageBlob?.size
+  });
   const { data, error } = await supabase.storage
     .from('board-images')
     .upload(filePath, imageBlob, {

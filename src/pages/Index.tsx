@@ -164,6 +164,7 @@ const Index = () => {
     
     const content = {
       id: currentBoard.id,
+      user_id: currentBoard.user_id, // Add user_id for Canvas component
       images: currentBoard.content?.images || [],
       strokes: currentBoard.content?.strokes || [],
       texts: currentBoard.content?.texts || []

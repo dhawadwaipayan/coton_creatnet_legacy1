@@ -176,7 +176,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             try {
               // Convert image to blob and upload to storage
               const blob = await imageElementToBlob(img.image, img.width, img.height);
-              const imageUrl = await uploadBoardImage(props.boardContent.id, img.id, blob);
+              const imageUrl = await uploadBoardImage(props.boardContent.user_id, props.boardContent.id, img.id, blob);
               
               return {
                 id: img.id,
