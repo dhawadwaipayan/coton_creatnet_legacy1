@@ -97,11 +97,24 @@ const Index = () => {
     setShowBoardOverlay(false);
   };
 
-  // Switch board
+  // Switch board (select only, do not enter)
   const handleSwitchBoard = (id) => {
-    console.log('Switching to board:', id);
+    setCurrentBoardId(id);
+    // Do not close overlay here
+  };
+
+  // Enter board (double click)
+  const handleEnterBoard = (id) => {
     setCurrentBoardId(id);
     setShowBoardOverlay(false);
+  };
+
+  // Delete board
+  const handleDeleteBoard = async (id) => {
+    await deleteBoard(id);
+    setBoards(prev => prev.filter(b => b.id !== id));
+    // If the deleted board was current, clear currentBoardId
+    setCurrentBoardId(prev => (prev === id ? null : prev));
   };
 
   // Update board name
@@ -292,6 +305,8 @@ const Index = () => {
             boards={boards}
             currentBoardId={currentBoardId}
             onSwitchBoard={handleSwitchBoard}
+            onEnterBoard={handleEnterBoard}
+            onDeleteBoard={handleDeleteBoard}
           />
         )}
         

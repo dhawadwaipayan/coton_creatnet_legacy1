@@ -20,14 +20,27 @@ interface BoardOverlayProps {
   boards: Array<{ id: string; name: string; lastEdited: number }>;
   currentBoardId: string;
   onSwitchBoard: (id: string) => void;
+  onEnterBoard: (id: string) => void;
+  onDeleteBoard: (id: string) => void;
 }
 
-const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boards, currentBoardId, onSwitchBoard }) => {
+const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boards, currentBoardId, onSwitchBoard, onEnterBoard, onDeleteBoard }) => {
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' });
   };
   const [selectedTab, setSelectedTab] = useState<'my' | 'shared'>('my');
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(currentBoardId);
+
+  const handleCardClick = (id: string) => {
+    setSelectedBoardId(id);
+    onSwitchBoard(id);
+  };
+
+  const handleCardDoubleClick = (id: string) => {
+    onEnterBoard(id);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
       <div
@@ -73,15 +86,15 @@ const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boar
                 boards.map(board => (
                   <div
                     key={board.id}
-                    className={`flex items-center bg-[#232323] rounded-lg cursor-pointer transition-colors ${board.id === currentBoardId ? 'ring-2 ring-[#E1FF00]' : ''}`}
+                    className={`flex items-center bg-[#232323] rounded-lg cursor-pointer transition-colors ${board.id === selectedBoardId ? 'ring-2 ring-[#E1FF00]' : ''}`}
                     style={{ height: BOARD_ROW_HEIGHT, paddingLeft: 16, paddingRight: 16 }}
-                    onClick={() => onSwitchBoard(board.id)}
-                    onDoubleClick={() => board.id === currentBoardId && onCancel && onCancel()}
+                    onClick={() => handleCardClick(board.id)}
+                    onDoubleClick={() => handleCardDoubleClick(board.id)}
                   >
                     <span className="text-neutral-400 text-[12px] font-gilroy" style={{ width: TIME_WIDTH }}>{formatTime(board.lastEdited)}</span>
                     <span className="flex-1 text-[#A9A9A9] font-gilroy font-medium text-[12px] truncate">{board.name}</span>
                     <button className="p-2 hover:text-[#E1FF00] transition-colors"><ShareNetwork size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
-                    <button className="p-2 hover:text-red-400 transition-colors"><Trash size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
+                    <button className="p-2 hover:text-red-400 transition-colors" onClick={e => { e.stopPropagation(); onDeleteBoard(board.id); }}><Trash size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
                   </div>
                 ))
               )}
