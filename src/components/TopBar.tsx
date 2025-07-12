@@ -230,7 +230,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
         {onSaveBoard && (
           <TopBarButton
             icon={
-              <FloppyDisk size={12} weight="regular" className={isSaving ? 'animate-spin' : ''} />
+              <FloppyDisk size={12} weight="regular" className={`${isSaving ? 'animate-spin' : ''} inline-block`} />
             }
             label={isSaving ? "Saving..." : "Save"}
             onClick={isSaving ? () => {} : onSaveBoard}
