@@ -335,6 +335,14 @@ const Index = () => {
             onSwitchBoard={handleSwitchBoard}
           />
         )}
+        
+        {/* UserBar - positioned outside main container to ensure it's on top */}
+        {!showAuth && (
+          <div className="fixed top-[34px] right-6 z-[100] pointer-events-auto">
+            <UserBar userName={userName} onLogout={handleLogout} />
+          </div>
+        )}
+        
         <div style={{ pointerEvents: showAuth ? 'none' : 'auto' }}>
           {/* Canvas Background - behind everything */}
           <Canvas
@@ -389,13 +397,6 @@ const Index = () => {
                   onSaveBoard={handleManualSave}
                   isSaving={savingBoard}
                 />
-              </div>
-            )}
-            
-            {/* UserBar - visible during board overlay but hidden during auth overlay */}
-            {!showAuth && (
-              <div className="absolute top-[34px] right-6 z-[60] pointer-events-auto">
-                <UserBar userName={userName} onLogout={handleLogout} />
               </div>
             )}
             
