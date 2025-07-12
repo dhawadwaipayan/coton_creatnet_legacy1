@@ -58,6 +58,7 @@ const Index = () => {
         setUserId(data.user.id);
         const name = data.user.user_metadata?.name || '';
         setUserName(name);
+        setShowBoardOverlay(true); // Show board overlay immediately after login
         setLoadingBoards(true);
         console.log('Loading boards for user:', data.user.id);
         getBoardsForUser(data.user.id)
@@ -65,7 +66,6 @@ const Index = () => {
             console.log('Loaded boards:', boards);
             setBoards(boards || []);
             setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
-            setShowBoardOverlay(true); // Always show board overlay after login/refresh
           })
           .catch(error => {
             console.error('Error loading boards:', error);
@@ -168,6 +168,7 @@ const Index = () => {
         setUserId(data.user.id);
         const name = data?.user?.user_metadata?.name || '';
         setUserName(name);
+        setShowBoardOverlay(true); // Show board overlay immediately after auth
         setLoadingBoards(true);
         console.log('Reloading boards after auth success for user:', data.user.id);
         getBoardsForUser(data.user.id)
@@ -175,7 +176,6 @@ const Index = () => {
             console.log('Reloaded boards after auth:', boards);
             setBoards(boards || []);
             setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
-            setShowBoardOverlay(true); // Always show board overlay after auth
           })
           .catch(error => {
             console.error('Error reloading boards after auth:', error);
@@ -192,6 +192,7 @@ const Index = () => {
     setBoards([]);
     setCurrentBoardId(null);
     setUserId(null);
+    setShowBoardOverlay(false);
   };
 
   // Test function to verify Supabase operations
