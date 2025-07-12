@@ -76,8 +76,48 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Undo/Redo stacks
+  const [undoStack, setUndoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
+  const [redoStack, setRedoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
+
+  // Helper to push current state to undo stack
+  const pushToUndoStack = useCallback(() => {
+    setUndoStack(prev => {
+      const newStack = [...prev, { images: JSON.parse(JSON.stringify(images)), strokes: JSON.parse(JSON.stringify(strokes)), texts: JSON.parse(JSON.stringify(texts)) }];
+      // Limit to 50 entries
+      return newStack.length > 50 ? newStack.slice(newStack.length - 50) : newStack;
+    });
+    setRedoStack([]); // Clear redo stack on new action
+  }, [images, strokes, texts]);
+
+  // Undo handler
+  const handleUndo = useCallback(() => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      setRedoStack(rStack => [{ images, strokes, texts }, ...rStack]);
+      const last = prev[prev.length - 1];
+      setImages(last.images);
+      setStrokes(last.strokes);
+      setTexts(last.texts);
+      return prev.slice(0, -1);
+    });
+  }, [images, strokes, texts]);
+
+  // Redo handler
+  const handleRedo = useCallback(() => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev;
+      setUndoStack(uStack => [...uStack, { images, strokes, texts }]);
+      const next = prev[0];
+      setImages(next.images);
+      setStrokes(next.strokes);
+      setTexts(next.texts);
+      return prev.slice(1);
+    });
+  }, [images, strokes, texts]);
+
   // Call onSelectedImageSrcChange with the data URL of the selected image (if one image is selected), or null if not
-  useEffect(() => {
+    useEffect(() => {
     if (!props.onSelectedImageSrcChange) return;
     const selectedImageIds = selectedIds.filter(sel => sel.type === 'image');
     if (selectedImageIds.length === 1) {
@@ -225,6 +265,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       });
     },
     importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
+      pushToUndoStack();
       const img = new window.Image();
       img.src = src;
       const id = Date.now().toString();
@@ -283,11 +324,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
     // Expose manual save function
     saveBoardContent,
-  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive, saveBoardContent]);
+    undo: handleUndo,
+    redo: handleRedo,
+  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive, saveBoardContent, handleUndo, handleRedo]);
 
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
-  useEffect(() => {
+    useEffect(() => {
     if (!props.boardContent) {
       // Clear all content when no board is selected (during overlays)
       setImages([]);
@@ -450,6 +493,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       console.log('Adding stroke with timestamp:', newTimestamp, 'max existing:', maxTimestamp);
       
+      pushToUndoStack();
       setStrokes(prev => [
         ...prev,
         {
@@ -504,6 +548,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       const id = Date.now().toString();
+      pushToUndoStack();
       setTexts(prev => [
         ...prev,
         {
@@ -737,6 +782,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
+        pushToUndoStack();
         setImages(prev => prev.filter(img => !selectedIds.some(sel => sel.id === img.id && sel.type === 'image')));
         setStrokes(prev => prev.filter(stroke => !selectedIds.some(sel => sel.id === stroke.id && sel.type === 'stroke')));
         setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
@@ -749,7 +795,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, sketchBox]);
+  }, [selectedIds, sketchBox, pushToUndoStack]);
 
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
@@ -775,6 +821,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
   const handleTextareaBlur = () => {
     if (editingText) {
+      pushToUndoStack();
       setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
       setEditingText(null);
     }
@@ -996,6 +1043,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onClick={evt => handleItemClick(img.id, 'image', evt)}
                   onTap={evt => handleItemClick(img.id, 'image', evt)}
                   onDragEnd={e => {
+                    pushToUndoStack();
                     const { x, y } = e.target.position();
                     setImages(prev => prev.map(im => im.id === img.id ? { ...im, x, y } : im));
                     handleGroupDragEnd();
@@ -1027,11 +1075,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onDblClick={() => handleTextDblClick(txt)}
                 onDblTap={() => handleTextDblClick(txt)}
                 onDragEnd={e => {
+                  pushToUndoStack();
                   const { x, y } = e.target.position();
                   setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x, y } : t));
                   handleGroupDragEnd();
                 }}
                 onTransformEnd={e => {
+                  pushToUndoStack();
                   const node = e.target;
                   const scaleX = node.scaleX();
                   const scaleY = node.scaleY();
@@ -1071,6 +1121,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onClick={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onTap={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onDragEnd={e => {
+                  pushToUndoStack();
                   const { x, y } = e.target.position();
                   setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x, y } : s));
                   handleGroupDragEnd();
