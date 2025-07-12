@@ -352,13 +352,13 @@ const Index = () => {
             onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
           />
 
-          {/* Sidebar - positioned center left - hidden during auth overlay */}
-          {!showAuth && (
+          {/* Sidebar - positioned center left - hidden during auth overlay and board overlay */}
+          {!showAuth && !showBoardOverlay && (
             <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
           )}
 
-          {/* BrushSubBar - beside sidebar, only when draw tool is selected - hidden during auth overlay */}
-          {!showAuth && selectedTool === 'draw' && (
+          {/* BrushSubBar - beside sidebar, only when draw tool is selected - hidden during auth overlay and board overlay */}
+          {!showAuth && !showBoardOverlay && selectedTool === 'draw' && (
             <BrushSubBar
               brushColor={brushColor}
               setBrushColor={setBrushColor}
@@ -367,8 +367,8 @@ const Index = () => {
             />
           )}
 
-          {/* TextSubBar - beside sidebar, only when text tool is selected - hidden during auth overlay */}
-          {!showAuth && selectedTool === 'text' && (
+          {/* TextSubBar - beside sidebar, only when text tool is selected - hidden during auth overlay and board overlay */}
+          {!showAuth && !showBoardOverlay && selectedTool === 'text' && (
             <TextSubBar
               textColor={textColor}
               setTextColor={setTextColor}
@@ -377,8 +377,8 @@ const Index = () => {
 
           {/* UI Overlay - above canvas */}
           <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
-            {/* Top Bar - positioned top left - hidden during auth overlay */}
-            {!showAuth && (
+            {/* Top Bar - positioned top left - hidden during auth overlay and board overlay */}
+            {!showAuth && !showBoardOverlay && (
               <div className="absolute top-[34px] left-6 pointer-events-auto">
                 <TopBar
                   canvasRef={canvasRef}
@@ -394,7 +394,7 @@ const Index = () => {
             
             {/* UserBar - visible during board overlay but hidden during auth overlay */}
             {!showAuth && (
-              <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
+              <div className="absolute top-[34px] right-6 z-[60] pointer-events-auto">
                 <UserBar userName={userName} onLogout={handleLogout} />
               </div>
             )}
@@ -402,8 +402,8 @@ const Index = () => {
             <div className="flex flex-1 relative">
               <div className="flex-1" />
               
-              {/* Restore original bottom bar position: centered at bottom - hidden during auth overlay */}
-              {!showAuth && (
+              {/* Restore original bottom bar position: centered at bottom - hidden during auth overlay and board overlay */}
+              {!showAuth && !showBoardOverlay && (
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
                   <GenerationPanel />
                   <ModePanel
@@ -426,8 +426,8 @@ const Index = () => {
                 </div>
               )}
             </div>
-            {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap - hidden during auth overlay */}
-            {!showAuth && (
+            {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap - hidden during auth overlay and board overlay */}
+            {!showAuth && !showBoardOverlay && (
               <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
                 <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
               </div>
