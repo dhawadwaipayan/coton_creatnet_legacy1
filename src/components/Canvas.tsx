@@ -288,7 +288,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!props.boardContent) return;
+    if (!props.boardContent) {
+      // Clear all content when no board is selected (during overlays)
+      setImages([]);
+      setStrokes([]);
+      setTexts([]);
+      lastBoardIdRef.current = null;
+      return;
+    }
+    
     // Check if we have a valid board content object with the expected structure
     if (props.boardContent && lastBoardIdRef.current !== props.boardContent.id) {
       console.log('Loading board content:', props.boardContent);
@@ -940,6 +948,21 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               listening={false}
             />
           ))}
+          
+          {/* Show empty state message when no board is selected */}
+          {!props.boardContent && (
+            <KonvaText
+              x={boardWidth / 2 - 200}
+              y={boardHeight / 2 - 50}
+              text="Select a board to start creating"
+              fontSize={24}
+              fill="#666"
+              fontFamily="Gilroy, sans-serif"
+              align="center"
+              listening={false}
+            />
+          )}
+          
           {/* Render all images first (oldest to newest) */}
           {images
             .slice()

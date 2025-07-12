@@ -65,6 +65,7 @@ const Index = () => {
             console.log('Loaded boards:', boards);
             setBoards(boards || []);
             setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+            setShowBoardOverlay(true); // Always show board overlay after login/refresh
           })
           .catch(error => {
             console.error('Error loading boards:', error);
@@ -76,6 +77,7 @@ const Index = () => {
         setBoards([]);
         setCurrentBoardId(null);
         setUserId(null);
+        setShowBoardOverlay(false);
       }
     });
   }, []);
@@ -130,7 +132,11 @@ const Index = () => {
 
   // Prepare board content for Canvas
   const getBoardContentForCanvas = () => {
-    if (!currentBoard || showBoardOverlay) return null;
+    // Show empty state during auth overlay or board overlay
+    if (showAuth || showBoardOverlay) return null;
+    
+    if (!currentBoard) return null;
+    
     const content = {
       id: currentBoard.id,
       images: currentBoard.content?.images || [],
@@ -154,6 +160,7 @@ const Index = () => {
     });
   }, []);
 
+  // After successful auth (from AuthOverlay), also show board overlay
   const handleAuthSuccess = () => {
     getUser().then(({ data }) => {
       if (data?.user) {
@@ -161,7 +168,6 @@ const Index = () => {
         setUserId(data.user.id);
         const name = data?.user?.user_metadata?.name || '';
         setUserName(name);
-        // Reload boards after successful authentication
         setLoadingBoards(true);
         console.log('Reloading boards after auth success for user:', data.user.id);
         getBoardsForUser(data.user.id)
@@ -169,6 +175,7 @@ const Index = () => {
             console.log('Reloaded boards after auth:', boards);
             setBoards(boards || []);
             setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+            setShowBoardOverlay(true); // Always show board overlay after auth
           })
           .catch(error => {
             console.error('Error reloading boards after auth:', error);
@@ -381,7 +388,7 @@ const Index = () => {
               />
             </div>
             
-            {/* UserBar only visible if authenticated */}
+            {/* UserBar only visible if authenticated and not during auth overlay */}
             {!showAuth && (
               <div className="absolute top-[34px] right-6 z-30 pointer-events-auto">
                 <UserBar userName={userName} onLogout={handleLogout} />
