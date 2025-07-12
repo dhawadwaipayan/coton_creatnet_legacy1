@@ -22,9 +22,10 @@ interface BoardOverlayProps {
   onSwitchBoard: (id: string) => void;
   onEnterBoard: (id: string) => void;
   onDeleteBoard: (id: string) => void;
+  isCancelDisabled?: boolean;
 }
 
-const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boards, currentBoardId, onSwitchBoard, onEnterBoard, onDeleteBoard }) => {
+const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boards, currentBoardId, onSwitchBoard, onEnterBoard, onDeleteBoard, isCancelDisabled = false }) => {
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' });
@@ -104,8 +105,9 @@ const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boar
             {/* Bottom buttons, horizontally aligned and equal width like Auth UI */}
             <div className="flex w-full gap-4 mt-8 pb-8">
               <button
-                className="flex-1 py-2 rounded-lg bg-[#232323] text-[#A9A9A9] font-gilroy font-bold transition-colors hover:bg-[#232323]/80 border-none text-[12px]"
+                className="flex-1 py-2 rounded-lg bg-[#232323] text-[#A9A9A9] font-gilroy font-bold transition-colors hover:bg-[#232323]/80 border-none text-[12px] disabled:opacity-60 disabled:cursor-not-allowed"
                 onClick={onCancel}
+                disabled={isCancelDisabled}
               >
                 Cancel
               </button>

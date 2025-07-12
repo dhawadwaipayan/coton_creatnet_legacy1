@@ -117,6 +117,18 @@ const Index = () => {
     setCurrentBoardId(prev => (prev === id ? null : prev));
   };
 
+  // Handle cancel button logic
+  const handleCancelBoardOverlay = () => {
+    // Only allow cancel if there's a valid current board to return to
+    if (currentBoardId && boards.find(b => b.id === currentBoardId)) {
+      setShowBoardOverlay(false);
+    }
+    // If no valid current board, don't allow cancel - user must create a board or select one
+  };
+
+  // Check if cancel button should be disabled
+  const isCancelDisabled = !currentBoardId || !boards.find(b => b.id === currentBoardId);
+
   // Update board name
   const handleUpdateBoardName = async (id, name) => {
     const updated = await updateBoard({ id, name });
@@ -300,13 +312,14 @@ const Index = () => {
         {/* Board Overlay - open when logo is clicked */}
         {showBoardOverlay && (
           <BoardOverlay
-            onCancel={() => setShowBoardOverlay(false)}
+            onCancel={handleCancelBoardOverlay}
             onCreateNew={handleCreateNewBoard}
             boards={boards}
             currentBoardId={currentBoardId}
             onSwitchBoard={handleSwitchBoard}
             onEnterBoard={handleEnterBoard}
             onDeleteBoard={handleDeleteBoard}
+            isCancelDisabled={isCancelDisabled}
           />
         )}
         
