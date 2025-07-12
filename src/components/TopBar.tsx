@@ -42,8 +42,11 @@ const TopBarButton: React.FC<ButtonProps> = ({
   );
 };
 
-export const TopBar: React.FC<{ canvasRef: React.RefObject<any> }> = ({ canvasRef }) => {
+export const TopBar: React.FC<{ canvasRef: React.RefObject<any>; onLogoClick?: () => void }> = ({ canvasRef, onLogoClick }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [boardName, setBoardName] = useState('Untitled 1');
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const handleImport = () => {
     console.log('TopBar: Import button clicked');
@@ -84,6 +87,27 @@ export const TopBar: React.FC<{ canvasRef: React.RefObject<any> }> = ({ canvasRe
     console.log('Redo clicked');
   };
 
+  const handleBoardNameClick = () => {
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleBoardNameBlur = () => {
+    if (!boardName.trim()) {
+      setBoardName('Untitled 1');
+    }
+    setEditing(false);
+  };
+
+  const handleBoardNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (!boardName.trim()) {
+        setBoardName('Untitled 1');
+      }
+      setEditing(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-4 bg-[#1a1a1a] border border-[#373737] rounded-xl px-4 py-2 h-[45px] pointer-events-auto">
       {/* Hidden file input */}
@@ -95,20 +119,39 @@ export const TopBar: React.FC<{ canvasRef: React.RefObject<any> }> = ({ canvasRe
         className="hidden" 
       />
       
-      {/* Logo */}
-      <div className="flex items-center">
+      {/* Logo (clickable) */}
+      <button className="flex items-center focus:outline-none" onClick={onLogoClick} aria-label="Open Board History">
         <img 
           src="/cotonlogo_main.svg" 
-          alt="weweaveboard Logo" 
+          alt="Coton AI Logo" 
           className="h-[15px] w-auto object-contain" 
         />
-      </div>
+      </button>
       
       {/* Divider */}
       <div className="bg-[#373737] w-px h-[21px]" />
       
       {/* Board Name */}
-      <span className="text-white text-sm font-normal">Board 1</span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={boardName}
+          onChange={e => setBoardName(e.target.value)}
+          onBlur={handleBoardNameBlur}
+          onKeyDown={handleBoardNameKeyDown}
+          className="text-white text-sm font-normal bg-transparent border-none outline-none px-0 py-0 w-[90px]"
+          style={{ minWidth: 0, maxWidth: '90px' }}
+          maxLength={20}
+        />
+      ) : (
+        <span
+          className="text-white text-sm font-normal cursor-pointer select-text w-[90px] inline-block truncate"
+          onClick={handleBoardNameClick}
+          style={{ maxWidth: '90px' }}
+        >
+          {boardName}
+        </span>
+      )}
       
       {/* Divider */}
       <div className="bg-[#373737] w-px h-[21px]" />
