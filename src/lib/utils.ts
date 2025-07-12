@@ -32,6 +32,50 @@ export function getUser() {
   return supabase.auth.getUser();
 }
 
+// Supabase Board CRUD helpers
+export async function getBoardsForUser(userId: string) {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('*')
+    .eq('user_id', userId)
+    .order('lastEdited', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function createBoard({ user_id, name, content }: { user_id: string, name: string, content: any }) {
+  const { data, error } = await supabase
+    .from('boards')
+    .insert([{ user_id, name, content, lastEdited: Date.now() }])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateBoard({ id, name, content }: { id: string, name?: string, content?: any }) {
+  const update: any = { lastEdited: Date.now() };
+  if (name !== undefined) update.name = name;
+  if (content !== undefined) update.content = content;
+  const { data, error } = await supabase
+    .from('boards')
+    .update(update)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteBoard(id: string) {
+  const { error } = await supabase
+    .from('boards')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  return true;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

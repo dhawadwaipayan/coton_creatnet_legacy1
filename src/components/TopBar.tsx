@@ -42,9 +42,16 @@ const TopBarButton: React.FC<ButtonProps> = ({
   );
 };
 
-export const TopBar: React.FC<{ canvasRef: React.RefObject<any>; onLogoClick?: () => void }> = ({ canvasRef, onLogoClick }) => {
+interface TopBarProps {
+  canvasRef: React.RefObject<any>;
+  onLogoClick?: () => void;
+  boardName: string;
+  onBoardNameChange: (name: string) => void;
+}
+
+export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardName, onBoardNameChange }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [boardName, setBoardName] = useState('Untitled 1');
+  // boardName and onBoardNameChange come from props
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -94,7 +101,7 @@ export const TopBar: React.FC<{ canvasRef: React.RefObject<any>; onLogoClick?: (
 
   const handleBoardNameBlur = () => {
     if (!boardName.trim()) {
-      setBoardName('Untitled 1');
+      onBoardNameChange('Untitled 1');
     }
     setEditing(false);
   };
@@ -102,7 +109,7 @@ export const TopBar: React.FC<{ canvasRef: React.RefObject<any>; onLogoClick?: (
   const handleBoardNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (!boardName.trim()) {
-        setBoardName('Untitled 1');
+        onBoardNameChange('Untitled 1');
       }
       setEditing(false);
     }
@@ -136,7 +143,7 @@ export const TopBar: React.FC<{ canvasRef: React.RefObject<any>; onLogoClick?: (
         <input
           ref={inputRef}
           value={boardName}
-          onChange={e => setBoardName(e.target.value)}
+          onChange={e => onBoardNameChange(e.target.value)}
           onBlur={handleBoardNameBlur}
           onKeyDown={handleBoardNameKeyDown}
           className="text-white text-sm font-normal bg-transparent border-none outline-none px-0 py-0 w-[90px]"

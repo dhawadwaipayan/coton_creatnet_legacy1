@@ -8,13 +8,25 @@ const LEFT_TAB_WIDTH = 180;
 const MAIN_CONTENT_HEIGHT = CARD_HEIGHT - TOP_IMAGE_HEIGHT;
 const BOARD_ROW_HEIGHT = 35;
 const BOARD_ROW_GAP = 30;
-const TIME_WIDTH = 70;
+const TIME_WIDTH = 110;
 const BUTTON_WIDTH = 162;
 const BUTTON_HEIGHT = 50;
 const BUTTON_GAP = 20;
 const BUTTON_BOTTOM = 30;
 
-const BoardOverlay: React.FC<{ onCancel?: () => void; onCreateNew?: () => void }> = ({ onCancel, onCreateNew }) => {
+interface BoardOverlayProps {
+  onCancel?: () => void;
+  onCreateNew?: () => void;
+  boards: Array<{ id: string; name: string; lastEdited: number }>;
+  currentBoardId: string;
+  onSwitchBoard: (id: string) => void;
+}
+
+const BoardOverlay: React.FC<BoardOverlayProps> = ({ onCancel, onCreateNew, boards, currentBoardId, onSwitchBoard }) => {
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' });
+  };
   const [selectedTab, setSelectedTab] = useState<'my' | 'shared'>('my');
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
@@ -55,18 +67,24 @@ const BoardOverlay: React.FC<{ onCancel?: () => void; onCreateNew?: () => void }
           <div className="flex flex-col justify-center h-full px-[30px]">
             {/* Board rows */}
             <div className="flex flex-col pt-8 gap-[9px]">
-              {[0, 1, 2].map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center bg-[#232323] rounded-lg"
-                  style={{ height: BOARD_ROW_HEIGHT, paddingLeft: 16, paddingRight: 16 }}
-                >
-                  <span className="text-neutral-400 text-[12px] font-gilroy" style={{ width: TIME_WIDTH }}>00:00 am</span>
-                  <span className="flex-1 text-[#A9A9A9] font-gilroy font-medium text-[12px]">Board Name</span>
-                  <button className="p-2 hover:text-[#E1FF00] transition-colors"><ShareNetwork size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
-                  <button className="p-2 hover:text-red-400 transition-colors"><Trash size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
-                </div>
-              ))}
+              {boards.length === 0 ? (
+                <div className="text-[#A9A9A9] text-[12px] font-gilroy text-center py-8">No boards yet. Create your first board!</div>
+              ) : (
+                boards.map(board => (
+                  <div
+                    key={board.id}
+                    className={`flex items-center bg-[#232323] rounded-lg cursor-pointer transition-colors ${board.id === currentBoardId ? 'ring-2 ring-[#E1FF00]' : ''}`}
+                    style={{ height: BOARD_ROW_HEIGHT, paddingLeft: 16, paddingRight: 16 }}
+                    onClick={() => onSwitchBoard(board.id)}
+                    onDoubleClick={() => board.id === currentBoardId && onCancel && onCancel()}
+                  >
+                    <span className="text-neutral-400 text-[12px] font-gilroy" style={{ width: TIME_WIDTH }}>{formatTime(board.lastEdited)}</span>
+                    <span className="flex-1 text-[#A9A9A9] font-gilroy font-medium text-[12px] truncate">{board.name}</span>
+                    <button className="p-2 hover:text-[#E1FF00] transition-colors"><ShareNetwork size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
+                    <button className="p-2 hover:text-red-400 transition-colors"><Trash size={16} weight="regular" className="text-[12px] text-[#A9A9A9]" /></button>
+                  </div>
+                ))
+              )}
             </div>
             {/* Spacer to push buttons to bottom */}
             <div style={{ flex: 1 }} />
@@ -81,6 +99,7 @@ const BoardOverlay: React.FC<{ onCancel?: () => void; onCreateNew?: () => void }
               <button
                 className="flex-1 py-2 rounded-lg bg-[#E1FF00] text-[#181818] font-gilroy font-bold transition-colors hover:bg-[#d4e900] disabled:opacity-60 text-[12px]"
                 onClick={onCreateNew}
+                disabled={boards.length >= 3}
               >
                 Create New
               </button>

@@ -9,8 +9,9 @@ import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
-import { getUser, signOut } from '../lib/utils';
+import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
+import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
@@ -41,6 +42,69 @@ const Index = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [showBoardOverlay, setShowBoardOverlay] = useState(false);
+
+  // Board state management
+  const [boards, setBoards] = useState([]);
+  const [currentBoardId, setCurrentBoardId] = useState(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loadingBoards, setLoadingBoards] = useState(false);
+
+  // Load boards from Supabase on login
+  useEffect(() => {
+    getUser().then(({ data }) => {
+      if (data?.user) {
+        setShowAuth(false);
+        setUserId(data.user.id);
+        const name = data.user.user_metadata?.name || '';
+        setUserName(name);
+        setLoadingBoards(true);
+        getBoardsForUser(data.user.id)
+          .then(boards => {
+            setBoards(boards || []);
+            setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+          })
+          .finally(() => setLoadingBoards(false));
+      } else {
+        setShowAuth(true);
+        setUserName('');
+        setBoards([]);
+        setCurrentBoardId(null);
+        setUserId(null);
+      }
+    });
+  }, []);
+
+  // Create new board (max 3)
+  const handleCreateNewBoard = async () => {
+    if (!userId || boards.length >= 3) return;
+    const newBoard = await createBoard({
+      user_id: userId,
+      name: `Untitled ${boards.length + 1}`,
+      content: {},
+    });
+    setBoards(prev => [...prev, newBoard]);
+    setCurrentBoardId(newBoard.id);
+  };
+
+  // Switch board
+  const handleSwitchBoard = (id) => {
+    setCurrentBoardId(id);
+  };
+
+  // Update board name
+  const handleUpdateBoardName = async (id, name) => {
+    const updated = await updateBoard({ id, name });
+    setBoards(boards => boards.map(b => b.id === id ? { ...b, name: updated.name, lastEdited: updated.lastEdited } : b));
+  };
+
+  // Autosave board content
+  const handleUpdateBoardContent = async (id, content) => {
+    const updated = await updateBoard({ id, content });
+    setBoards(boards => boards.map(b => b.id === id ? { ...b, content: updated.content, lastEdited: updated.lastEdited } : b));
+  };
+
+  // Get current board
+  const currentBoard = boards.find(b => b.id === currentBoardId) || null;
 
   useEffect(() => {
     getUser().then(({ data }) => {
@@ -126,7 +190,15 @@ const Index = () => {
       {showAuth && <AuthOverlay onAuthSuccess={handleAuthSuccess} />}
       <main className="bg-[rgba(33,33,33,1)] flex flex-col overflow-hidden min-h-screen relative">
         {/* Board Overlay - open when logo is clicked */}
-        {showBoardOverlay && <BoardOverlay onCancel={() => setShowBoardOverlay(false)} onCreateNew={() => {}} />}
+        {showBoardOverlay && (
+          <BoardOverlay
+            onCancel={() => setShowBoardOverlay(false)}
+            onCreateNew={handleCreateNewBoard}
+            boards={boards}
+            currentBoardId={currentBoardId}
+            onSwitchBoard={handleSwitchBoard}
+          />
+        )}
         <div style={{ pointerEvents: showAuth ? 'none' : 'auto' }}>
           {/* Canvas Background - behind everything */}
           <Canvas
@@ -140,6 +212,8 @@ const Index = () => {
             sketchModeActive={sketchModeActive}
             renderModeActive={renderModeActive}
             onRenderBoundingBoxChange={setRenderBoundingBox}
+            boardContent={showBoardOverlay ? null : currentBoard?.content}
+            onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
           />
 
           {/* Sidebar - positioned center left */}
@@ -167,7 +241,12 @@ const Index = () => {
           <div className="relative z-10 flex flex-col pl-[37px] pr-20 py-[34px] min-h-screen max-md:px-5 pointer-events-none">
             {/* Top Bar - positioned top left */}
             <div className="absolute top-[34px] left-6 pointer-events-auto">
-              <TopBar canvasRef={canvasRef} onLogoClick={() => setShowBoardOverlay(true)} />
+              <TopBar
+                canvasRef={canvasRef}
+                onLogoClick={() => setShowBoardOverlay(true)}
+                boardName={currentBoard?.name || ''}
+                onBoardNameChange={name => currentBoard && handleUpdateBoardName(currentBoard.id, name)}
+              />
             </div>
             
             {/* UserBar only visible if authenticated */}

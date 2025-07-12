@@ -212,6 +212,26 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
   }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive]);
 
+  // Load board content when boardContent prop changes
+  useEffect(() => {
+    if (!props.boardContent) return;
+    setImages(props.boardContent.images || []);
+    setStrokes(props.boardContent.strokes || []);
+    setTexts(props.boardContent.texts || []);
+    // Optionally reset pan/zoom, selection, etc.
+  }, [props.boardContent]);
+
+  // Autosave: call onContentChange when images, strokes, or texts change
+  useEffect(() => {
+    if (props.onContentChange) {
+      props.onContentChange({
+        images,
+        strokes,
+        texts
+      });
+    }
+  }, [images, strokes, texts]);
+
   // Clamp stage position so you can't pan outside the board
   function clampStagePos(pos: {x: number, y: number}) {
     const minX = Math.min(0, viewport.width - boardWidth);
