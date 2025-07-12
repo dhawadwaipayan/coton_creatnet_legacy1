@@ -195,49 +195,7 @@ const Index = () => {
     setShowBoardOverlay(false);
   };
 
-  // Test function to verify Supabase operations
-  const testSupabaseOperations = async () => {
-    if (!userId) {
-      console.log('No user ID available for testing');
-      return;
-    }
-    
-    try {
-      console.log('Testing Supabase operations...');
-      
-      // Test creating a board
-      const testBoard = await createBoard({
-        user_id: userId,
-        name: 'Test Board',
-        content: { images: [], strokes: [], texts: [] }
-      });
-      console.log('Test board created:', testBoard);
-      
-      // Test updating the board
-      const updatedBoard = await updateBoard({
-        id: testBoard.id,
-        name: 'Updated Test Board',
-        content: { images: [{ id: 'test', x: 100, y: 100 }], strokes: [], texts: [] }
-      });
-      console.log('Test board updated:', updatedBoard);
-      
-      // Test getting boards
-      const boards = await getBoardsForUser(userId);
-      console.log('All boards after test:', boards);
-      
-      // Clean up - delete test board
-      await deleteBoard(testBoard.id);
-      console.log('Test board deleted');
-      
-      // Reload boards
-      const reloadedBoards = await getBoardsForUser(userId);
-      setBoards(reloadedBoards || []);
-      setCurrentBoardId(reloadedBoards && reloadedBoards.length > 0 ? reloadedBoards[0].id : null);
-      
-    } catch (error) {
-      console.error('Test failed:', error);
-    }
-  };
+
 
   // Manual save function
   const handleManualSave = async () => {
@@ -394,7 +352,6 @@ const Index = () => {
                   onLogoClick={() => setShowBoardOverlay(true)}
                   boardName={currentBoard?.name || ''}
                   onBoardNameChange={name => currentBoard && handleUpdateBoardName(currentBoard.id, name)}
-                  onTestSupabase={testSupabaseOperations}
                   onSaveBoard={handleManualSave}
                   isSaving={savingBoard}
                 />
