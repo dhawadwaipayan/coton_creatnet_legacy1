@@ -62,7 +62,13 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
   // boardName and onBoardNameChange come from props
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  
+  const [boardNameInput, setBoardNameInput] = useState(boardName);
+
+  // Keep local input in sync if boardName changes from outside
+  React.useEffect(() => {
+    if (!editing) setBoardNameInput(boardName);
+  }, [boardName, editing]);
+
   const handleImport = () => {
     console.log('TopBar: Import button clicked');
     fileInputRef.current?.click();
@@ -103,21 +109,26 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
   };
 
   const handleBoardNameClick = () => {
+    setBoardNameInput(boardName);
     setEditing(true);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const handleBoardNameBlur = () => {
-    if (!boardName.trim()) {
+    if (!boardNameInput.trim()) {
       onBoardNameChange('Untitled 1');
+    } else {
+      onBoardNameChange(boardNameInput);
     }
     setEditing(false);
   };
 
   const handleBoardNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      if (!boardName.trim()) {
+      if (!boardNameInput.trim()) {
         onBoardNameChange('Untitled 1');
+      } else {
+        onBoardNameChange(boardNameInput);
       }
       setEditing(false);
     }
@@ -150,8 +161,8 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
       {editing ? (
         <input
           ref={inputRef}
-          value={boardName}
-          onChange={e => onBoardNameChange(e.target.value)}
+          value={boardNameInput}
+          onChange={e => setBoardNameInput(e.target.value)}
           onBlur={handleBoardNameBlur}
           onKeyDown={handleBoardNameKeyDown}
           className="text-white text-sm font-normal bg-transparent border-none outline-none px-0 py-0 w-[90px]"
