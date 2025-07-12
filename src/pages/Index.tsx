@@ -48,6 +48,7 @@ const Index = () => {
   const [currentBoardId, setCurrentBoardId] = useState(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
+  const [savingBoard, setSavingBoard] = useState(false);
 
   // Load boards from Supabase on login
   useEffect(() => {
@@ -58,10 +59,15 @@ const Index = () => {
         const name = data.user.user_metadata?.name || '';
         setUserName(name);
         setLoadingBoards(true);
+        console.log('Loading boards for user:', data.user.id);
         getBoardsForUser(data.user.id)
           .then(boards => {
+            console.log('Loaded boards:', boards);
             setBoards(boards || []);
             setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+          })
+          .catch(error => {
+            console.error('Error loading boards:', error);
           })
           .finally(() => setLoadingBoards(false));
       } else {
@@ -77,18 +83,23 @@ const Index = () => {
   // Create new board (max 3)
   const handleCreateNewBoard = async () => {
     if (!userId || boards.length >= 3) return;
+    console.log('Creating new board for user:', userId);
     const newBoard = await createBoard({
       user_id: userId,
       name: `Untitled ${boards.length + 1}`,
-      content: {},
+      content: { images: [], strokes: [], texts: [] },
     });
+    console.log('Created new board:', newBoard);
     setBoards(prev => [...prev, newBoard]);
     setCurrentBoardId(newBoard.id);
+    setShowBoardOverlay(false);
   };
 
   // Switch board
   const handleSwitchBoard = (id) => {
+    console.log('Switching to board:', id);
     setCurrentBoardId(id);
+    setShowBoardOverlay(false);
   };
 
   // Update board name
@@ -99,12 +110,36 @@ const Index = () => {
 
   // Autosave board content
   const handleUpdateBoardContent = async (id, content) => {
+    console.log('Saving board content to Supabase:', { id, content });
     const updated = await updateBoard({ id, content });
     setBoards(boards => boards.map(b => b.id === id ? { ...b, content: updated.content, lastEdited: updated.lastEdited } : b));
   };
 
   // Get current board
   const currentBoard = boards.find(b => b.id === currentBoardId) || null;
+
+  // Debug: log current board state
+  useEffect(() => {
+    console.log('Current board state:', {
+      currentBoardId,
+      currentBoard,
+      boardsCount: boards.length,
+      boards: boards.map(b => ({ id: b.id, name: b.name, lastEdited: b.lastEdited }))
+    });
+  }, [currentBoardId, currentBoard, boards]);
+
+  // Prepare board content for Canvas
+  const getBoardContentForCanvas = () => {
+    if (!currentBoard || showBoardOverlay) return null;
+    const content = {
+      id: currentBoard.id,
+      images: currentBoard.content?.images || [],
+      strokes: currentBoard.content?.strokes || [],
+      texts: currentBoard.content?.texts || []
+    };
+    console.log('Board content for Canvas:', content);
+    return content;
+  };
 
   useEffect(() => {
     getUser().then(({ data }) => {
@@ -121,9 +156,25 @@ const Index = () => {
 
   const handleAuthSuccess = () => {
     getUser().then(({ data }) => {
-      setShowAuth(false);
-      const name = data?.user?.user_metadata?.name || '';
-      setUserName(name);
+      if (data?.user) {
+        setShowAuth(false);
+        setUserId(data.user.id);
+        const name = data?.user?.user_metadata?.name || '';
+        setUserName(name);
+        // Reload boards after successful authentication
+        setLoadingBoards(true);
+        console.log('Reloading boards after auth success for user:', data.user.id);
+        getBoardsForUser(data.user.id)
+          .then(boards => {
+            console.log('Reloaded boards after auth:', boards);
+            setBoards(boards || []);
+            setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+          })
+          .catch(error => {
+            console.error('Error reloading boards after auth:', error);
+          })
+          .finally(() => setLoadingBoards(false));
+      }
     });
   };
 
@@ -131,7 +182,85 @@ const Index = () => {
     await signOut();
     setShowAuth(true);
     setUserName('');
+    setBoards([]);
+    setCurrentBoardId(null);
+    setUserId(null);
   };
+
+  // Test function to verify Supabase operations
+  const testSupabaseOperations = async () => {
+    if (!userId) {
+      console.log('No user ID available for testing');
+      return;
+    }
+    
+    try {
+      console.log('Testing Supabase operations...');
+      
+      // Test creating a board
+      const testBoard = await createBoard({
+        user_id: userId,
+        name: 'Test Board',
+        content: { images: [], strokes: [], texts: [] }
+      });
+      console.log('Test board created:', testBoard);
+      
+      // Test updating the board
+      const updatedBoard = await updateBoard({
+        id: testBoard.id,
+        name: 'Updated Test Board',
+        content: { images: [{ id: 'test', x: 100, y: 100 }], strokes: [], texts: [] }
+      });
+      console.log('Test board updated:', updatedBoard);
+      
+      // Test getting boards
+      const boards = await getBoardsForUser(userId);
+      console.log('All boards after test:', boards);
+      
+      // Clean up - delete test board
+      await deleteBoard(testBoard.id);
+      console.log('Test board deleted');
+      
+      // Reload boards
+      const reloadedBoards = await getBoardsForUser(userId);
+      setBoards(reloadedBoards || []);
+      setCurrentBoardId(reloadedBoards && reloadedBoards.length > 0 ? reloadedBoards[0].id : null);
+      
+    } catch (error) {
+      console.error('Test failed:', error);
+    }
+  };
+
+  // Manual save function
+  const handleManualSave = async () => {
+    if (canvasRef.current && canvasRef.current.saveBoardContent) {
+      console.log('Manual save triggered');
+      setSavingBoard(true);
+      try {
+        await canvasRef.current.saveBoardContent();
+        console.log('Manual save completed successfully');
+      } catch (error) {
+        console.error('Manual save failed:', error);
+      } finally {
+        setSavingBoard(false);
+      }
+    } else {
+      console.error('Canvas save function not available');
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleManualSave();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleToolSelect = (toolId: string) => {
     if (sketchBarOpen && !boundingBoxCreated) {
@@ -212,7 +341,7 @@ const Index = () => {
             sketchModeActive={sketchModeActive}
             renderModeActive={renderModeActive}
             onRenderBoundingBoxChange={setRenderBoundingBox}
-            boardContent={showBoardOverlay ? null : currentBoard?.content}
+            boardContent={getBoardContentForCanvas()}
             onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
           />
 
@@ -246,6 +375,9 @@ const Index = () => {
                 onLogoClick={() => setShowBoardOverlay(true)}
                 boardName={currentBoard?.name || ''}
                 onBoardNameChange={name => currentBoard && handleUpdateBoardName(currentBoard.id, name)}
+                onTestSupabase={testSupabaseOperations}
+                onSaveBoard={handleManualSave}
+                isSaving={savingBoard}
               />
             </div>
             

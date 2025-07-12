@@ -1,5 +1,6 @@
-import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react';
+import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback } from 'react';
 import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect } from 'react-konva';
+import { uploadBoardImage, imageElementToBlob } from '../lib/utils';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -123,6 +124,76 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [renderBox]);
 
+  // Manual save function - upload images to Supabase Storage
+  const saveBoardContent = useCallback(async () => {
+    if (!props.onContentChange || !props.boardContent) return;
+    
+    try {
+      // Upload images to Supabase Storage and get URLs
+      const serializedImages = await Promise.all(
+        images.map(async (img) => {
+          if (img.image && !img.error) {
+            try {
+              // Convert image to blob and upload to storage
+              const blob = await imageElementToBlob(img.image, img.width, img.height);
+              const imageUrl = await uploadBoardImage(props.boardContent.id, img.id, blob);
+              
+              return {
+                id: img.id,
+                x: img.x,
+                y: img.y,
+                width: img.width,
+                height: img.height,
+                rotation: img.rotation,
+                timestamp: img.timestamp,
+                src: imageUrl, // Supabase Storage URL
+                error: false
+              };
+            } catch (uploadError) {
+              console.error('Failed to upload image:', uploadError);
+              return {
+                id: img.id,
+                x: img.x,
+                y: img.y,
+                width: img.width,
+                height: img.height,
+                rotation: img.rotation,
+                timestamp: img.timestamp,
+                src: null,
+                error: true
+              };
+            }
+          } else {
+            // Handle images without HTMLImageElement or with errors
+            return {
+              id: img.id,
+              x: img.x,
+              y: img.y,
+              width: img.width,
+              height: img.height,
+              rotation: img.rotation,
+              timestamp: img.timestamp,
+              src: null,
+              error: img.error || true
+            };
+          }
+        })
+      );
+
+      const content = {
+        id: props.boardContent.id,
+        images: serializedImages,
+        strokes,
+        texts
+      };
+      
+      console.log('Manually saving board content with storage URLs:', content);
+      props.onContentChange(content);
+    } catch (error) {
+      console.error('Error saving board content:', error);
+    }
+  }, [images, strokes, texts, props.boardContent, props.onContentChange]);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
@@ -210,27 +281,82 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       });
     },
     setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
-  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive]);
+    // Expose manual save function
+    saveBoardContent,
+  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive, saveBoardContent]);
 
-  // Load board content when boardContent prop changes
+  // Only load board content when board ID changes
+  const lastBoardIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!props.boardContent) return;
-    setImages(props.boardContent.images || []);
-    setStrokes(props.boardContent.strokes || []);
-    setTexts(props.boardContent.texts || []);
-    // Optionally reset pan/zoom, selection, etc.
-  }, [props.boardContent]);
-
-  // Autosave: call onContentChange when images, strokes, or texts change
-  useEffect(() => {
-    if (props.onContentChange) {
-      props.onContentChange({
-        images,
-        strokes,
-        texts
-      });
+    // Check if we have a valid board content object with the expected structure
+    if (props.boardContent && lastBoardIdRef.current !== props.boardContent.id) {
+      console.log('Loading board content:', props.boardContent);
+      
+      // Load strokes and texts directly
+      setStrokes(props.boardContent.strokes || []);
+      setTexts(props.boardContent.texts || []);
+      
+      // Load images - reconstruct HTMLImageElement from Supabase Storage URLs
+      const loadImages = async () => {
+        const imagePromises = (props.boardContent.images || []).map(async (imgData) => {
+          if (imgData.src && !imgData.error) {
+            return new Promise<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean }>((resolve) => {
+              const img = new window.Image();
+              img.crossOrigin = 'anonymous'; // Allow CORS for Supabase Storage
+              img.onload = () => {
+                resolve({
+                  id: imgData.id,
+                  image: img,
+                  x: imgData.x,
+                  y: imgData.y,
+                  width: imgData.width,
+                  height: imgData.height,
+                  rotation: imgData.rotation,
+                  timestamp: imgData.timestamp,
+                  error: false
+                });
+              };
+              img.onerror = () => {
+                console.error('Failed to load image from storage:', imgData.src);
+                resolve({
+                  id: imgData.id,
+                  image: null,
+                  x: imgData.x,
+                  y: imgData.y,
+                  width: imgData.width,
+                  height: imgData.height,
+                  rotation: imgData.rotation,
+                  timestamp: imgData.timestamp,
+                  error: true
+                });
+              };
+              img.src = imgData.src;
+            });
+          } else {
+            // Handle images without src or with errors
+            return {
+              id: imgData.id,
+              image: null,
+              x: imgData.x,
+              y: imgData.y,
+              width: imgData.width,
+              height: imgData.height,
+              rotation: imgData.rotation,
+              timestamp: imgData.timestamp,
+              error: true
+            };
+          }
+        });
+        
+        const loadedImages = await Promise.all(imagePromises);
+        setImages(loadedImages);
+      };
+      
+      loadImages();
+      lastBoardIdRef.current = props.boardContent.id;
     }
-  }, [images, strokes, texts]);
+  }, [props.boardContent]);
 
   // Clamp stage position so you can't pan outside the board
   function clampStagePos(pos: {x: number, y: number}) {
