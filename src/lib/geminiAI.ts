@@ -19,7 +19,7 @@ export const callGeminiImageGeneration = async ({
   try {
     // Prepare the request payload for Gemini Flash 2.0
     const requestBody = {
-      model: "gemini-2.0-flash",
+      model: "gemini-2.0-flash-preview-image-generation",
       contents: [
         {
           parts: [
