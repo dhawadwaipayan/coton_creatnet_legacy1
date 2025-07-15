@@ -37,8 +37,7 @@ export default async function handler(req, res) {
     // Generate content
     const result = await geminiModel.generateContent({
       contents: [{ parts }],
-      generationConfig: generation_config,
-      responseModalities: ["IMAGE", "TEXT"]
+      generationConfig: generation_config
     });
 
     const response = await result.response;
