@@ -17,6 +17,7 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
 }) => {
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isFastMode, setIsFastMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerate = () => {
@@ -46,6 +47,10 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
       setSelectedImage(null);
       if (onMaterialChange) onMaterialChange(null);
     }
+  };
+
+  const handleSpeedToggle = () => {
+    setIsFastMode(!isFastMode);
   };
 
   return (
@@ -99,10 +104,21 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
         />
       </div>
 
+      {/* Speed Toggle button */}
+      <button 
+        onClick={handleSpeedToggle} 
+        className="flex items-center gap-1 px-2 py-1 text-neutral-400 hover:text-[#E1FF00] transition-colors shrink-0"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[16px] h-[16px]">
+          <path d="M9.5 1L6.5 8H10L6.5 15L9.5 8H6L9.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span className="text-sm ml-0.5">{isFastMode ? 'Fastrack' : 'Accurate'}</span>
+      </button>
+
       {/* Cancel button */}
       <button 
         onClick={handleCancel} 
-        className="flex items-center gap-1 px-2 py-1 text-white hover:text-[#E1FF00] transition-colors shrink-0"
+        className="flex items-center gap-1 px-2 py-1 text-neutral-400 hover:text-[#E1FF00] transition-colors shrink-0"
       >
         <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[30px] h-[30px]">
           <path d="M19.889 18.889L12.111 11.111M21.5 15C21.5 18.0376 19.0376 20.5 16 20.5C12.9624 20.5 10.5 18.0376 10.5 15C10.5 11.9624 12.9624 9.5 16 9.5C19.0376 9.5 21.5 11.9624 21.5 15Z" stroke="currentColor" strokeWidth="1.3" strokeMiterlimit="10" strokeLinecap="round" />

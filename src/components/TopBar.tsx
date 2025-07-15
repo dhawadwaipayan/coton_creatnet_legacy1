@@ -68,7 +68,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
   React.useEffect(() => {
     if (!editing) setBoardNameInput(boardName);
   }, [boardName, editing]);
-
+  
   const handleImport = () => {
     console.log('TopBar: Import button clicked');
     fileInputRef.current?.click();
@@ -204,14 +204,14 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
         />
         {/* Move Save button here, remove Export button */}
         {onSaveBoard && (
-          <TopBarButton
-            icon={
+        <TopBarButton
+          icon={
               <FloppyDisk size={12} weight="regular" className={`${isSaving ? 'animate-spin' : ''} inline-block`} />
-            }
+          }
             label={isSaving ? "Saving..." : "Save"}
             onClick={isSaving ? () => {} : onSaveBoard}
             disabled={isSaving}
-          />
+        />
         )}
         <TopBarButton
           icon={

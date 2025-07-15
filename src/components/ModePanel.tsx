@@ -227,15 +227,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       } catch (error) {
         console.error('Failed to load dummy.png:', error);
         // Create a simple white image as fallback
-        const canvas = document.createElement('canvas');
+      const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
-        const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, 512, 512);
-          base64Material = canvas.toDataURL('image/png');
-        }
+      base64Material = canvas.toDataURL('image/png');
+    }
       }
     }
     // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
