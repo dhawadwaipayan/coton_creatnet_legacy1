@@ -4,6 +4,7 @@ import { RenderSubBar } from './RenderSubBar';
 import { BrushSubBar } from './BrushSubBar';
 // Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
+import { callGeminiImageGeneration } from '@/lib/geminiAI';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -198,7 +199,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     if (closeRenderBar) closeRenderBar();
   };
 
-  const handleRenderGenerate = async (details: string) => {
+  const handleRenderGenerate = async (details: string, isFastMode: boolean) => {
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -266,17 +267,34 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode('select');
     // No overlay/status logic
-    // Prepare input for OpenAI
+    // Prepare input for AI generation
     const promptText = `Generate an image by using the attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of the same colour. In case any prompt is given on the image or as an additional input, include those changes as well. ${details}`.trim();
+    
     try {
-      const result = await callOpenAIGptImage({
-        base64Sketch,
-        base64Material: base64Material, // Use provided material or dummy.png fallback
-        promptText,
-        endpoint: '/api/render-ai'
-      });
-      console.log('[Render AI] OpenAI API full response:', result);
+      let result;
       let base64 = null;
+      
+      if (isFastMode) {
+        // Use Gemini Flash 2.0 for Fastrack mode
+        console.log('[Render AI] Using Gemini Flash 2.0 for Fastrack mode');
+        result = await callGeminiImageGeneration({
+          base64Sketch,
+          base64Material: base64Material,
+          promptText
+        });
+        console.log('[Render AI] Gemini API full response:', result);
+      } else {
+        // Use OpenAI for Accurate mode
+        console.log('[Render AI] Using OpenAI for Accurate mode');
+        result = await callOpenAIGptImage({
+          base64Sketch,
+          base64Material: base64Material,
+          promptText,
+          endpoint: '/api/render-ai'
+        });
+        console.log('[Render AI] OpenAI API full response:', result);
+      }
+      
       if (result && Array.isArray(result.output)) {
         const imageOutput = result.output.find(
           (item) => item.type === 'image_generation_call' && item.result
@@ -285,11 +303,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
           base64 = imageOutput.result;
         }
       }
+      
       if (!base64) {
+        const aiProvider = isFastMode ? 'Gemini' : 'OpenAI';
         setAiStatus('error');
-        setAiError('No image returned from OpenAI.');
+        setAiError(`No image returned from ${aiProvider}.`);
         setTimeout(() => setAiStatus('idle'), 4000);
-        alert('No image returned from OpenAI.');
+        alert(`No image returned from ${aiProvider}.`);
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
@@ -302,10 +322,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
+      const aiProvider = isFastMode ? 'Gemini' : 'OpenAI';
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
-      alert('[Render AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      alert(`[Render AI] ${aiProvider} Error: ` + (err instanceof Error ? err.message : String(err)));
     }
   };
 

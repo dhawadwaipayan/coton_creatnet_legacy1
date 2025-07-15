@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 
 interface RenderSubBarProps {
   onCancel: () => void;
-  onGenerate: (details: string) => void;
+  onGenerate: (details: string, isFastMode: boolean) => void;
   onAddMaterial: () => void;
   onMaterialChange?: (base64: string | null) => void;
   canGenerate?: boolean;
@@ -21,7 +21,7 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerate = () => {
-    onGenerate(additionalDetails);
+    onGenerate(additionalDetails, isFastMode);
   };
 
   const handleCancel = () => {
