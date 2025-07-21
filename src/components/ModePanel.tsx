@@ -5,7 +5,6 @@ import { BrushSubBar } from './BrushSubBar';
 // Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
-import { callFluxKontextAI } from '@/lib/fluxKontextAI';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -296,10 +295,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       if (isFastMode) {
         // Use Together.ai Flux Kontext Dev for Fastrack mode
         console.log('[Render AI] Using Together.ai Flux Kontext Dev for Fastrack mode');
-        result = await callFluxKontextAI({
-          base64Sketch,
-          userId,
+        const response = await fetch('/api/flux-kontext-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Sketch, userId }),
         });
+        result = await response.json();
         console.log('[Render AI] Together.ai API full response:', result);
       } else {
         // Use OpenAI for Accurate mode
