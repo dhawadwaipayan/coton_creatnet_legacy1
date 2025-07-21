@@ -410,6 +410,7 @@ const Index = () => {
                     onSketchBoundingBoxChange={setSketchBoundingBox}
                     renderBoundingBox={renderBoundingBox}
                     closeRenderBar={handleCloseRenderBar}
+                    userId={userId} // Pass userId to ModePanel
                   />
                 </div>
               )}

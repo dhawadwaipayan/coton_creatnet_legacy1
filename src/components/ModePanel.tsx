@@ -5,6 +5,7 @@ import { BrushSubBar } from './BrushSubBar';
 // Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
+import { callFluxKontextAI } from '@/lib/fluxKontextAI';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -24,9 +25,27 @@ export interface ModePanelProps {
   sketchModeActive: boolean;
   onSketchBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
   renderBoundingBox?: { x: number, y: number, width: number, height: number } | null;
+  userId: string; // Add userId prop
 }
 
-export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeActivated, onBoundingBoxCreated, showSketchSubBar, closeSketchBar, closeRenderBar, selectedMode, setSelectedMode, brushColor, setBrushColor, brushSize, setBrushSize, sketchModeActive, onSketchBoundingBoxChange, renderBoundingBox }) => {
+export const ModePanel: React.FC<ModePanelProps> = ({
+  canvasRef,
+  onSketchModeActivated,
+  onBoundingBoxCreated,
+  showSketchSubBar,
+  closeSketchBar,
+  closeRenderBar,
+  selectedMode,
+  setSelectedMode,
+  brushColor,
+  setBrushColor,
+  brushSize,
+  setBrushSize,
+  sketchModeActive,
+  onSketchBoundingBoxChange,
+  renderBoundingBox,
+  userId // Destructure userId
+}) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
@@ -275,14 +294,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       let base64 = null;
       
       if (isFastMode) {
-        // Use Gemini Flash 2.0 for Fastrack mode
-        console.log('[Render AI] Using Gemini Flash 2.0 for Fastrack mode');
-        result = await callGeminiImageGeneration({
+        // Use Together.ai Flux Kontext Dev for Fastrack mode
+        console.log('[Render AI] Using Together.ai Flux Kontext Dev for Fastrack mode');
+        result = await callFluxKontextAI({
           base64Sketch,
-          base64Material: base64Material,
-          promptText
+          userId,
         });
-        console.log('[Render AI] Gemini API full response:', result);
+        console.log('[Render AI] Together.ai API full response:', result);
       } else {
         // Use OpenAI for Accurate mode
         console.log('[Render AI] Using OpenAI for Accurate mode');
@@ -305,7 +323,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       }
       
       if (!base64) {
-        const aiProvider = isFastMode ? 'Gemini' : 'OpenAI';
+        const aiProvider = isFastMode ? 'Together.ai Flux Kontext Dev' : 'OpenAI';
         setAiStatus('error');
         setAiError(`No image returned from ${aiProvider}.`);
         setTimeout(() => setAiStatus('idle'), 4000);
@@ -322,7 +340,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({ canvasRef, onSketchModeAct
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      const aiProvider = isFastMode ? 'Gemini' : 'OpenAI';
+      const aiProvider = isFastMode ? 'Together.ai Flux Kontext Dev' : 'OpenAI';
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);

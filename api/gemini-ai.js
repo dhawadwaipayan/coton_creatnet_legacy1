@@ -35,10 +35,17 @@ export default async function handler(req, res) {
     });
 
     // Generate content
-    const result = await geminiModel.generateContent({
-      contents: [{ parts }],
-      generationConfig: generation_config
-    });
+    const result = await geminiModel.generateContent(
+      {
+        contents: [{ parts }],
+        generationConfig: generation_config
+      },
+      undefined, // No safety settings
+      {
+        response_mime_type: "image/png",
+        response_modalities: ["IMAGE", "TEXT"]
+      }
+    );
 
     const response = await result.response;
     
