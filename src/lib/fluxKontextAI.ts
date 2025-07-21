@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { supabase } from './utils';
 
 const FLUX_KONTEXT_PROMPT = `Generate a photorealistic render of the sketch with a all over white fabric material. The final output should have a flat black background. Ensure that all topstitches, buttons, and trims use the same color as the primary material. Preserve the proportions and silhouette of the original sketch while applying accurate fabric texture, shading, and natural lighting for realism.`;
@@ -6,24 +5,18 @@ const FLUX_KONTEXT_PROMPT = `Generate a photorealistic render of the sketch with
 async function uploadSketchToSupabase(base64Sketch: string, userId: string) {
   // Remove data URL prefix if present
   const base64Data = base64Sketch.split(',')[1] || base64Sketch;
-  const byteCharacters = atob(base64Data);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: 'image/png' });
+  const buffer = Buffer.from(base64Data, 'base64');
   const imageId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   // Use a generic boardId for now, or pass as param if needed
   const boardId = 'together-fastmode';
-  const url = await supabaseUploadHelper(userId, boardId, imageId, blob);
+  const url = await supabaseUploadHelper(userId, boardId, imageId, buffer);
   return url;
 }
 
-async function supabaseUploadHelper(userId: string, boardId: string, imageId: string, blob: Blob) {
+async function supabaseUploadHelper(userId: string, boardId: string, imageId: string, buffer: Buffer) {
   // This uses the uploadBoardImage helper from utils.ts
   // You may want to add error handling here
-  return await (await import('./utils')).uploadBoardImage(userId, boardId, imageId, blob);
+  return await (await import('./utils')).uploadBoardImage(userId, boardId, imageId, buffer);
 }
 
 export async function callFluxKontextAI({ base64Sketch, userId }: { base64Sketch: string, userId: string }) {
