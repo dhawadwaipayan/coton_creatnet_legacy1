@@ -302,6 +302,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         });
         result = await response.json();
         console.log('[Render AI] Together.ai API full response:', result);
+        console.log('[Render AI] Response keys:', Object.keys(result));
+        console.log('[Render AI] Has output array:', Array.isArray(result.output));
+        console.log('[Render AI] Output length:', result.output?.length);
+        if (result.output && result.output.length > 0) {
+          console.log('[Render AI] First output item:', result.output[0]);
+        }
         console.log('[Render AI] Together.ai response structure:', {
           hasData: !!result.data,
           dataLength: result.data?.length,
