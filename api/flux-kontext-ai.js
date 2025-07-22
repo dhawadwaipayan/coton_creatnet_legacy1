@@ -1,6 +1,40 @@
-import { uploadBoardImage } from '../src/lib/utils';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZmxndnBoeGtseXpxbXZyZHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMDg4OTksImV4cCI6MjA2NzU4NDg5OX0.3fK8z6DnuaMjZsbrLb-3GRg3JQN1d84LI-qkTw2XxXo';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const FLUX_KONTEXT_PROMPT = `Generate a photorealistic render of the sketch with a all over white fabric material. The final output should have a flat black background. Ensure that all topstitches, buttons, and trims use the same color as the primary material. Preserve the proportions and silhouette of the original sketch while applying accurate fabric texture, shading, and natural lighting for realism.`;
+
+async function uploadBoardImage(userId, boardId, imageId, buffer) {
+  const filePath = `${userId}/${boardId}/${imageId}.png`;
+  console.log('Uploading image to Supabase Storage:', {
+    userId,
+    boardId,
+    imageId,
+    filePath,
+    bufferSize: buffer.length
+  });
+  const { data, error } = await supabase.storage
+    .from('board-images')
+    .upload(filePath, buffer, {
+      contentType: 'image/png',
+      upsert: true
+    });
+  
+  if (error) {
+    console.error('Error uploading image:', error);
+    throw error;
+  }
+  
+  // Get the public URL
+  const { data: urlData } = supabase.storage
+    .from('board-images')
+    .getPublicUrl(filePath);
+  
+  return urlData.publicUrl;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
