@@ -72,10 +72,13 @@ export default async function handler(req, res) {
       throw new Error(`Together.ai API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     const result = await response.json();
+    console.log('Together.ai API response:', JSON.stringify(result, null, 2));
+    
     // Fetch the generated image on the server to avoid CORS issues
     let base64Image = null;
     if (result && result.data && result.data.length > 0 && result.data[0].url) {
       const imageUrl = result.data[0].url;
+      console.log('Fetching image from URL:', imageUrl);
       const imageResponse = await fetch(imageUrl);
       if (!imageResponse.ok) {
         throw new Error(`Failed to fetch generated image from Together.ai: ${imageResponse.status} ${imageResponse.statusText}`);
@@ -83,6 +86,14 @@ export default async function handler(req, res) {
       const arrayBuffer = await imageResponse.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       base64Image = buffer.toString('base64');
+      console.log('Successfully converted image to base64, length:', base64Image.length);
+    } else {
+      console.log('No image URL found in response. Response structure:', {
+        hasResult: !!result,
+        hasData: !!result?.data,
+        dataLength: result?.data?.length,
+        firstDataItem: result?.data?.[0]
+      });
     }
     if (!base64Image) {
       throw new Error('No image returned from Together.ai');
