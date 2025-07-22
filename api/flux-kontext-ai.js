@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     const buffer = Buffer.from(base64Data, 'base64');
     const imageId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     const boardId = 'together-fastmode';
-    const imageUrl = await uploadBoardImage(userId, boardId, imageId, buffer);
+    const sketchImageUrl = await uploadBoardImage(userId, boardId, imageId, buffer);
     // 2. Call Together.ai with the public URL
     const response = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
         width: 768,
         height: 768,
         steps: 40,
-        image_url: imageUrl
+        image_url: sketchImageUrl
       })
     });
     if (!response.ok) {
@@ -76,8 +76,10 @@ export default async function handler(req, res) {
     
     // Fetch the generated image on the server to avoid CORS issues
     let base64Image = null;
+    let imageUrl = null;
+    
     if (result && result.data && result.data.length > 0 && result.data[0].url) {
-      const imageUrl = result.data[0].url;
+      imageUrl = result.data[0].url;
       console.log('Fetching image from URL:', imageUrl);
       const imageResponse = await fetch(imageUrl);
       if (!imageResponse.ok) {
@@ -87,18 +89,52 @@ export default async function handler(req, res) {
       const buffer = Buffer.from(arrayBuffer);
       base64Image = buffer.toString('base64');
       console.log('Successfully converted image to base64, length:', base64Image.length);
+      
+      // Debug: Save image to Supabase for download
+      try {
+        const debugImageId = `debug-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        const debugFilePath = `${userId}/debug/${debugImageId}.png`;
+        const { data: debugData, error: debugError } = await supabase.storage
+          .from('board-images')
+          .upload(debugFilePath, buffer, {
+            contentType: 'image/png',
+            upsert: true
+          });
+        
+        if (debugError) {
+          console.error('Debug image upload failed:', debugError);
+        } else {
+          const { data: debugUrlData } = supabase.storage
+            .from('board-images')
+            .getPublicUrl(debugFilePath);
+          console.log('Debug image available for download at:', debugUrlData.publicUrl);
+        }
+      } catch (debugError) {
+        console.error('Debug image save failed:', debugError);
+      }
     } else {
       console.log('No image URL found in response. Response structure:', {
         hasResult: !!result,
         hasData: !!result?.data,
         dataLength: result?.data?.length,
-        firstDataItem: result?.data?.[0]
+        firstDataItem: result?.data?.[0],
+        fullResult: result
       });
     }
+    
     if (!base64Image) {
       throw new Error('No image returned from Together.ai');
     }
-    res.status(200).json({ output: [{ type: 'image_generation_call', result: base64Image }] });
+    
+    // Return both the base64 image and debug info
+    res.status(200).json({ 
+      output: [{ type: 'image_generation_call', result: base64Image }],
+      debug: {
+        originalUrl: imageUrl,
+        base64Length: base64Image.length,
+        responseStructure: result
+      }
+    });
   } catch (error) {
     console.error('Flux Kontext AI Error:', error);
     res.status(500).json({ error: error.message });

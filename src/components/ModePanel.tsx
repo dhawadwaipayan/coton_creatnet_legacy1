@@ -308,6 +308,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           firstDataItem: result.data?.[0],
           hasUrl: !!result.data?.[0]?.url
         });
+        
+        // Debug info
+        if (result.debug) {
+          console.log('[Render AI] Debug info:', result.debug);
+          if (result.debug.originalUrl) {
+            console.log('[Render AI] Original image URL:', result.debug.originalUrl);
+            console.log('[Render AI] Base64 length:', result.debug.base64Length);
+          }
+        }
       } else {
         // Use OpenAI for Accurate mode
         console.log('[Render AI] Using OpenAI for Accurate mode');
