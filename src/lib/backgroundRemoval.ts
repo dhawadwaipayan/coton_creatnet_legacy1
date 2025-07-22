@@ -1,4 +1,19 @@
-import { removeBackground } from '@imgly/background-removal';
+// Dynamic import to avoid build issues with WebGPU modules
+let removeBackground: any = null;
+
+// Initialize the background removal function dynamically
+const initBackgroundRemoval = async () => {
+  if (!removeBackground) {
+    try {
+      const module = await import('@imgly/background-removal');
+      removeBackground = module.removeBackground;
+    } catch (error) {
+      console.error('Failed to load background removal module:', error);
+      throw new Error('Background removal is not available in this environment');
+    }
+  }
+  return removeBackground;
+};
 
 export interface BackgroundRemovalResult {
   success: boolean;
@@ -15,6 +30,9 @@ export const removeImageBackground = async (imageData: string | Blob): Promise<B
   try {
     console.log('[Background Removal] Starting background removal...');
     
+    // Initialize the background removal function
+    const removeBackgroundFn = await initBackgroundRemoval();
+    
     // Convert base64 to Blob if needed
     let imageBlob: Blob;
     if (typeof imageData === 'string') {
@@ -28,7 +46,7 @@ export const removeImageBackground = async (imageData: string | Blob): Promise<B
     console.log('[Background Removal] Image blob size:', imageBlob.size, 'bytes');
     
     // Remove background using @imgly/background-removal
-    const result = await removeBackground(imageBlob);
+    const result = await removeBackgroundFn(imageBlob);
     
     console.log('[Background Removal] Background removal successful, result size:', result.size, 'bytes');
     

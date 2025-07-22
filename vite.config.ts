@@ -19,4 +19,16 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Ignore warnings about onnxruntime-web modules
+        if (warning.code === 'UNRESOLVED_IMPORT' && 
+            (warning.message.includes('onnxruntime-web') || warning.message.includes('webgpu'))) {
+          return;
+        }
+        warn(warning);
+      }
+    }
+  }
 }));
