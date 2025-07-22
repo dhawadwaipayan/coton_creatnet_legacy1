@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, DownloadSimple } from '@phosphor-icons/react';
+import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, DownloadSimple, SelectionBackground } from '@phosphor-icons/react';
 
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
@@ -84,6 +84,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
       >
         <DownloadSimple size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
+      </button>
+      
+      {/* Background Remove button */}
+      <button
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? '' : 'opacity-50 cursor-not-allowed'}`}
+        title="Remove background from selected image"
+        disabled={!selectedImageSrc}
+        onClick={() => {
+          if (!selectedImageSrc) return;
+          // TODO: Implement background removal functionality
+          console.log('Background remove clicked for:', selectedImageSrc);
+        }}
+      >
+        <SelectionBackground size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
       </button>
     </aside>;
 }
