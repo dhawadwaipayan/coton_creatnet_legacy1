@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     const boardId = 'together-fastmode';
     const imageUrl = await uploadBoardImage(userId, boardId, imageId, buffer);
     // 2. Call Together.ai with the public URL
-    const response = await fetch('https://api.together.xyz/v1/images/generate', {
+    const response = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
