@@ -72,7 +72,22 @@ export default async function handler(req, res) {
       throw new Error(`Together.ai API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     const result = await response.json();
-    res.status(200).json(result);
+    // Fetch the generated image on the server to avoid CORS issues
+    let base64Image = null;
+    if (result && result.data && result.data.length > 0 && result.data[0].url) {
+      const imageUrl = result.data[0].url;
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch generated image from Together.ai: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
+      const arrayBuffer = await imageResponse.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      base64Image = buffer.toString('base64');
+    }
+    if (!base64Image) {
+      throw new Error('No image returned from Together.ai');
+    }
+    res.status(200).json({ output: [{ type: 'image_generation_call', result: base64Image }] });
   } catch (error) {
     console.error('Flux Kontext AI Error:', error);
     res.status(500).json({ error: error.message });
