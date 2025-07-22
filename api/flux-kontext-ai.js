@@ -34,7 +34,8 @@ export default async function handler(req, res) {
       })
     });
     if (!response.ok) {
-      throw new Error(`Together.ai API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     const result = await response.json();
     res.status(200).json(result);
