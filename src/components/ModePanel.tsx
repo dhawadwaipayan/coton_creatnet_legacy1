@@ -302,6 +302,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         });
         result = await response.json();
         console.log('[Render AI] Together.ai API full response:', result);
+        console.log('[Render AI] Together.ai response structure:', {
+          hasData: !!result.data,
+          dataLength: result.data?.length,
+          firstDataItem: result.data?.[0],
+          hasUrl: !!result.data?.[0]?.url
+        });
       } else {
         // Use OpenAI for Accurate mode
         console.log('[Render AI] Using OpenAI for Accurate mode');
@@ -314,12 +320,40 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         console.log('[Render AI] OpenAI API full response:', result);
       }
       
-      if (result && Array.isArray(result.output)) {
-        const imageOutput = result.output.find(
-          (item) => item.type === 'image_generation_call' && item.result
-        );
-        if (imageOutput) {
-          base64 = imageOutput.result;
+      // Handle different response structures for different AI providers
+      if (isFastMode) {
+        // Together.ai response structure
+        if (result && result.data && result.data.length > 0) {
+          // Together.ai returns { data: [{ url: "..." }] }
+          const imageUrl = result.data[0].url;
+          if (imageUrl) {
+            // Convert the image URL to base64
+            try {
+              const imageResponse = await fetch(imageUrl);
+              const imageBlob = await imageResponse.blob();
+              const reader = new FileReader();
+              base64 = await new Promise((resolve) => {
+                reader.onloadend = () => {
+                  const result = reader.result as string;
+                  // Extract base64 data from data URL
+                  resolve(result.split(',')[1]);
+                };
+                reader.readAsDataURL(imageBlob);
+              });
+            } catch (error) {
+              console.error('Error converting Together.ai image to base64:', error);
+            }
+          }
+        }
+      } else {
+        // OpenAI response structure
+        if (result && Array.isArray(result.output)) {
+          const imageOutput = result.output.find(
+            (item) => item.type === 'image_generation_call' && item.result
+          );
+          if (imageOutput) {
+            base64 = imageOutput.result;
+          }
         }
       }
       
