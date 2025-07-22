@@ -1,18 +1,50 @@
 import React, { useState } from 'react';
 import { ArrowsOutCardinal, PaintBrush, Shapes, TextT, RectangleDashed, Hand, DownloadSimple, SelectionBackground } from '@phosphor-icons/react';
+import { removeImageBackground, blobToBase64 } from '@/lib/backgroundRemoval';
 
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
   selectedImageSrc?: string | null;
   selectedTool: string | null;
   setSelectedTool: (toolId: string) => void;
+  onBackgroundRemoved?: (newImageSrc: string) => void;
 }
 export const Sidebar: React.FC<SidebarProps> = ({
   onToolSelect,
   selectedImageSrc,
   selectedTool,
-  setSelectedTool
+  setSelectedTool,
+  onBackgroundRemoved
 }) => {
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
+
+  const handleBackgroundRemove = async () => {
+    if (!selectedImageSrc || isRemovingBackground) return;
+    
+    setIsRemovingBackground(true);
+    console.log('[Sidebar] Starting background removal for:', selectedImageSrc);
+    
+    try {
+      const result = await removeImageBackground(selectedImageSrc);
+      
+      if (result.success && result.data) {
+        const base64Data = await blobToBase64(result.data);
+        console.log('[Sidebar] Background removal successful, new image size:', result.data.size, 'bytes');
+        
+        // Call the callback to update the canvas
+        onBackgroundRemoved?.(base64Data);
+      } else {
+        console.error('[Sidebar] Background removal failed:', result.error);
+        alert(`Background removal failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[Sidebar] Background removal error:', error);
+      alert('Background removal failed. Please try again.');
+    } finally {
+      setIsRemovingBackground(false);
+    }
+  };
+
   const tools = [{
     id: 'select',
     icon: ArrowsOutCardinal,
@@ -88,16 +120,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       
       {/* Background Remove button */}
       <button
-        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? '' : 'opacity-50 cursor-not-allowed'}`}
-        title="Remove background from selected image"
-        disabled={!selectedImageSrc}
-        onClick={() => {
-          if (!selectedImageSrc) return;
-          // TODO: Implement background removal functionality
-          console.log('Background remove clicked for:', selectedImageSrc);
-        }}
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc && !isRemovingBackground ? '' : 'opacity-50 cursor-not-allowed'}`}
+        title={isRemovingBackground ? "Removing background..." : "Remove background from selected image"}
+        disabled={!selectedImageSrc || isRemovingBackground}
+        onClick={handleBackgroundRemove}
       >
-        <SelectionBackground size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
+        {isRemovingBackground ? (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+        ) : (
+          <SelectionBackground 
+            size={20} 
+            color={selectedImageSrc ? '#fff' : '#A9A9A9'} 
+            className="group-hover:!text-white transition-colors duration-75" 
+          />
+        )}
       </button>
     </aside>;
 }

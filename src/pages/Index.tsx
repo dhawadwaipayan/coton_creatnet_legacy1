@@ -305,6 +305,18 @@ const Index = () => {
     setSelectedMode && setSelectedMode('select');
   };
 
+  // Handler for background removal
+  const handleBackgroundRemoved = (newImageSrc: string) => {
+    console.log('[Index] Background removed, new image src:', newImageSrc);
+    // Update the selected image with the background-removed version
+    setSelectedImageSrc(newImageSrc);
+    
+    // Update the image on the canvas if canvas ref exists
+    if (canvasRef.current && canvasRef.current.replaceSelectedImage) {
+      canvasRef.current.replaceSelectedImage(newImageSrc);
+    }
+  };
+
   return (
     <>
       {/* Auth Overlay - always rendered at the top level for perfect centering */}
@@ -350,7 +362,13 @@ const Index = () => {
 
           {/* Sidebar - positioned center left - hidden during auth overlay and board overlay */}
           {!showAuth && !showBoardOverlay && (
-            <Sidebar onToolSelect={handleToolSelect} selectedImageSrc={selectedImageSrc} selectedTool={selectedTool} setSelectedTool={setSelectedTool} />
+            <Sidebar 
+              onToolSelect={handleToolSelect} 
+              selectedImageSrc={selectedImageSrc} 
+              selectedTool={selectedTool} 
+              setSelectedTool={setSelectedTool}
+              onBackgroundRemoved={handleBackgroundRemoved}
+            />
           )}
 
           {/* BrushSubBar - beside sidebar, only when draw tool is selected - hidden during auth overlay and board overlay */}

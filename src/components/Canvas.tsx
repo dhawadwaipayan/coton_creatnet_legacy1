@@ -321,6 +321,40 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         return prev.filter((_, i) => i !== idx);
       });
     },
+    replaceSelectedImage: (newSrc: string) => {
+      // Find the currently selected image
+      const selectedImage = selectedIds.find(sel => sel.type === 'image');
+      if (selectedImage) {
+        // Use the existing replaceImageById method
+        const id = selectedImage.id;
+        setImages(prev => {
+          const idx = prev.findIndex(img => img.id === id);
+          if (idx === -1) return prev;
+          const oldImg = prev[idx];
+          const newImg = new window.Image();
+          newImg.src = newSrc;
+          const newImageObj = {
+            id,
+            image: newImg,
+            x: oldImg.x,
+            y: oldImg.y,
+            width: oldImg.width,
+            height: oldImg.height,
+            rotation: oldImg.rotation,
+            timestamp: Date.now()
+          };
+          newImg.onload = () => {
+            setImages(current => [
+              ...current.slice(0, idx),
+              newImageObj,
+              ...current.slice(idx + 1)
+            ]);
+          };
+          // Remove the old image for now (will be replaced on load)
+          return prev.filter((_, i) => i !== idx);
+        });
+      }
+    },
     setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
     // Expose manual save function
     saveBoardContent,
