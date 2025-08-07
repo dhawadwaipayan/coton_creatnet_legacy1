@@ -1,60 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminDashboard from '../components/AdminDashboard';
 import { getUser, isUserAdmin } from '../lib/utils';
 
 const Admin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isChecking, setIsChecking] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
     const checkAdminStatus = async () => {
       try {
-        setLoading(true);
         const { data } = await getUser();
         
+        if (!isMounted) return;
+        
         if (!data?.user) {
-          // No user logged in, redirect to main app
-          navigate('/');
+          // No user logged in, redirect immediately
+          navigate('/', { replace: true });
           return;
         }
 
         // Check if user is admin
         const { data: adminData } = await isUserAdmin(data.user.id);
         
+        if (!isMounted) return;
+        
         if (!adminData) {
-          // User is not admin, redirect to main app
-          navigate('/');
+          // User is not admin, redirect immediately
+          navigate('/', { replace: true });
           return;
         }
 
         // User is admin, show admin dashboard
         setIsAdmin(true);
+        setIsChecking(false);
       } catch (error) {
         console.error('Error checking admin status:', error);
-        navigate('/');
-      } finally {
-        setLoading(false);
+        if (isMounted) {
+          navigate('/', { replace: true });
+        }
       }
     };
 
     checkAdminStatus();
+
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#181818] flex items-center justify-center">
-        <div className="text-white text-lg">Loading admin panel...</div>
-      </div>
-    );
+  // Show nothing while checking - prevents any flash for non-admin users
+  if (isChecking) {
+    return null;
   }
 
-  if (!isAdmin) {
-    return null; // Will redirect to main app
+  // Only render admin dashboard if user is confirmed admin
+  if (isAdmin) {
+    return <AdminDashboard />;
   }
 
-  return <AdminDashboard />;
+  // Fallback - should never reach here, but just in case
+  return null;
 };
 
 export default Admin; 
