@@ -129,7 +129,7 @@ const AdminDashboard: React.FC = () => {
               href="/"
               className="px-4 py-2 bg-[#373737] hover:bg-[#404040] rounded text-white font-medium transition-colors"
             >
-              Go to App
+              Main App
             </a>
             <button
               onClick={handleLogout}

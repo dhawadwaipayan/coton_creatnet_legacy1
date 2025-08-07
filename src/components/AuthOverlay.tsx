@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { signIn, signUp, getUser, requestAccess } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
@@ -13,6 +14,7 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
+  const navigate = useNavigate();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +142,20 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
               Sign In
             </button>
           )}
+          
+          {/* Admin Login Link */}
+          <div className="mt-4 text-center">
+            <p className="text-neutral-400 text-xs mb-1">
+              Administrator?
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/admin')}
+              className="text-[#E1FF00] hover:text-[#d4e900] text-xs font-medium transition-colors"
+            >
+              Admin Login
+            </button>
+          </div>
         </form>
       </div>
     </div>
