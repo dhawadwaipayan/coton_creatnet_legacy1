@@ -9,19 +9,196 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Supabase Auth helpers (not used in UI yet)
-export async function signUp(email: string, password: string, name?: string) {
-  return supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name }
+// Admin Approval System Functions
+export async function requestAccess(email: string, password: string, name: string) {
+  // Hash the password for storage (in production, use proper hashing)
+  const passwordHash = btoa(password); // Simple base64 encoding for demo
+  
+  const { data, error } = await supabase
+    .from('user_approvals')
+    .insert([{
+      email,
+      name,
+      password_hash: passwordHash,
+      status: 'pending'
+    }])
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error requesting access:', error);
+    throw error;
+  }
+  
+  return { data, error: null };
+}
+
+export async function checkApprovalStatus(email: string) {
+  const { data, error } = await supabase
+    .from('user_approvals')
+    .select('*')
+    .eq('email', email)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+    console.error('Error checking approval status:', error);
+    throw error;
+  }
+  
+  return { data, error: null };
+}
+
+export async function isUserApproved(userId: string) {
+  const { data, error } = await supabase
+    .from('approved_users')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking if user is approved:', error);
+    throw error;
+  }
+  
+  return { data, error: null };
+}
+
+export async function isUserAdmin(userId: string) {
+  const { data, error } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking if user is admin:', error);
+    throw error;
+  }
+  
+  return { data, error: null };
+}
+
+// Admin Functions
+export async function getPendingApprovals() {
+  const { data, error } = await supabase
+    .from('user_approvals')
+    .select('*')
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error getting pending approvals:', error);
+    throw error;
+  }
+  
+  return data;
+}
+
+export async function approveUser(approvalId: string, adminUserId: string) {
+  try {
+    const response = await fetch('/api/approve-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        approvalId,
+        adminUserId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to approve user');
     }
-  });
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error approving user:', error);
+    throw error;
+  }
+}
+
+export async function rejectUser(approvalId: string, adminUserId: string, notes?: string) {
+  const { error } = await supabase
+    .from('user_approvals')
+    .update({
+      status: 'rejected',
+      reviewed_by: adminUserId,
+      reviewed_at: new Date().toISOString(),
+      notes
+    })
+    .eq('id', approvalId);
+  
+  if (error) {
+    console.error('Error rejecting user:', error);
+    throw error;
+  }
+  
+  return { data: null, error: null };
+}
+
+export async function getAllApprovedUsers() {
+  const { data, error } = await supabase
+    .from('approved_users')
+    .select('*')
+    .order('approved_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error getting approved users:', error);
+    throw error;
+  }
+  
+  return data;
+}
+
+// Modified Auth Functions
+export async function signUp(email: string, password: string, name?: string) {
+  // Instead of creating user directly, request approval
+  return requestAccess(email, password, name || '');
 }
 
 export async function signIn(email: string, password: string) {
-  return supabase.auth.signInWithPassword({ email, password });
+  // First, check if user is approved
+  const { data: approval } = await checkApprovalStatus(email);
+  
+  if (approval && approval.status === 'pending') {
+    return { 
+      data: null, 
+      error: { message: 'Your access request is still pending approval. Please wait for admin approval.' }
+    };
+  }
+  
+  if (approval && approval.status === 'rejected') {
+    return { 
+      data: null, 
+      error: { message: 'Your access request has been rejected. Please contact the administrator.' }
+    };
+  }
+  
+  // If approved or no approval record exists, proceed with normal sign in
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  
+  if (error) {
+    return { data, error };
+  }
+  
+  // Check if the signed-in user is approved
+  if (data.user) {
+    const { data: approvedUser } = await isUserApproved(data.user.id);
+    if (!approvedUser) {
+      // Sign out the user if they're not approved
+      await supabase.auth.signOut();
+      return { 
+        data: null, 
+        error: { message: 'Your account is not approved. Please contact the administrator.' }
+      };
+    }
+  }
+  
+  return { data, error };
 }
 
 export async function signOut() {

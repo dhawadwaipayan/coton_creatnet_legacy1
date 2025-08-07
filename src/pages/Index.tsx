@@ -42,6 +42,7 @@ const Index = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [userName, setUserName] = useState<string>('');
   const [showBoardOverlay, setShowBoardOverlay] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   // Board state management
   const [boards, setBoards] = useState([]);
@@ -50,36 +51,50 @@ const Index = () => {
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [savingBoard, setSavingBoard] = useState(false);
 
-  // Load boards from Supabase on login
+  // Check user authentication (no admin check for main app)
   useEffect(() => {
-    getUser().then(({ data }) => {
-      if (data?.user) {
-        setShowAuth(false);
-        setUserId(data.user.id);
-        const name = data.user.user_metadata?.name || '';
-        setUserName(name);
-        setShowBoardOverlay(true); // Show board overlay immediately after login
-        setLoadingBoards(true);
-        console.log('Loading boards for user:', data.user.id);
-        getBoardsForUser(data.user.id)
-          .then(boards => {
-            console.log('Loaded boards:', boards);
-            setBoards(boards || []);
-            setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
-          })
-          .catch(error => {
-            console.error('Error loading boards:', error);
-          })
-          .finally(() => setLoadingBoards(false));
-      } else {
+    const checkUserStatus = async () => {
+      try {
+        setLoadingUser(true);
+        const { data } = await getUser();
+        
+        if (data?.user) {
+          setUserId(data.user.id);
+          const name = data.user.user_metadata?.name || '';
+          setUserName(name);
+          
+          // Regular user, show normal app
+          setShowAuth(false);
+          setShowBoardOverlay(true);
+          setLoadingBoards(true);
+          console.log('Loading boards for user:', data.user.id);
+          getBoardsForUser(data.user.id)
+            .then(boards => {
+              console.log('Loaded boards:', boards);
+              setBoards(boards || []);
+              setCurrentBoardId(boards && boards.length > 0 ? boards[0].id : null);
+            })
+            .catch(error => {
+              console.error('Error loading boards:', error);
+            })
+            .finally(() => setLoadingBoards(false));
+        } else {
+          setShowAuth(true);
+          setUserName('');
+          setBoards([]);
+          setCurrentBoardId(null);
+          setUserId(null);
+          setShowBoardOverlay(false);
+        }
+      } catch (error) {
+        console.error('Error checking user status:', error);
         setShowAuth(true);
-        setUserName('');
-        setBoards([]);
-        setCurrentBoardId(null);
-        setUserId(null);
-        setShowBoardOverlay(false);
+      } finally {
+        setLoadingUser(false);
       }
-    });
+    };
+
+    checkUserStatus();
   }, []);
 
   // Create new board (max 3)
@@ -186,15 +201,18 @@ const Index = () => {
     });
   }, []);
 
-  // After successful auth (from AuthOverlay), also show board overlay
-  const handleAuthSuccess = () => {
-    getUser().then(({ data }) => {
+  // After successful auth (from AuthOverlay), show normal app
+  const handleAuthSuccess = async () => {
+    try {
+      const { data } = await getUser();
       if (data?.user) {
-        setShowAuth(false);
         setUserId(data.user.id);
         const name = data?.user?.user_metadata?.name || '';
         setUserName(name);
-        setShowBoardOverlay(true); // Show board overlay immediately after auth
+        
+        // Regular user, show normal app
+        setShowAuth(false);
+        setShowBoardOverlay(true);
         setLoadingBoards(true);
         console.log('Reloading boards after auth success for user:', data.user.id);
         getBoardsForUser(data.user.id)
@@ -208,17 +226,19 @@ const Index = () => {
           })
           .finally(() => setLoadingBoards(false));
       }
-    });
+    } catch (error) {
+      console.error('Error in handleAuthSuccess:', error);
+    }
   };
 
   const handleLogout = async () => {
     await signOut();
     setShowAuth(true);
-    setUserName('');
-    setBoards([]);
-    setCurrentBoardId(null);
-    setUserId(null);
-    setShowBoardOverlay(false);
+              setUserName('');
+          setBoards([]);
+          setCurrentBoardId(null);
+          setUserId(null);
+          setShowBoardOverlay(false);
   };
 
 
@@ -316,6 +336,15 @@ const Index = () => {
       canvasRef.current.replaceSelectedImage(newImageSrc);
     }
   };
+
+  // Show loading state while checking user status
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen bg-[#181818] flex items-center justify-center">
+        <div className="text-white text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { signIn, signUp, getUser } from '../lib/utils';
+import { signIn, signUp, getUser, requestAccess } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
 const LOGO_IMAGE = '/cotonlogo_drk.svg';
 
 const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess }) => {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'request'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,17 +32,22 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    await signUp(email, password, name);
-    setLoading(false);
-    setSignupSuccess(true);
-    setTimeout(() => {
-      setSignupSuccess(false);
-      setMode('signin');
-    }, 2500);
+    try {
+      await requestAccess(email, password, name);
+      setLoading(false);
+      setRequestSuccess(true);
+      setTimeout(() => {
+        setRequestSuccess(false);
+        setMode('signin');
+      }, 3000);
+    } catch (error: any) {
+      setLoading(false);
+      setError(error.message || 'Failed to submit access request. Please try again.');
+    }
   };
 
   return (
@@ -60,10 +65,10 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         </div>
         {/* Bottom: Form */}
         <form
-          onSubmit={mode === 'signin' ? handleSignIn : handleSignUp}
+          onSubmit={mode === 'signin' ? handleSignIn : handleRequestAccess}
           className="flex flex-col items-center w-full px-10 py-8 bg-[#181818] rounded-b-2xl"
         >
-          {mode === 'signup' && (
+          {mode === 'request' && (
             <>
               <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Name</label>
               <input
@@ -91,23 +96,25 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
             onChange={e => setPassword(e.target.value)}
             required
           />
-          {error && mode === 'signup' && (
+          {error && mode === 'request' && (
             <div className="text-red-400 mb-2 text-[11px] text-center">
-              Sign up failed. Confirmation email sent to your ID if the email is not already registered.
+              {error}
             </div>
           )}
           {error && mode === 'signin' && (
             <div className="text-red-400 mb-2 text-[11px] text-center">{error}</div>
           )}
-          {signupSuccess && (
-            <div className="text-green-400 mb-2 text-[11px] text-center">Confirmation email sent to your ID</div>
+          {requestSuccess && (
+            <div className="text-green-400 mb-2 text-[11px] text-center">
+              Access request submitted successfully! You will be notified when your request is approved.
+            </div>
           )}
           <button
             type="submit"
             className={`w-full py-2 rounded bg-[#E1FF00] text-[#181818] font-gilroy font-bold mt-2 transition-colors hover:bg-[#d4e900] disabled:opacity-60 mb-2 ${FONT_SIZE}`}
             disabled={loading}
           >
-            {loading ? (mode === 'signin' ? 'Signing In...' : 'Signing Up...') : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            {loading ? (mode === 'signin' ? 'Signing In...' : 'Submitting Request...') : mode === 'signin' ? 'Sign In' : 'Request Access'}
           </button>
           {mode === 'signin' && (
             <button
@@ -115,13 +122,13 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
               className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
               onClick={() => {
                 setError(null);
-                setMode('signup');
+                setMode('request');
               }}
             >
-              Sign Up
+              Request Access
             </button>
           )}
-          {mode === 'signup' && (
+          {mode === 'request' && (
             <button
               type="button"
               className={`w-full py-2 rounded bg-[#232323] text-white font-gilroy font-bold mt-1 transition-colors hover:bg-[#232323]/80 border-none ${FONT_SIZE}`}
