@@ -6,6 +6,11 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export default async function handler(req, res) {
+  // Set security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -16,6 +21,35 @@ export default async function handler(req, res) {
     if (!approvalId || !adminUserId) {
       return res.status(400).json({ error: 'Missing approvalId or adminUserId' });
     }
+
+    // SECURITY: Verify that the user exists and is authenticated
+    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(adminUserId);
+    
+    if (userError || !userData.user) {
+      console.error('Authentication failed:', { adminUserId, error: userError });
+      return res.status(401).json({ error: 'Unauthorized: Invalid user' });
+    }
+
+    // SECURITY: Verify that the user is actually an admin
+    const { data: adminData, error: adminError } = await supabase
+      .from('admin_users')
+      .select('*')
+      .eq('user_id', adminUserId)
+      .single();
+
+    if (adminError || !adminData) {
+      console.error('Unauthorized access attempt:', { adminUserId, error: adminError });
+      return res.status(403).json({ error: 'Unauthorized: User is not an admin' });
+    }
+
+    // SECURITY: Log admin action for audit trail
+    console.log('Admin action:', {
+      action: 'approve_user',
+      adminUserId,
+      adminEmail: adminData.email,
+      approvalId,
+      timestamp: new Date().toISOString()
+    });
 
     // First, get the approval request
     const { data: approval, error: approvalError } = await supabase
