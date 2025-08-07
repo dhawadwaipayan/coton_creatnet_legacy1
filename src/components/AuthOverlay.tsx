@@ -143,19 +143,7 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
             </button>
           )}
           
-          {/* Admin Login Link */}
-          <div className="mt-4 text-center">
-            <p className="text-neutral-400 text-xs mb-1">
-              Administrator?
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/admin')}
-              className="text-[#E1FF00] hover:text-[#d4e900] text-xs font-medium transition-colors"
-            >
-              Admin Login
-            </button>
-          </div>
+
         </form>
       </div>
     </div>
