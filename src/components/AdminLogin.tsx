@@ -4,7 +4,7 @@ import { signIn, isUserAdmin } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
-const LOGO_IMAGE = '/cotonlogo_drk.svg';
+const LOGO_IMAGE = '/CotonAI_Logo.svg';
 
 const AdminLogin: React.FC = () => {
   const [email, setEmail] = useState('');

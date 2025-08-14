@@ -156,7 +156,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
       {/* Logo (clickable) */}
       <button className="flex items-center focus:outline-none" onClick={onLogoClick} aria-label="Open Board History">
         <img 
-          src="/cotonlogo_main.svg" 
+          src="/CotonAI_Logo2.svg" 
           alt="Coton AI Logo" 
           className="h-[15px] w-auto object-contain" 
         />

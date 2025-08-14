@@ -4,7 +4,7 @@ import { signIn, signUp, getUser, requestAccess } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
-const LOGO_IMAGE = '/cotonlogo_drk.svg';
+const LOGO_IMAGE = '/CotonAI_Logo.svg';
 
 const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState<'signin' | 'request'>('signin');
