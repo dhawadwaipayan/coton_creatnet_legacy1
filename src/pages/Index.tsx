@@ -30,24 +30,32 @@ const Index = () => {
   const handleCanvasZoomIn = () => {
     if (canvasRef.current && canvasRef.current.zoomIn) {
       canvasRef.current.zoomIn();
+      // Update local zoom state for real-time updates
+      setZoom(canvasRef.current.zoom);
     }
   };
   
   const handleCanvasZoomOut = () => {
     if (canvasRef.current && canvasRef.current.zoomOut) {
       canvasRef.current.zoomOut();
+      // Update local zoom state for real-time updates
+      setZoom(canvasRef.current.zoom);
     }
   };
   
   const handleZoomReset = () => {
     if (canvasRef.current && canvasRef.current.resetZoom) {
       canvasRef.current.resetZoom();
+      // Update local zoom state for real-time updates
+      setZoom(1);
     }
   };
   
   const handleZoomFit = () => {
     if (canvasRef.current && canvasRef.current.fitToViewport) {
       canvasRef.current.fitToViewport();
+      // Update local zoom state for real-time updates
+      setZoom(canvasRef.current.zoom);
     }
   };
 
@@ -75,6 +83,23 @@ const Index = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [savingBoard, setSavingBoard] = useState(false);
+
+  // Sync zoom state with Canvas zoom changes
+  useEffect(() => {
+    const syncZoom = () => {
+      if (canvasRef.current?.zoom) {
+        setZoom(canvasRef.current.zoom);
+      }
+    };
+    
+    // Sync zoom when component mounts
+    syncZoom();
+    
+    // Set up interval to sync zoom (for real-time updates)
+    const interval = setInterval(syncZoom, 100);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Check user authentication (no admin check for main app)
   useEffect(() => {
@@ -491,7 +516,7 @@ const Index = () => {
             {!showAuth && !showBoardOverlay && (
               <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
                 <ZoomBar 
-                  zoom={canvasRef.current?.zoom || 1} 
+                  zoom={zoom} 
                   onZoomIn={handleCanvasZoomIn} 
                   onZoomOut={handleCanvasZoomOut}
                   onZoomReset={handleZoomReset}
