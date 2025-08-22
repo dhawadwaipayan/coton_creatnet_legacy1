@@ -48,6 +48,48 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [lastPos, setLastPos] = useState<{x: number, y: number} | null>(null);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
+  const [zoomCenter, setZoomCenter] = useState({ x: 0, y: 0 });
+
+  // Utility function to get current viewport center
+  const getViewportCenter = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return { x: 0, y: 0 };
+    
+    // Calculate viewport center in world coordinates
+    const viewportCenterX = (-stagePos.x + viewport.width / 2) / zoom;
+    const viewportCenterY = (-stagePos.y + viewport.height / 2) / zoom;
+    
+    return { x: viewportCenterX, y: viewportCenterY };
+  }, [stagePos, viewport.width, viewport.height, zoom]);
+
+  // Function to smoothly center viewport on an element
+  const centerViewportOnElement = useCallback((x: number, y: number, width: number, height: number) => {
+    const center = getViewportCenter();
+    const targetX = x + width / 2;
+    const targetY = y + height / 2;
+    
+    const deltaX = center.x - targetX;
+    const deltaY = center.y - targetY;
+    
+    // Smoothly animate to center
+    const newStagePos = {
+      x: stagePos.x + deltaX * zoom,
+      y: stagePos.y + deltaY * zoom,
+    };
+    
+    setStagePos(clampStagePos(newStagePos));
+  }, [getViewportCenter, stagePos, zoom]);
+
+  // Convert screen coordinates to canvas coordinates
+  const screenToCanvas = useCallback((screenX: number, screenY: number) => {
+    return {
+      x: (screenX - stagePos.x) / zoom,
+      y: (screenY - stagePos.y) / zoom
+    };
+  }, [stagePos, zoom]);
+
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean }>>([]);
   // Strokes state: freehand lines
@@ -269,30 +311,114 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const img = new window.Image();
       img.src = src;
       const id = Date.now().toString();
+      
       img.onload = () => {
+        // Calculate viewport center if no coordinates provided
+        let imageX = x;
+        let imageY = y;
+        
+        if (x === undefined || y === undefined) {
+          const center = getViewportCenter();
+          imageX = center.x - (width || 200) / 2;
+          imageY = center.y - (height || 200) / 2;
+        }
+        
         setImages(prev => [
           ...prev,
-          { id, image: img, x: x ?? 100, y: y ?? 100, width: width ?? 200, height: height ?? 200, rotation: 0, timestamp: Date.now() }
+          { 
+            id, 
+            image: img, 
+            x: imageX, 
+            y: imageY, 
+            width: width ?? 200, 
+            height: height ?? 200, 
+            rotation: 0, 
+            timestamp: Date.now() 
+          }
         ]);
+        
         if (onLoadId) onLoadId(id);
+        
+        // Center viewport on the newly imported image if no specific coordinates were provided
+        if (x === undefined || y === undefined) {
+          setTimeout(() => {
+            centerViewportOnElement(imageX, imageY, width || 200, height || 200);
+          }, 100);
+        }
       };
+      
       img.onerror = () => {
         console.error('Failed to load image:', src);
+        
+        // Calculate viewport center if no coordinates provided
+        let imageX = x;
+        let imageY = y;
+        
+        if (x === undefined || y === undefined) {
+          const center = getViewportCenter();
+          imageX = center.x - (width || 200) / 2;
+          imageY = center.y - (height || 200) / 2;
+        }
+        
         setImages(prev => [
           ...prev,
-          { id, image: null, x: x ?? 100, y: y ?? 100, width: width ?? 200, height: height ?? 200, rotation: 0, timestamp: Date.now(), error: true }
+          { 
+            id, 
+            image: null, 
+            x: imageX, 
+            y: imageY, 
+            width: width ?? 200, 
+            height: height ?? 200, 
+            rotation: 0, 
+            timestamp: Date.now(), 
+            error: true 
+          }
         ]);
+        
         if (onLoadId) onLoadId(id);
       };
+      
       return id;
     },
     clearSketchBox: () => setSketchBox(null),
     clearRenderBox: () => setRenderBox(null),
     // Expose current pan offset for correct AI image placement
     get stagePos() { return stagePos; },
+    // Expose current zoom level
+    get zoom() { return zoom; },
     // Expose current bounding box for correct AI image placement
     get sketchBox() { return sketchBox; },
     get renderBox() { return renderBox; },
+    // Expose viewport centering functions
+    getViewportCenter,
+    centerViewportOnElement,
+    // Zoom control functions
+    resetZoom: () => {
+      setZoom(1);
+      setStagePos({ x: 0, y: 0 });
+    },
+    fitToViewport: () => {
+      // Calculate zoom to fit canvas width in viewport (prioritize width)
+      const scaleX = viewport.width / boardWidth;
+      const scaleY = viewport.height / boardHeight;
+      
+      // Prioritize width fitting, allow height to extend if needed
+      // But don't zoom in beyond 100%
+      const newZoom = Math.min(scaleX, 1);
+      
+      setZoom(newZoom);
+      setStagePos({ x: 0, y: 0 });
+    },
+    zoomIn: () => {
+      const newZoom = Math.min(zoom * 1.2, 5);
+      setZoom(newZoom);
+    },
+    zoomOut: () => {
+      // Calculate minimum zoom to fit canvas width in viewport
+      const minZoomForWidth = viewport.width / boardWidth;
+      const newZoom = Math.max(zoom / 1.2, minZoomForWidth);
+      setZoom(newZoom);
+    },
     replaceImageById: (id: string, newSrc: string) => {
       setImages(prev => {
         const idx = prev.findIndex(img => img.id === id);
@@ -360,7 +486,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     saveBoardContent,
     undo: handleUndo,
     redo: handleRedo,
-  }), [sketchBox, renderBox, stageRef, stagePos, props.renderModeActive, saveBoardContent, handleUndo, handleRedo]);
+  }), [sketchBox, renderBox, stageRef, stagePos, zoom, getViewportCenter, centerViewportOnElement, screenToCanvas, props.renderModeActive, saveBoardContent, handleUndo, handleRedo]);
 
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
@@ -445,15 +571,59 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Clamp stage position so you can't pan outside the board
   function clampStagePos(pos: {x: number, y: number}) {
-    const minX = Math.min(0, viewport.width - boardWidth);
-    const minY = Math.min(0, viewport.height - boardHeight);
+    // Calculate the board size in screen coordinates (considering zoom)
+    const boardWidthScaled = boardWidth * zoom;
+    const boardHeightScaled = boardHeight * zoom;
+    
+    // Calculate bounds - canvas should always be visible in viewport
+    // When zoomed out, don't allow panning beyond edges
+    // When zoomed in, allow panning to see different parts of canvas
+    const minX = Math.min(0, viewport.width - boardWidthScaled);
+    const minY = Math.min(0, viewport.height - boardHeightScaled);
     const maxX = 0;
     const maxY = 0;
+    
     return {
       x: clamp(pos.x, minX, maxX),
       y: clamp(pos.y, minY, maxY)
     };
   }
+
+  // Wheel event handler for zooming
+  const handleWheel = (e: any) => {
+    e.evt.preventDefault();
+    const stage = stageRef.current;
+    if (!stage) return;
+    
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    
+    const scaleBy = 1.1;
+    const oldScale = zoom;
+    const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+    
+    // Calculate minimum zoom to fit canvas width in viewport
+    const minZoomForWidth = viewport.width / boardWidth;
+    
+    // Clamp zoom between width-fit minimum and 5x maximum
+    const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
+    
+    // Calculate new center point
+    const mousePointTo = {
+      x: (pointer.x - stagePos.x) / oldScale,
+      y: (pointer.y - stagePos.y) / oldScale,
+    };
+    
+    const newPos = {
+      x: pointer.x - mousePointTo.x * clampedScale,
+      y: pointer.y - mousePointTo.y * clampedScale,
+    };
+    
+    setZoom(clampedScale);
+    setStagePos(clampStagePos(newPos));
+  };
+
+
 
   // Mouse down: start drawing (brush tool) or panning (hand tool)
   const handleMouseDown = (e: any) => {
@@ -469,9 +639,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (!pointer) return;
       setDrawing(true);
       const id = Date.now().toString();
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      
       setCurrentStroke({
         id,
-        points: [pointer.x - stagePos.x, pointer.y - stagePos.y],
+        points: [canvasPos.x, canvasPos.y],
         color: props.brushColor,
         size: props.brushSize,
         x: 0,
@@ -495,9 +669,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      
       setCurrentStroke({
         ...currentStroke,
-        points: [...currentStroke.points, pointer.x - stagePos.x, pointer.y - stagePos.y]
+        points: [...currentStroke.points, canvasPos.x, canvasPos.y]
       });
     }
   };
@@ -581,6 +759,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      
       const id = Date.now().toString();
       pushToUndoStack();
       setTexts(prev => [
@@ -588,8 +770,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         {
           id,
           text: 'Add text',
-          x: pointer.x - stagePos.x,
-          y: pointer.y - stagePos.y,
+          x: canvasPos.x,
+          y: canvasPos.y,
           color: props.textColor || '#FF0000',
           fontSize: 32,
           rotation: 0,
@@ -633,8 +815,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
-      setSelectionStart(pointer);
-      setSelectionRect({ x: pointer.x, y: pointer.y, width: 0, height: 0 });
+      if (!pointer) return;
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      
+      setSelectionStart(canvasPos);
+      setSelectionRect({ x: canvasPos.x, y: canvasPos.y, width: 0, height: 0 });
       setSelectedIds([]);
     } else {
       handleMouseDown(e);
@@ -647,11 +834,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
+      
+      // Convert screen coordinates to canvas coordinates
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      
       setSelectionRect({
-        x: Math.min(selectionStart.x, pointer.x),
-        y: Math.min(selectionStart.y, pointer.y),
-        width: Math.abs(pointer.x - selectionStart.x),
-        height: Math.abs(pointer.y - selectionStart.y)
+        x: Math.min(selectionStart.x, canvasPos.x),
+        y: Math.min(selectionStart.y, canvasPos.y),
+        width: Math.abs(canvasPos.x - selectionStart.x),
+        height: Math.abs(canvasPos.y - selectionStart.y)
       });
     } else {
       handleMouseMove(e);
@@ -665,30 +856,30 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const selected: Array<{ id: string, type: 'image' | 'stroke' | 'text' }> = [];
       images.forEach(img => {
         if (
-          img.x + (img.width || 200) > selectionRect.x - stagePos.x &&
-          img.x < selectionRect.x - stagePos.x + selectionRect.width &&
-          img.y + (img.height || 200) > selectionRect.y - stagePos.y &&
-          img.y < selectionRect.y - stagePos.y + selectionRect.height
+          img.x + (img.width || 200) > selectionRect.x &&
+          img.x < selectionRect.x + selectionRect.width &&
+          img.y + (img.height || 200) > selectionRect.y &&
+          img.y < selectionRect.y + selectionRect.height
         ) {
           selected.push({ id: img.id, type: 'image' });
         }
       });
       strokes.forEach(stroke => {
         if (
-          stroke.x + stroke.width > selectionRect.x - stagePos.x &&
-          stroke.x < selectionRect.x - stagePos.x + selectionRect.width &&
-          stroke.y + stroke.height > selectionRect.y - stagePos.y &&
-          stroke.y < selectionRect.y - stagePos.y + selectionRect.height
+          stroke.x + stroke.width > selectionRect.x &&
+          stroke.x < selectionRect.x + selectionRect.width &&
+          stroke.y + stroke.height > selectionRect.y &&
+          stroke.y < selectionRect.y + selectionRect.height
         ) {
           selected.push({ id: stroke.id, type: 'stroke' });
         }
       });
       texts.forEach(txt => {
         if (
-          txt.x + txt.fontSize > selectionRect.x - stagePos.x &&
-          txt.x < selectionRect.x - stagePos.x + selectionRect.width &&
-          txt.y + txt.fontSize > selectionRect.y - stagePos.y &&
-          txt.y < selectionRect.y - stagePos.y + selectionRect.height
+          txt.x + txt.fontSize > selectionRect.x &&
+          txt.x < selectionRect.x + selectionRect.width &&
+          txt.y + txt.fontSize > selectionRect.y &&
+          txt.y < selectionRect.y + selectionRect.height
         ) {
           selected.push({ id: txt.id, type: 'text' });
         }
@@ -887,26 +1078,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const stage = stageRef.current;
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
+    
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
+    
     setSketchBoxDrawing(true);
-    // Adjust for stage position (panning)
-    const startX = pointer.x - stagePos.x;
-    const startY = pointer.y - stagePos.y;
-    setSketchBoxStart({ x: startX, y: startY });
-    setSketchBox({ x: startX, y: startY, width: 1, height: 1 });
+    setSketchBoxStart({ x: canvasPos.x, y: canvasPos.y });
+    setSketchBox({ x: canvasPos.x, y: canvasPos.y, width: 1, height: 1 });
   };
+  
   const handleSketchBoxMouseMove = (e: any) => {
     if (!props.sketchModeActive) return;
     if (!sketchBoxDrawing || !sketchBoxStart) return;
     const stage = stageRef.current;
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
-    // Adjust for stage position (panning)
-    const currX = pointer.x - stagePos.x;
-    const currY = pointer.y - stagePos.y;
-    const x = Math.min(sketchBoxStart.x, currX);
-    const y = Math.min(sketchBoxStart.y, currY);
-    const width = Math.abs(currX - sketchBoxStart.x);
-    const height = Math.abs(currY - sketchBoxStart.y);
+    
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
+    
+    const x = Math.min(sketchBoxStart.x, canvasPos.x);
+    const y = Math.min(sketchBoxStart.y, canvasPos.y);
+    const width = Math.abs(canvasPos.x - sketchBoxStart.x);
+    const height = Math.abs(canvasPos.y - sketchBoxStart.y);
     setSketchBox({ x, y, width, height });
   };
   const handleSketchBoxMouseUp = (e: any) => {
@@ -944,8 +1138,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
+    
     setRenderBoxDrawing(true);
-    setRenderBoxStart({ x: pointer.x - stagePos.x, y: pointer.y - stagePos.y });
+    setRenderBoxStart({ x: canvasPos.x, y: canvasPos.y });
     
     // Clear any existing render box
     setRenderBox(null);
@@ -958,13 +1155,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
-    const currentX = pointer.x - stagePos.x;
-    const currentY = pointer.y - stagePos.y;
+    // Convert screen coordinates to canvas coordinates
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
     
-    const x = Math.min(renderBoxStart.x, currentX);
-    const y = Math.min(renderBoxStart.y, currentY);
-    const width = Math.abs(currentX - renderBoxStart.x);
-    const height = Math.abs(currentY - renderBoxStart.y);
+    const x = Math.min(renderBoxStart.x, canvasPos.x);
+    const y = Math.min(renderBoxStart.y, canvasPos.y);
+    const width = Math.abs(canvasPos.x - renderBoxStart.x);
+    const height = Math.abs(canvasPos.y - renderBoxStart.y);
     
     setRenderBox({ x, y, width, height });
   };
@@ -1009,7 +1206,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: props.selectedTool === 'hand' && isDragging ? 'grabbing' : props.selectedTool === 'hand' ? 'grab' : props.selectedTool === 'draw' ? 'crosshair' : 'default' }}
         x={stagePos.x}
         y={stagePos.y}
+        scaleX={zoom}
+        scaleY={zoom}
         draggable={false}
+        onWheel={handleWheel}
         onMouseDown={props.sketchModeActive ? handleSketchBoxMouseDown : props.renderModeActive ? handleRenderBoxMouseDown : handleStageMouseDown}
         onTouchStart={props.sketchModeActive ? handleSketchBoxMouseDown : props.renderModeActive ? handleRenderBoxMouseDown : handleStageMouseDown}
         onMouseMove={props.sketchModeActive ? handleSketchBoxMouseMove : props.renderModeActive ? handleRenderBoxMouseMove : handleStageMouseMove}
@@ -1207,11 +1407,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           {selectionRect && (
             <Line
               points={[
-                selectionRect.x - stagePos.x, selectionRect.y - stagePos.y,
-                selectionRect.x - stagePos.x + selectionRect.width, selectionRect.y - stagePos.y,
-                selectionRect.x - stagePos.x + selectionRect.width, selectionRect.y - stagePos.y + selectionRect.height,
-                selectionRect.x - stagePos.x, selectionRect.y - stagePos.y + selectionRect.height,
-                selectionRect.x - stagePos.x, selectionRect.y - stagePos.y
+                selectionRect.x, selectionRect.y,
+                selectionRect.x + selectionRect.width, selectionRect.y,
+                selectionRect.x + selectionRect.width, selectionRect.y + selectionRect.height,
+                selectionRect.x, selectionRect.y + selectionRect.height,
+                selectionRect.x, selectionRect.y
               ]}
               stroke="#E1FF00"
               strokeWidth={1.5}

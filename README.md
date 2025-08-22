@@ -15,7 +15,7 @@ A modern, AI-enhanced design and sketching application built with React, TypeScr
 
 - **Frontend**: React 18 + TypeScript
 - **Canvas**: Konva.js for 2D graphics
-- **Styling**: Tailwind CSS + shadcn/ui components
+- **Styling**: Tailwind CSS + Custom UI components
 - **Build Tool**: Vite
 - **Authentication**: Supabase
 - **AI Services**: OpenAI, Gemini AI, Flux Kontext AI, Render AI

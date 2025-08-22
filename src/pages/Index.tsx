@@ -25,6 +25,31 @@ const Index = () => {
   const [zoom, setZoom] = useState(100);
   const handleZoomIn = () => setZoom(z => Math.min(z + 10, 500));
   const handleZoomOut = () => setZoom(z => Math.max(z - 10, 10));
+  
+  // Enhanced zoom handlers using Canvas zoom state
+  const handleCanvasZoomIn = () => {
+    if (canvasRef.current && canvasRef.current.zoomIn) {
+      canvasRef.current.zoomIn();
+    }
+  };
+  
+  const handleCanvasZoomOut = () => {
+    if (canvasRef.current && canvasRef.current.zoomOut) {
+      canvasRef.current.zoomOut();
+    }
+  };
+  
+  const handleZoomReset = () => {
+    if (canvasRef.current && canvasRef.current.resetZoom) {
+      canvasRef.current.resetZoom();
+    }
+  };
+  
+  const handleZoomFit = () => {
+    if (canvasRef.current && canvasRef.current.fitToViewport) {
+      canvasRef.current.fitToViewport();
+    }
+  };
 
   // Brush state for draw tool (lifted up)
   const [brushColor, setBrushColor] = useState('#FF0000');
@@ -465,7 +490,13 @@ const Index = () => {
             {/* ZoomBar: bottom right, right-6 and bottom-[34px] for perfect gap - hidden during auth overlay and board overlay */}
             {!showAuth && !showBoardOverlay && (
               <div className="pointer-events-auto absolute right-6 bottom-[34px] z-20">
-                <ZoomBar zoom={zoom} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+                <ZoomBar 
+                  zoom={canvasRef.current?.zoom || 1} 
+                  onZoomIn={handleCanvasZoomIn} 
+                  onZoomOut={handleCanvasZoomOut}
+                  onZoomReset={handleZoomReset}
+                  onZoomFit={handleZoomFit}
+                />
               </div>
             )}
           </div>
