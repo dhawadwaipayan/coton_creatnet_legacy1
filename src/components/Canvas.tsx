@@ -6,6 +6,9 @@ import { IncrementalLoader } from '../lib/incrementalLoader';
 import { MemoryManager } from '../lib/memoryManager';
 import { DatabaseOptimizer } from '../lib/databaseOptimizer';
 import { PerformanceMonitor } from '../lib/performanceMonitor';
+import { AdvancedCache } from '../lib/advancedCache';
+import { CollaborationManager } from '../lib/collaborationManager';
+import { LoadBalancer } from '../lib/loadBalancer';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -358,9 +361,24 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         ThumbnailGenerator.storeThumbnail(props.boardContent.id, thumbnail);
         console.log('Thumbnail generated and stored:', thumbnail.id);
         
-        // Cache the board content for faster future access
-        const cacheKey = `board-content:${props.boardContent.id}`;
-        DatabaseOptimizer.cacheQuery(cacheKey, content, 300000); // 5 minutes
+              // Cache the board content for faster future access
+      const cacheKey = `board-content:${props.boardContent.id}`;
+      DatabaseOptimizer.cacheQuery(cacheKey, content, 300000); // 5 minutes
+      
+      // Store in advanced cache with tags for better organization
+      AdvancedCache.set(cacheKey, content, {
+        ttl: 300000, // 5 minutes
+        tags: ['board-content', `board-${props.boardContent.id}`, 'user-content']
+      });
+      
+      // Send collaboration event for real-time updates
+      CollaborationManager.sendElementUpdate({
+        type: 'board-save',
+        boardId: props.boardContent.id,
+        userId: props.boardContent.user_id,
+        timestamp: Date.now(),
+        data: content
+      });
       } catch (error) {
         console.warn('Thumbnail generation failed:', error);
       }
@@ -377,13 +395,50 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     MemoryManager.initialize();
     DatabaseOptimizer.initialize();
     PerformanceMonitor.initialize();
+    AdvancedCache.initialize();
+    
+    // Initialize collaboration if user is authenticated
+    if (props.boardContent?.user_id) {
+      CollaborationManager.initialize(
+        props.boardContent.user_id,
+        'User', // Replace with actual user name
+        props.boardContent.id
+      );
+    }
+    
+    // Initialize load balancer with mock servers (replace with actual servers)
+    LoadBalancer.initialize([
+      {
+        id: 'server-1',
+        url: 'https://api1.cotonai.com',
+        health: 'healthy',
+        load: 20,
+        responseTime: 50,
+        lastCheck: Date.now(),
+        region: 'us-east-1',
+        priority: 1
+      },
+      {
+        id: 'server-2',
+        url: 'https://api2.cotonai.com',
+        health: 'healthy',
+        load: 15,
+        responseTime: 45,
+        lastCheck: Date.now(),
+        region: 'us-west-1',
+        priority: 2
+      }
+    ]);
     
     return () => {
       MemoryManager.dispose();
       DatabaseOptimizer.dispose();
       PerformanceMonitor.dispose();
+      AdvancedCache.dispose();
+      CollaborationManager.dispose();
+      LoadBalancer.dispose();
     };
-  }, []);
+  }, [props.boardContent?.user_id, props.boardContent?.id]);
 
   // Cleanup timeout on unmount
   React.useEffect(() => {
