@@ -302,7 +302,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         id: props.boardContent.id,
         images: serializedImages,
         strokes,
-        texts
+        texts,
+        viewport: {
+          zoom: zoom,
+          stagePos: stagePos
+        }
       };
       
       console.log('Manually saving board content with storage URLs:', content);
@@ -615,6 +619,23 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       };
       
       loadImages();
+      
+      // Restore viewport state if it exists, otherwise center new board
+      if (props.boardContent.viewport) {
+        // Restore saved viewport position
+        setZoom(props.boardContent.viewport.zoom);
+        setStagePos(props.boardContent.viewport.stagePos);
+        console.log('Restored viewport state:', props.boardContent.viewport);
+      } else {
+        // New board - center viewport on canvas
+        const scaleX = viewport.width / boardWidth;
+        const scaleY = viewport.height / boardHeight;
+        const newZoom = Math.min(scaleX, 1);
+        setZoom(newZoom);
+        setStagePos({ x: 0, y: 0 });
+        console.log('New board - centered viewport');
+      }
+      
       lastBoardIdRef.current = props.boardContent.id;
     }
   }, [props.boardContent]);
