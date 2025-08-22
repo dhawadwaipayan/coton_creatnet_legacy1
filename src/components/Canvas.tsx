@@ -664,7 +664,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
-    const scaleBy = 1.05; // Set to 1.05 for 5% zoom steps
+    const scaleBy = 1.02; // Set to 1.02 for 2% zoom steps
     const oldScale = zoom;
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     
