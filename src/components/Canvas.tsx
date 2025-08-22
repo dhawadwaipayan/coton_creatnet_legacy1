@@ -1,6 +1,8 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback } from 'react';
 import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect } from 'react-konva';
 import { uploadBoardImage, imageElementToBlob } from '../lib/utils';
+import { ThumbnailGenerator } from '../lib/thumbnailGenerator';
+import { IncrementalLoader } from '../lib/incrementalLoader';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -344,6 +346,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         }
       };
       
+      // Generate and store thumbnail for fast previews
+      try {
+        const thumbnail = await ThumbnailGenerator.generateThumbnailFromContent(
+          content,
+          props.boardContent.id
+        );
+        ThumbnailGenerator.storeThumbnail(props.boardContent.id, thumbnail);
+        console.log('Thumbnail generated and stored:', thumbnail.id);
+      } catch (error) {
+        console.warn('Thumbnail generation failed:', error);
+      }
+      
       console.log('Manually saving board content with storage URLs:', content);
       props.onContentChange(content);
     } catch (error) {
@@ -644,7 +658,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setStrokes(props.boardContent.strokes || []);
       setTexts(props.boardContent.texts || []);
       
-      // Load images with lazy loading - prioritize visible images first
+      // Load images with incremental loading and priority
       const loadImages = async () => {
         const imageData = props.boardContent.images || [];
         
@@ -664,44 +678,60 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         
         setImages(placeholderImages);
         
-        // Then load images one by one (non-blocking)
-        imageData.forEach(async (imgData, index) => {
-          if (imgData.src && !imgData.error) {
-            try {
-              const img = new window.Image();
-              img.crossOrigin = 'anonymous';
-              
-              img.onload = () => {
-                setImages(prev => prev.map((imgItem, i) => 
-                  i === index ? { ...imgItem, image: img, loading: false } : imgItem
-                ));
-              };
-              
-              img.onerror = () => {
-                console.error('Failed to load image from storage:', imgData.src);
+        // Use incremental loader for better performance
+        if (imageData.length > 10) {
+          // Large board - use incremental loading
+          const viewportCenter = getViewportCenter();
+          
+          IncrementalLoader.loadImagesWithPriority(
+            imageData,
+            viewportCenter,
+            (loadedImage, index) => {
+              setImages(prev => prev.map((imgItem, i) => 
+                i === index ? { ...imgItem, image: loadedImage.image, loading: false, error: loadedImage.error } : imgItem
+              ));
+            }
+          );
+        } else {
+          // Small board - load normally with delays
+          imageData.forEach(async (imgData, index) => {
+            if (imgData.src && !imgData.error) {
+              try {
+                const img = new window.Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                  setImages(prev => prev.map((imgItem, i) => 
+                    i === index ? { ...imgItem, image: img, loading: false } : imgItem
+                  ));
+                };
+                
+                img.onerror = () => {
+                  console.error('Failed to load image from storage:', imgData.src);
+                  setImages(prev => prev.map((imgItem, i) => 
+                    i === index ? { ...imgItem, error: true, loading: false } : imgItem
+                  ));
+                };
+                
+                // Add small delay between loads to prevent overwhelming the browser
+                setTimeout(() => {
+                  img.src = imgData.src;
+                }, index * 25); // Reduced to 25ms for better performance
+                
+              } catch (error) {
+                console.error('Error loading image:', error);
                 setImages(prev => prev.map((imgItem, i) => 
                   i === index ? { ...imgItem, error: true, loading: false } : imgItem
                 ));
-              };
-              
-              // Add small delay between loads to prevent overwhelming the browser
-              setTimeout(() => {
-                img.src = imgData.src;
-              }, index * 50); // 50ms delay between each image load
-              
-            } catch (error) {
-              console.error('Error loading image:', error);
+              }
+            } else {
+              // Handle images without src or with errors
               setImages(prev => prev.map((imgItem, i) => 
                 i === index ? { ...imgItem, error: true, loading: false } : imgItem
               ));
             }
-          } else {
-            // Handle images without src or with errors
-            setImages(prev => prev.map((imgItem, i) => 
-              i === index ? { ...imgItem, error: true, loading: false } : imgItem
-            ));
-          }
-        });
+          });
+        }
       };
       
       loadImages();
