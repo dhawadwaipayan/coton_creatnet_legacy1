@@ -377,6 +377,28 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           imageY = center.y - (height || 200) / 2;
         }
         
+        // Calculate dimensions maintaining aspect ratio if not provided
+        let imageWidth = width;
+        let imageHeight = height;
+        
+        if (width === undefined || height === undefined) {
+          // Maintain original aspect ratio
+          const originalWidth = img.naturalWidth;
+          const originalHeight = img.naturalHeight;
+          
+          if (width === undefined && height === undefined) {
+            // Neither provided - use original dimensions
+            imageWidth = originalWidth;
+            imageHeight = originalHeight;
+          } else if (width === undefined) {
+            // Only height provided - calculate width maintaining aspect ratio
+            imageWidth = (originalWidth / originalHeight) * height;
+          } else {
+            // Only width provided - calculate height maintaining aspect ratio
+            imageHeight = (originalHeight / originalWidth) * width;
+          }
+        }
+        
         setImages(prev => [
           ...prev,
           { 
@@ -384,8 +406,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             image: img, 
             x: imageX, 
             y: imageY, 
-            width: width ?? 200, 
-            height: height ?? 200, 
+            width: imageWidth, 
+            height: imageHeight, 
             rotation: 0, 
             timestamp: Date.now() 
           }
@@ -414,6 +436,27 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           imageY = center.y - (height || 200) / 2;
         }
         
+        // Calculate dimensions maintaining aspect ratio if not provided (same logic as success case)
+        let imageWidth = width;
+        let imageHeight = height;
+        
+        if (width === undefined || height === undefined) {
+          // For error case, we don't have img.naturalWidth/Height, so use default with aspect ratio
+          if (width === undefined && height === undefined) {
+            // Neither provided - use default dimensions
+            imageWidth = 200;
+            imageHeight = 200;
+          } else if (width === undefined) {
+            // Only height provided - use default aspect ratio
+            imageWidth = height;
+            imageHeight = height;
+          } else {
+            // Only width provided - use default aspect ratio
+            imageWidth = width;
+            imageHeight = width;
+          }
+        }
+        
         setImages(prev => [
           ...prev,
           { 
@@ -421,8 +464,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             image: null, 
             x: imageX, 
             y: imageY, 
-            width: width ?? 200, 
-            height: height ?? 200, 
+            width: imageWidth, 
+            height: imageHeight, 
             rotation: 0, 
             timestamp: Date.now(), 
             error: true 
