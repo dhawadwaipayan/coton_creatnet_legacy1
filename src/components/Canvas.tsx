@@ -668,11 +668,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const oldScale = zoom;
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     
-    // Calculate minimum zoom to fit canvas width in viewport
-    const minZoomForWidth = viewport.width / boardWidth;
-    
-    // Clamp zoom between width-fit minimum and 5x maximum
-    const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
+          // Calculate minimum zoom to fit canvas width in viewport
+      const minZoomForWidth = viewport.width / boardWidth;
+      
+      // Clamp zoom between width-fit minimum and 5x maximum
+      const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
     
     // Calculate new center point
     const mousePointTo = {

@@ -519,8 +519,7 @@ const Index = () => {
                   zoom={zoom} 
                   onZoomIn={handleCanvasZoomIn} 
                   onZoomOut={handleCanvasZoomOut}
-                  onZoomReset={handleZoomReset}
-                  onZoomFit={handleZoomFit}
+                  viewportWidth={window.innerWidth}
                 />
               </div>
             )}
