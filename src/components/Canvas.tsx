@@ -284,12 +284,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (!activeBox) return null;
       const stage = stageRef.current;
       if (!stage) return null;
-      // Add stagePos to sketchBox coordinates for correct cropping
+      
+      // Convert canvas coordinates to screen coordinates for export
+      // Canvas coordinates need to be scaled by zoom and offset by stagePos
+      const screenX = activeBox.x * zoom + stagePos.x;
+      const screenY = activeBox.y * zoom + stagePos.y;
+      const screenWidth = activeBox.width * zoom;
+      const screenHeight = activeBox.height * zoom;
+      
       return stage.toDataURL({
-        x: activeBox.x + stagePos.x,
-        y: activeBox.y + stagePos.y,
-        width: activeBox.width,
-        height: activeBox.height,
+        x: screenX,
+        y: screenY,
+        width: screenWidth,
+        height: screenHeight,
         pixelRatio: 1,
       });
     },
@@ -297,12 +304,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (!renderBox) return null;
       const stage = stageRef.current;
       if (!stage) return null;
-      // Add stagePos to renderBox coordinates for correct cropping
+      
+      // Convert canvas coordinates to screen coordinates for export
+      // Canvas coordinates need to be scaled by zoom and offset by stagePos
+      const screenX = renderBox.x * zoom + stagePos.x;
+      const screenY = renderBox.y * zoom + stagePos.y;
+      const screenWidth = renderBox.width * zoom;
+      const screenHeight = renderBox.height * zoom;
+      
       return stage.toDataURL({
-        x: renderBox.x + stagePos.x,
-        y: renderBox.y + stagePos.y,
-        width: renderBox.width,
-        height: renderBox.height,
+        x: screenX,
+        y: screenY,
+        width: screenWidth,
+        height: screenHeight,
         pixelRatio: 1,
       });
     },

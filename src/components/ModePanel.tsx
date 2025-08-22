@@ -142,11 +142,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
     const sketchBox = canvasRef.current.sketchBox;
-    const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
+    // Bounding box coordinates are already in canvas space, no need to add stagePos
     let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
     let y = sketchBox ? sketchBox.y : 100;
-    x += stagePos.x;
-    y += stagePos.y;
     const placeholderUrl = '/Placeholder_Image.png';
     const placeholderWidth = 500;
     const placeholderHeight = 500;
@@ -259,11 +257,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
     const renderBox = canvasRef.current.renderBox;
-    const stagePos = canvasRef.current.stagePos || { x: 0, y: 0 };
+    // Bounding box coordinates are already in canvas space, no need to add stagePos
     let x = renderBox ? renderBox.x + renderBox.width + 40 : 100;
     let y = renderBox ? renderBox.y : 100;
-    x += stagePos.x;
-    y += stagePos.y;
     const placeholderUrl = '/Placeholder_Image.png';
     const placeholderWidth = 500;
     const placeholderHeight = 500;
