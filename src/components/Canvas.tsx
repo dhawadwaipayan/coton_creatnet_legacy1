@@ -409,6 +409,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     // Initialize load balancer with minimal config for development
     // LoadBalancer.initialize([]); // Disabled until real servers are available
     
+    // Completely disable load balancer for development to prevent health check issues
+    // LoadBalancer.initialize([]);
+    
     return () => {
       MemoryManager.dispose();
       DatabaseOptimizer.dispose();
