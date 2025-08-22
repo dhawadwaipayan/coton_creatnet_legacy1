@@ -211,19 +211,27 @@ export function getUser() {
 
 // Supabase Storage helpers for board images
 export async function uploadBoardImage(userId: string, boardId: string, imageId: string, imageBlob: Blob | Buffer) {
-  const filePath = `${userId}/${boardId}/${imageId}.png`;
+  // Determine file extension and content type based on blob type
+  const isWebP = (imageBlob as any)?.type === 'image/webp';
+  const fileExtension = isWebP ? 'webp' : 'png';
+  const contentType = isWebP ? 'image/webp' : 'image/png';
+  const filePath = `${userId}/${boardId}/${imageId}.${fileExtension}`;
+  
   console.log('Uploading image to Supabase Storage:', {
     userId,
     boardId,
     imageId,
     filePath,
     blobType: (imageBlob as any)?.type,
-    blobSize: (imageBlob as any)?.size
+    blobSize: (imageBlob as any)?.size,
+    format: fileExtension,
+    compression: isWebP ? 'WebP (85% quality)' : 'PNG (lossless)'
   });
+  
   const { data, error } = await supabase.storage
     .from('board-images')
     .upload(filePath, imageBlob, {
-      contentType: 'image/png',
+      contentType: contentType,
       upsert: true
     });
   
@@ -275,7 +283,7 @@ export async function deleteBoardImages(boardId: string) {
   }
 }
 
-// Convert HTMLImageElement to Blob
+// Convert HTMLImageElement to Blob with WebP compression
 export function imageElementToBlob(image: HTMLImageElement, width?: number, height?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
@@ -289,13 +297,33 @@ export function imageElementToBlob(image: HTMLImageElement, width?: number, heig
     }
     
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (blob) {
-        resolve(blob);
-      } else {
-        reject(new Error('Could not convert image to blob'));
-      }
-    }, 'image/png');
+    
+    // Try WebP first for better compression, fallback to PNG if not supported
+    if (canvas.toBlob) {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          // Fallback to PNG if WebP fails
+          canvas.toBlob((pngBlob) => {
+            if (pngBlob) {
+              resolve(pngBlob);
+            } else {
+              reject(new Error('Could not convert image to blob'));
+            }
+          }, 'image/png');
+        }
+      }, 'image/webp', 0.85); // 85% quality for good balance of size vs quality
+    } else {
+      // Fallback for older browsers
+      canvas.toBlob((pngBlob) => {
+        if (pngBlob) {
+          resolve(pngBlob);
+        } else {
+          reject(new Error('Could not convert image to blob'));
+        }
+      }, 'image/png');
+    }
   });
 }
 

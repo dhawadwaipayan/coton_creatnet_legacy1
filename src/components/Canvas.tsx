@@ -127,7 +127,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }, [stagePos, zoom]);
 
   // Images state: store loaded HTMLImageElement
-  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean }>>([]);
+  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -158,6 +158,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [undoStack, setUndoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
   const [redoStack, setRedoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
 
+  // Debounced saving state
+  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Helper to push current state to undo stack
   const pushToUndoStack = useCallback(() => {
     setUndoStack(prev => {
@@ -167,6 +171,37 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     });
     setRedoStack([]); // Clear redo stack on new action
   }, [images, strokes, texts]);
+
+  // Debounced save function - saves after 2 seconds of inactivity
+  const debouncedSave = useCallback(() => {
+    // Clear existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+    
+    // Set new timeout for 2 seconds
+    const timeout = setTimeout(async () => {
+      if (props.onContentChange && props.boardContent) {
+        setIsSaving(true);
+        try {
+          await saveBoardContent();
+        } catch (error) {
+          console.error('Auto-save failed:', error);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    }, 2000);
+    
+    setSaveTimeout(timeout);
+  }, [saveTimeout, props.onContentChange, props.boardContent]);
+
+  // Update pushToUndoStack to trigger debounced save
+  const pushToUndoStackWithSave = useCallback(() => {
+    pushToUndoStack();
+    // Trigger debounced save after content changes
+    debouncedSave();
+  }, [pushToUndoStack, debouncedSave]);
 
   // Undo handler
   const handleUndo = useCallback(() => {
@@ -316,6 +351,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [images, strokes, texts, props.boardContent, props.onContentChange]);
 
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeout) {
+        clearTimeout(saveTimeout);
+      }
+    };
+  }, [saveTimeout]);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
@@ -361,7 +405,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       });
     },
     importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
-      pushToUndoStack();
+      pushToUndoStackWithSave();
       const img = new window.Image();
       img.src = src;
       const id = Date.now().toString();
@@ -600,60 +644,64 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setStrokes(props.boardContent.strokes || []);
       setTexts(props.boardContent.texts || []);
       
-      // Load images - reconstruct HTMLImageElement from Supabase Storage URLs
+      // Load images with lazy loading - prioritize visible images first
       const loadImages = async () => {
-        const imagePromises = (props.boardContent.images || []).map(async (imgData) => {
+        const imageData = props.boardContent.images || [];
+        
+        // First, set placeholder images for all (fast initial render)
+        const placeholderImages = imageData.map(imgData => ({
+          id: imgData.id,
+          image: null, // Will be loaded lazily
+          x: imgData.x,
+          y: imgData.y,
+          width: imgData.width,
+          height: imgData.height,
+          rotation: imgData.rotation,
+          timestamp: imgData.timestamp,
+          error: false,
+          loading: true // Mark as loading
+        }));
+        
+        setImages(placeholderImages);
+        
+        // Then load images one by one (non-blocking)
+        imageData.forEach(async (imgData, index) => {
           if (imgData.src && !imgData.error) {
-            return new Promise<{ id: string, image: HTMLImageElement, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean }>((resolve) => {
+            try {
               const img = new window.Image();
-              img.crossOrigin = 'anonymous'; // Allow CORS for Supabase Storage
+              img.crossOrigin = 'anonymous';
+              
               img.onload = () => {
-                resolve({
-                  id: imgData.id,
-                  image: img,
-                  x: imgData.x,
-                  y: imgData.y,
-                  width: imgData.width,
-                  height: imgData.height,
-                  rotation: imgData.rotation,
-                  timestamp: imgData.timestamp,
-                  error: false
-                });
+                setImages(prev => prev.map((imgItem, i) => 
+                  i === index ? { ...imgItem, image: img, loading: false } : imgItem
+                ));
               };
+              
               img.onerror = () => {
                 console.error('Failed to load image from storage:', imgData.src);
-                resolve({
-                  id: imgData.id,
-                  image: null,
-                  x: imgData.x,
-                  y: imgData.y,
-                  width: imgData.width,
-                  height: imgData.height,
-                  rotation: imgData.rotation,
-                  timestamp: imgData.timestamp,
-                  error: true
-                });
+                setImages(prev => prev.map((imgItem, i) => 
+                  i === index ? { ...imgItem, error: true, loading: false } : imgItem
+                ));
               };
-              img.src = imgData.src;
-            });
+              
+              // Add small delay between loads to prevent overwhelming the browser
+              setTimeout(() => {
+                img.src = imgData.src;
+              }, index * 50); // 50ms delay between each image load
+              
+            } catch (error) {
+              console.error('Error loading image:', error);
+              setImages(prev => prev.map((imgItem, i) => 
+                i === index ? { ...imgItem, error: true, loading: false } : imgItem
+              ));
+            }
           } else {
             // Handle images without src or with errors
-            return {
-              id: imgData.id,
-              image: null,
-              x: imgData.x,
-              y: imgData.y,
-              width: imgData.width,
-              height: imgData.height,
-              rotation: imgData.rotation,
-              timestamp: imgData.timestamp,
-              error: true
-            };
+            setImages(prev => prev.map((imgItem, i) => 
+              i === index ? { ...imgItem, error: true, loading: false } : imgItem
+            ));
           }
         });
-        
-        const loadedImages = await Promise.all(imagePromises);
-        setImages(loadedImages);
       };
       
       loadImages();
@@ -814,7 +862,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       console.log('Adding stroke with timestamp:', newTimestamp, 'max existing:', maxTimestamp);
       
-      pushToUndoStack();
+      pushToUndoStackWithSave();
       setStrokes(prev => [
         ...prev,
         {
@@ -873,7 +921,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const canvasPos = screenToCanvas(pointer.x, pointer.y);
       
       const id = Date.now().toString();
-      pushToUndoStack();
+      pushToUndoStackWithSave();
       setTexts(prev => [
         ...prev,
         {
@@ -1143,7 +1191,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
-        pushToUndoStack();
+        pushToUndoStackWithSave();
         setImages(prev => prev.filter(img => !selectedIds.some(sel => sel.id === img.id && sel.type === 'image')));
         setStrokes(prev => prev.filter(stroke => !selectedIds.some(sel => sel.id === stroke.id && sel.type === 'stroke')));
         setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
@@ -1156,7 +1204,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, sketchBox, pushToUndoStack]);
+  }, [selectedIds, sketchBox, pushToUndoStackWithSave]);
 
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
@@ -1182,7 +1230,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
   const handleTextareaBlur = () => {
     if (editingText) {
-      pushToUndoStack();
+      pushToUndoStackWithSave();
       setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
       setEditingText(null);
     }
@@ -1423,11 +1471,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   width={img.width || 200}
                   height={img.height || 200}
                   rotation={img.rotation || 0}
+                  opacity={img.loading ? 0.3 : 1} // Show loading state
                   draggable={props.selectedTool === 'select' && isSelected(img.id, 'image')}
                   onClick={evt => handleItemClick(img.id, 'image', evt)}
                   onTap={evt => handleItemClick(img.id, 'image', evt)}
                   onDragEnd={e => {
-                    pushToUndoStack();
+                    pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
                     setImages(prev => prev.map(im => im.id === img.id ? { ...im, x, y } : im));
                     handleGroupDragEnd();
@@ -1459,13 +1508,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onDblClick={() => handleTextDblClick(txt)}
                 onDblTap={() => handleTextDblClick(txt)}
                 onDragEnd={e => {
-                  pushToUndoStack();
+                  pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
                   setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x, y } : t));
                   handleGroupDragEnd();
                 }}
                 onTransformEnd={e => {
-                  pushToUndoStack();
+                  pushToUndoStackWithSave();
                   const node = e.target;
                   const scaleX = node.scaleX();
                   const scaleY = node.scaleY();
@@ -1505,7 +1554,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onClick={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onTap={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onDragEnd={e => {
-                  pushToUndoStack();
+                  pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
                   setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x, y } : s));
                   handleGroupDragEnd();
