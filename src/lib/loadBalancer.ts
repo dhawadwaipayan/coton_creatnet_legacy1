@@ -206,9 +206,10 @@ export class LoadBalancer {
    * Start health checks
    */
   private static startHealthChecks(): void {
-    this.healthCheckTimer = setInterval(() => {
-      this.performHealthChecks();
-    }, this.HEALTH_CHECK_INTERVAL);
+    // Disabled for development - no real servers to check
+    // this.healthCheckTimer = setInterval(() => {
+    //   this.performHealthChecks();
+    // }, this.HEALTH_CHECK_INTERVAL);
   }
 
   /**

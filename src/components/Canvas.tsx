@@ -406,29 +406,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       );
     }
     
-    // Initialize load balancer with mock servers (replace with actual servers)
-    LoadBalancer.initialize([
-      {
-        id: 'server-1',
-        url: 'https://api1.cotonai.com',
-        health: 'healthy',
-        load: 20,
-        responseTime: 50,
-        lastCheck: Date.now(),
-        region: 'us-east-1',
-        priority: 1
-      },
-      {
-        id: 'server-2',
-        url: 'https://api2.cotonai.com',
-        health: 'healthy',
-        load: 15,
-        responseTime: 45,
-        lastCheck: Date.now(),
-        region: 'us-west-1',
-        priority: 2
-      }
-    ]);
+    // Initialize load balancer with minimal config for development
+    // LoadBalancer.initialize([]); // Disabled until real servers are available
     
     return () => {
       MemoryManager.dispose();
