@@ -3,6 +3,9 @@ import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText
 import { uploadBoardImage, imageElementToBlob } from '../lib/utils';
 import { ThumbnailGenerator } from '../lib/thumbnailGenerator';
 import { IncrementalLoader } from '../lib/incrementalLoader';
+import { MemoryManager } from '../lib/memoryManager';
+import { DatabaseOptimizer } from '../lib/databaseOptimizer';
+import { PerformanceMonitor } from '../lib/performanceMonitor';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -354,6 +357,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         );
         ThumbnailGenerator.storeThumbnail(props.boardContent.id, thumbnail);
         console.log('Thumbnail generated and stored:', thumbnail.id);
+        
+        // Cache the board content for faster future access
+        const cacheKey = `board-content:${props.boardContent.id}`;
+        DatabaseOptimizer.cacheQuery(cacheKey, content, 300000); // 5 minutes
       } catch (error) {
         console.warn('Thumbnail generation failed:', error);
       }
@@ -364,6 +371,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       console.error('Error saving board content:', error);
     }
   }, [images, strokes, texts, props.boardContent, props.onContentChange]);
+
+  // Initialize optimizers
+  React.useEffect(() => {
+    MemoryManager.initialize();
+    DatabaseOptimizer.initialize();
+    PerformanceMonitor.initialize();
+    
+    return () => {
+      MemoryManager.dispose();
+      DatabaseOptimizer.dispose();
+      PerformanceMonitor.dispose();
+    };
+  }, []);
 
   // Cleanup timeout on unmount
   React.useEffect(() => {
@@ -653,6 +673,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     // Check if we have a valid board content object with the expected structure
     if (props.boardContent && lastBoardIdRef.current !== props.boardContent.id) {
       console.log('Loading board content:', props.boardContent);
+      PerformanceMonitor.startBoardLoad();
       
       // Load strokes and texts directly
       setStrokes(props.boardContent.strokes || []);
@@ -660,6 +681,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       // Load images with incremental loading and priority
       const loadImages = async () => {
+        PerformanceMonitor.startImageLoad();
         const imageData = props.boardContent.images || [];
         
         // First, set placeholder images for all (fast initial render)
@@ -697,8 +719,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           imageData.forEach(async (imgData, index) => {
             if (imgData.src && !imgData.error) {
               try {
-                const img = new window.Image();
-                img.crossOrigin = 'anonymous';
+                // Use memory manager for image pooling
+                const img = MemoryManager.getImage(imgData.id);
                 
                 img.onload = () => {
                   setImages(prev => prev.map((imgItem, i) => 
@@ -711,6 +733,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   setImages(prev => prev.map((imgItem, i) => 
                     i === index ? { ...imgItem, error: true, loading: false } : imgItem
                   ));
+                  // Return image to pool on error
+                  MemoryManager.returnImage(imgData.id);
                 };
                 
                 // Add small delay between loads to prevent overwhelming the browser
@@ -734,7 +758,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         }
       };
       
-      loadImages();
+      loadImages().finally(() => {
+        PerformanceMonitor.endImageLoad();
+      });
       
       // Restore viewport state if it exists, otherwise center new board
       if (props.boardContent.viewport) {
@@ -753,6 +779,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
       
       lastBoardIdRef.current = props.boardContent.id;
+      PerformanceMonitor.endBoardLoad();
     }
   }, [props.boardContent]);
 
