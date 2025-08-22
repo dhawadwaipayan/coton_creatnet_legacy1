@@ -460,13 +460,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setStagePos({ x: 0, y: 0 });
     },
     zoomIn: () => {
-      const newZoom = Math.min(zoom * 1.2, 5);
+      const newZoom = Math.min(zoom * 1.05, 5); // Reduced from 1.2 to 1.05 for smoother zooming
       setZoom(newZoom);
     },
     zoomOut: () => {
       // Calculate minimum zoom to fit canvas width in viewport
       const minZoomForWidth = viewport.width / boardWidth;
-      const newZoom = Math.max(zoom / 1.2, minZoomForWidth);
+      const newZoom = Math.max(zoom / 1.05, minZoomForWidth); // Reduced from 1.2 to 1.05 for smoother zooming
       setZoom(newZoom);
     },
     replaceImageById: (id: string, newSrc: string) => {
@@ -648,7 +648,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
-    const scaleBy = 1.1;
+    const scaleBy = 1.03; // Reduced from 1.1 to 1.03 for smoother zooming
     const oldScale = zoom;
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     
