@@ -8,7 +8,7 @@ import { DatabaseOptimizer } from '../lib/databaseOptimizer';
 import { PerformanceMonitor } from '../lib/performanceMonitor';
 import { AdvancedCache } from '../lib/advancedCache';
 import { CollaborationManager } from '../lib/collaborationManager';
-import { LoadBalancer } from '../lib/loadBalancer';
+// import { LoadBalancer } from '../lib/loadBalancer'; // Disabled to prevent health check issues
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -418,7 +418,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       PerformanceMonitor.dispose();
       AdvancedCache.dispose();
       CollaborationManager.dispose();
-      LoadBalancer.dispose();
+      // LoadBalancer.dispose(); // Disabled to prevent any health check issues
     };
   }, [props.boardContent?.user_id, props.boardContent?.id]);
 

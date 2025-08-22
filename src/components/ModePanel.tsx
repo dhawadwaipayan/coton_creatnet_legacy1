@@ -251,7 +251,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         if (ctx) {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, 512, 512);
-      base64Material = canvas.toDataURL('image/png');
+      // Use WebP for better compression and smaller file sizes
+      try {
+        base64Material = canvas.toDataURL('image/webp', 0.85); // 85% quality for good compression
+      } catch (error) {
+        // Fallback to PNG if WebP is not supported
+        console.log('WebP not supported, falling back to PNG');
+        base64Material = canvas.toDataURL('image/png');
+      }
     }
       }
     }
