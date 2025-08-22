@@ -43,10 +43,46 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+
+
   // Hand tool state
   const [isDragging, setIsDragging] = useState(false);
   const [lastPos, setLastPos] = useState<{x: number, y: number} | null>(null);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+
+  // Temporary pan mode state (for middle mouse button or spacebar in select mode)
+  const [isTemporaryPanMode, setIsTemporaryPanMode] = useState(false);
+  const [temporaryPanStart, setTemporaryPanStart] = useState<{x: number, y: number} | null>(null);
+  const [isSpacebarPressed, setIsSpacebarPressed] = useState(false);
+
+  // Keyboard event listeners for spacebar pan mode
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && props.selectedTool === 'select') {
+        e.preventDefault(); // Prevent page scrolling
+        setIsSpacebarPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacebarPressed(false);
+        // Exit temporary pan mode if it was active
+        if (isTemporaryPanMode) {
+          setIsTemporaryPanMode(false);
+          setTemporaryPanStart(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [props.selectedTool, isTemporaryPanMode]);
 
   // Zoom state
   const [zoom, setZoom] = useState(1);
@@ -824,27 +860,50 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   };
 
-  // Multi-select: start selection rectangle
+  // Multi-select: start selection rectangle or temporary pan mode
   const handleStageMouseDown = (e: any) => {
+    // Check if middle mouse button is pressed (button 1) or spacebar is held
+    const isMiddleButton = e.evt.button === 1;
+    const shouldPan = isMiddleButton || isSpacebarPressed;
+    
     if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
-      const stage = stageRef.current;
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      
-      // Convert screen coordinates to canvas coordinates
-      const canvasPos = screenToCanvas(pointer.x, pointer.y);
-      
-      setSelectionStart(canvasPos);
-      setSelectionRect({ x: canvasPos.x, y: canvasPos.y, width: 0, height: 0 });
-      setSelectedIds([]);
+      if (shouldPan) {
+        // Enter temporary pan mode
+        setIsTemporaryPanMode(true);
+        setTemporaryPanStart({
+          x: e.evt.clientX,
+          y: e.evt.clientY
+        });
+        setSelectionStart(null);
+        setSelectionRect(null);
+      } else {
+        // Start selection rectangle
+        const stage = stageRef.current;
+        const pointer = stage.getPointerPosition();
+        if (!pointer) return;
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPos = screenToCanvas(pointer.x, pointer.y);
+        
+        setSelectionStart(canvasPos);
+        setSelectionRect({ x: canvasPos.x, y: canvasPos.y, width: 0, height: 0 });
+        setSelectedIds([]);
+      }
     } else {
       handleMouseDown(e);
     }
   };
 
-  // Multi-select: update selection rectangle
+  // Multi-select: update selection rectangle or temporary pan mode
   const handleStageMouseMove = (e: any) => {
-    if (selectionStart && selectionRect) {
+    if (isTemporaryPanMode && temporaryPanStart) {
+      // Handle temporary pan mode
+      const dx = e.evt.clientX - temporaryPanStart.x;
+      const dy = e.evt.clientY - temporaryPanStart.y;
+      setStagePos(prev => clampStagePos({ x: prev.x + dx, y: prev.y + dy }));
+      setTemporaryPanStart({ x: e.evt.clientX, y: e.evt.clientY });
+    } else if (selectionStart && selectionRect) {
+      // Update selection rectangle
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
@@ -863,9 +922,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   };
 
-  // Multi-select: finish selection rectangle
+  // Multi-select: finish selection rectangle or exit temporary pan mode
   const handleStageMouseUp = (e: any) => {
-    if (selectionRect && selectionStart) {
+    if (isTemporaryPanMode) {
+      // Exit temporary pan mode
+      setIsTemporaryPanMode(false);
+      setTemporaryPanStart(null);
+    } else if (selectionRect && selectionStart) {
       // Find all items that intersect the selection rectangle
       const selected: Array<{ id: string, type: 'image' | 'stroke' | 'text' }> = [];
       images.forEach(img => {
@@ -1217,7 +1280,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         width={viewport.width}
         height={viewport.height}
         ref={stageRef}
-        style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: props.selectedTool === 'hand' && isDragging ? 'grabbing' : props.selectedTool === 'hand' ? 'grab' : props.selectedTool === 'draw' ? 'crosshair' : 'default' }}
+        style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: 
+          isTemporaryPanMode ? 'grabbing' : 
+          isSpacebarPressed && props.selectedTool === 'select' ? 'grab' : 
+          props.selectedTool === 'hand' && isDragging ? 'grabbing' : 
+          props.selectedTool === 'hand' ? 'grab' : 
+          props.selectedTool === 'draw' ? 'crosshair' : 
+          'default' 
+        }}
         x={stagePos.x}
         y={stagePos.y}
         scaleX={zoom}
@@ -1228,8 +1298,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         onTouchStart={props.sketchModeActive ? handleSketchBoxMouseDown : props.renderModeActive ? handleRenderBoxMouseDown : handleStageMouseDown}
         onMouseMove={props.sketchModeActive ? handleSketchBoxMouseMove : props.renderModeActive ? handleRenderBoxMouseMove : handleStageMouseMove}
         onTouchMove={props.sketchModeActive ? handleSketchBoxMouseMove : props.renderModeActive ? handleRenderBoxMouseMove : handleStageMouseMove}
-        onMouseUp={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
-        onTouchEnd={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
+                  onMouseUp={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
+          onTouchEnd={props.sketchModeActive ? handleSketchBoxMouseUp : props.renderModeActive ? handleRenderBoxMouseUp : handleStageMouseUp}
+          onMouseLeave={() => {
+            // Exit temporary pan mode if mouse leaves the stage
+            if (isTemporaryPanMode) {
+              setIsTemporaryPanMode(false);
+              setTemporaryPanStart(null);
+            }
+          }}
         onClick={handleStageClick}
       >
         <Layer ref={layerRef} width={boardWidth} height={boardHeight}>
