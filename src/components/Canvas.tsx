@@ -452,25 +452,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setStagePos({ x: 0, y: 0 });
     },
     fitToViewport: () => {
-      // Calculate zoom to fit canvas width in viewport (prioritize width)
-      const scaleX = viewport.width / boardWidth;
-      const scaleY = viewport.height / boardHeight;
-      
-      // Prioritize width fitting, allow height to extend if needed
-      // But don't zoom in beyond 100%
-      const newZoom = Math.min(scaleX, 1);
+      // Set zoom to 50% for fit canvas width
+      const newZoom = 0.5;
       
       setZoom(newZoom);
       setStagePos({ x: 0, y: 0 });
     },
     zoomIn: () => {
-      const newZoom = Math.min(zoom * 1.05, 5); // Reduced from 1.2 to 1.05 for smoother zooming
+      const newZoom = Math.min(zoom * 1.05, 5); // 5% zoom steps
       setZoom(newZoom);
     },
     zoomOut: () => {
       // Calculate minimum zoom to fit canvas width in viewport
       const minZoomForWidth = viewport.width / boardWidth;
-      const newZoom = Math.max(zoom / 1.05, minZoomForWidth); // Reduced from 1.2 to 1.05 for smoother zooming
+      const newZoom = Math.max(zoom / 1.05, minZoomForWidth); // 5% zoom steps
       setZoom(newZoom);
     },
     replaceImageById: (id: string, newSrc: string) => {
@@ -669,7 +664,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
-    const scaleBy = 1.03; // Reduced from 1.1 to 1.03 for smoother zooming
+    const scaleBy = 1.05; // Set to 1.05 for 5% zoom steps
     const oldScale = zoom;
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     
