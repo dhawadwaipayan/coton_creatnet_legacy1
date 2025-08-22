@@ -9,6 +9,9 @@ import { PerformanceMonitor } from '../lib/performanceMonitor';
 import { AdvancedCache } from '../lib/advancedCache';
 import { CollaborationManager } from '../lib/collaborationManager';
 // import { LoadBalancer } from '../lib/loadBalancer'; // Disabled to prevent health check issues
+import { cdnManager } from '../lib/cdnManager';
+import { securityManager } from '../lib/securityManager';
+import { productionMonitor } from '../lib/productionMonitor';
 
 // Helper to generate grid lines for a 5000x5000 board
 function generateGridLines(size = 5000, gridSize = 20) {
@@ -406,6 +409,43 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       );
     }
     
+    // Initialize Phase 5 services for production deployment
+    cdnManager.initialize({
+      imageOptimization: {
+        quality: 85,
+        format: 'auto',
+        maxWidth: 2048,
+        maxHeight: 2048
+      },
+      cacheStrategy: 'balanced'
+    });
+    
+    securityManager.initialize({
+      rateLimiting: {
+        enabled: true,
+        maxRequestsPerMinute: 100,
+        maxRequestsPerHour: 1000,
+        blockDuration: 15
+      },
+      inputValidation: {
+        enabled: true,
+        maxStringLength: 10000,
+        allowedFileTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+        maxFileSize: 10 * 1024 * 1024 // 10MB
+      }
+    });
+    
+    productionMonitor.initialize({
+      enabled: true,
+      sampleRate: 0.1, // Sample 10% of users
+      endpoint: 'https://analytics.cotonai.com/metrics',
+      batchSize: 50,
+      flushInterval: 30000, // 30 seconds
+      enableRealUserMonitoring: true,
+      enableErrorTracking: true,
+      enablePerformanceTracking: true
+    });
+    
     // Initialize load balancer with minimal config for development
     // LoadBalancer.initialize([]); // Disabled until real servers are available
     
@@ -419,6 +459,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       AdvancedCache.dispose();
       CollaborationManager.dispose();
       // LoadBalancer.dispose(); // Disabled to prevent any health check issues
+      cdnManager.dispose();
+      securityManager.dispose();
+      productionMonitor.dispose();
     };
   }, [props.boardContent?.user_id, props.boardContent?.id]);
 
@@ -476,6 +519,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       });
     },
     importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
+      // Security validation
+      const validation = securityManager.validateInput(src, 'string');
+      if (!validation.valid) {
+        console.error('Image import validation failed:', validation.errors);
+        return null;
+      }
+      
       pushToUndoStackWithSave();
       const img = new window.Image();
       img.src = src;
@@ -776,7 +826,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 
                 // Add small delay between loads to prevent overwhelming the browser
                 setTimeout(() => {
-                  img.src = imgData.src;
+                  // Use CDN optimization for better performance
+                  const optimizedSrc = cdnManager.getOptimizedImageUrl(imgData.src, {
+                    quality: 85,
+                    format: 'webp'
+                  });
+                  img.src = optimizedSrc;
                 }, index * 25); // Reduced to 25ms for better performance
                 
               } catch (error) {
