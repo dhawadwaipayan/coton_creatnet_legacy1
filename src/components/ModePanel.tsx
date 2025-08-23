@@ -288,8 +288,45 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode('select');
     // No overlay/status logic
-    // Prepare input for AI generation
-    const promptText = `Generate an image by using the attached material to turn the sketch into a realistic representation with a transparent background. All the topstitches and buttons will be of the same colour. In case any prompt is given on the image or as an additional input, include those changes as well. ${details}`.trim();
+    // Prepare input for AI generation with JSON prompt structure
+    const jsonPrompt: any = {
+      "task": "fashion_sketch_to_realistic_render",
+      "input": {
+        "sketch_image": base64Sketch,
+        "material_reference": base64Material ? base64Material : "not_provided",
+        "reference_style": "high-resolution fashion photography",
+        "model_preferences": {
+          "height": "tall",
+          "pose": "neutral runway stance, arms relaxed by sides",
+          "body_type": "slim but natural proportions"
+        },
+        "garment_rendering": {
+          "fabric": base64Material ? "if material_reference is provided, apply its weave, texture, and color to the entire garment; if not, use sketches default fabric fall and drape with gravity" : "use sketches default fabric fall and drape with gravity",
+          "texture": "show accurate textile weave, sheen, and depth",
+          "lighting": "studio lighting, soft shadows",
+          "details": "retain sketch design lines, seams, closures, buttons, collars, hems"
+        }
+      },
+      "output": {
+        "format": "photorealistic full-body render",
+        "background": "plain white or light grey seamless studio backdrop",
+        "camera": {
+          "angle": "front view",
+          "framing": "full height, centered"
+        },
+        "consistency": {
+          "style": "same rendering style for every garment",
+          "accuracy": "garment should exactly follow sketch silhouette"
+        }
+      }
+    };
+    
+    // Add any additional details from user input
+    if (details && details.trim()) {
+      jsonPrompt.input.additional_requirements = details.trim();
+    }
+    
+    const promptText = JSON.stringify(jsonPrompt, null, 2);
     
     try {
       let result;
