@@ -16,6 +16,7 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
       }
       
       console.log('User ID:', user.id);
+      console.log('User email:', user.email);
       
       // First, let's see what's in the root of board-videos bucket
       const { data: rootFiles, error: rootError } = await supabase.storage
@@ -24,6 +25,14 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
       
       console.log('Root files:', rootFiles);
       if (rootError) console.log('Root error:', rootError);
+      
+      // Let's also try to list with no path to see if we can access the bucket at all
+      const { data: bucketTest, error: bucketError } = await supabase.storage
+        .from('board-videos')
+        .list();
+      
+      console.log('Bucket test (no path):', bucketTest);
+      if (bucketError) console.log('Bucket error:', bucketError);
       
       // Then check the user's folder
       const { data: userFiles, error: userError } = await supabase.storage
@@ -40,6 +49,15 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
       
       console.log('Video files:', videoFiles);
       if (error) console.log('Video error:', error);
+      
+      // Let's test if we can access the specific video file we know exists
+      const knownVideoPath = 'a57ee3e3-c2f3-4a19-ace1-5d15a5dd4f52/videos/1756005533105-9525.mp4';
+      const { data: knownVideoTest, error: knownVideoError } = await supabase.storage
+        .from('board-videos')
+        .getPublicUrl(knownVideoPath);
+      
+      console.log('Known video test:', knownVideoTest);
+      if (knownVideoError) console.log('Known video error:', knownVideoError);
       
       if (error || !videoFiles || videoFiles.length === 0) {
         // Try to find any video files in the user's folder
