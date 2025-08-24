@@ -350,6 +350,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const content = {
         id: props.boardContent.id,
         images: serializedImages,
+        videos: videos.map(video => ({
+          id: video.id,
+          src: video.src,
+          x: video.x,
+          y: video.y,
+          width: video.width,
+          height: video.height,
+          rotation: video.rotation,
+          timestamp: video.timestamp
+        })),
         strokes,
         texts,
         viewport: {
@@ -819,6 +829,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     if (!props.boardContent) {
       // Clear all content when no board is selected (during overlays)
       setImages([]);
+      setVideos([]);
       setStrokes([]);
       setTexts([]);
       lastBoardIdRef.current = null;
@@ -922,6 +933,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       loadImages().finally(() => {
         PerformanceMonitor.endImageLoad();
       });
+      
+      // Load videos
+      const videoData = props.boardContent.videos || [];
+      setVideos(videoData);
+      console.log('Loaded videos:', videoData);
       
       // Restore viewport state if it exists, otherwise center new board
       if (props.boardContent.viewport) {
