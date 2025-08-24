@@ -1785,21 +1785,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                       cursor: 'pointer'
                     }}
                   />
-                  <video
+                  <iframe
                     src={video.src}
-                    controls
-                    preload="metadata"
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
+                      border: 'none',
+                      borderRadius: '8px',
                       position: 'relative',
                       zIndex: 0
                     }}
-                    onLoadStart={() => console.log('Video loading started:', video.src)}
-                    onLoadedMetadata={() => console.log('Video metadata loaded:', video.src)}
-                    onCanPlay={() => console.log('Video can play:', video.src)}
-                    onError={(e) => console.error('Video error:', e, video.src)}
+                    onLoad={() => console.log('Video iframe loaded:', video.src)}
+                    onError={(e) => console.error('Video iframe error:', e, video.src)}
+                    allowFullScreen
+                    allow="autoplay; encrypted-media; picture-in-picture"
                   />
                 </Html>
               </Group>
