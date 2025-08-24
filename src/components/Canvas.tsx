@@ -1878,16 +1878,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onDragStart={e => handleGroupDragStart(e, video.id, 'video')}
                   onDragMove={e => handleGroupDragMove(e, video.id, 'video')}
                 >
-                <Rect
-                  x={0}
-                  y={0}
-                  width={video.width}
-                  height={video.height}
-                  fill="transparent"
-                  stroke={isSelected(video.id, 'video') ? "#E1FF00" : "#666"}
-                  strokeWidth={2}
-                  cornerRadius={8}
-                />
+
                 {video.videoElement ? (
                   <KonvaImage
                     image={video.videoElement}
@@ -1916,16 +1907,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                    fill="transparent"
                  />
                  
-                 {/* Play/Pause button in corner */}
+                 {/* Simple Play/Pause button in corner */}
                  <Rect
-                   x={10}
-                   y={10}
-                   width={40}
-                   height={40}
+                   x={5}
+                   y={5}
+                   width={30}
+                   height={30}
                    fill="#E1FF00"
                    stroke="#000"
-                   strokeWidth={2}
-                   cornerRadius={6}
+                   strokeWidth={1}
+                   cornerRadius={4}
                    onClick={() => {
                      if (video.videoElement) {
                        if (video.videoElement.paused) {
@@ -1937,10 +1928,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                    }}
                  />
                  <KonvaText
-                   x={15}
-                   y={15}
+                   x={10}
+                   y={8}
                    text={video.videoElement && !video.videoElement.paused ? "⏸" : "▶"}
-                   fontSize={20}
+                   fontSize={16}
                    fill="#000"
                    align="center"
                  />
