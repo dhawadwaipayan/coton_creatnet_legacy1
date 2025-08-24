@@ -1,5 +1,5 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback } from 'react';
-import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect } from 'react-konva';
+import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect, Group } from 'react-konva';
 import { uploadBoardImage, imageElementToBlob } from '../lib/utils';
 import { ThumbnailGenerator } from '../lib/thumbnailGenerator';
 import { IncrementalLoader } from '../lib/incrementalLoader';

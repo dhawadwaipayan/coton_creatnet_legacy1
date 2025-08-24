@@ -8,6 +8,7 @@ import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
+import { VideoTestButton } from '@/components/VideoTestButton';
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
@@ -438,6 +439,17 @@ const Index = () => {
             boardContent={getBoardContentForCanvas()}
             onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
           />
+
+          {/* TEMPORARY VIDEO TEST BUTTON - Remove after testing */}
+          {!showAuth && !showBoardOverlay && (
+            <VideoTestButton
+              onVideoLoad={(videoUrl, x, y, width, height) => {
+                if (canvasRef.current && canvasRef.current.importVideo) {
+                  canvasRef.current.importVideo(videoUrl, x, y, width, height);
+                }
+              }}
+            />
+          )}
 
           {/* Sidebar - positioned center left - hidden during auth overlay and board overlay */}
           {!showAuth && !showBoardOverlay && (
