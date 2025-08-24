@@ -169,6 +169,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     videoAnimationRef.current = anim;
     anim.start();
   }, []);
+  
+  // Start video animation when videos are added
+  useEffect(() => {
+    if (videos.length > 0) {
+      startVideoAnimation();
+    }
+    return () => {
+      if (videoAnimationRef.current) {
+        videoAnimationRef.current.stop();
+      }
+    };
+  }, [videos.length, startVideoAnimation]);
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -421,6 +433,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           stagePos: stagePos
         }
       };
+      
+      console.log('Saving board content with videos:', videos.length);
       
       // Generate and store thumbnail for fast previews
       try {
@@ -806,16 +820,26 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       videoElement.src = src;
       videoElement.preload = 'metadata';
       videoElement.muted = true; // Mute to allow autoplay
+      videoElement.loop = true; // Loop video for better UX
       
       // Set video dimensions when metadata loads
       videoElement.addEventListener('loadedmetadata', () => {
-        console.log('Video metadata loaded:', src);
+        console.log('Video metadata loaded:', src, 'Dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
         // Update video dimensions if not provided
         if (!width || !height) {
           setVideos(prev => prev.map(v => 
             v.id === id ? { ...v, width: videoElement.videoWidth, height: videoElement.videoHeight } : v
           ));
         }
+        // Start video animation after metadata loads
+        if (layerRef.current) {
+          startVideoAnimation();
+        }
+      });
+      
+      // Handle video loading errors
+      videoElement.addEventListener('error', (e) => {
+        console.error('Video loading error:', e, src);
       });
       
       setVideos(prev => [
