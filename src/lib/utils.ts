@@ -283,7 +283,7 @@ export async function deleteBoardImages(boardId: string) {
   }
 }
 
-// Convert HTMLImageElement to Blob with WebP compression
+// Convert HTMLImageElement to Blob with maximum quality PNG
 export function imageElementToBlob(image: HTMLImageElement, width?: number, height?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
@@ -296,24 +296,21 @@ export function imageElementToBlob(image: HTMLImageElement, width?: number, heig
       return;
     }
     
+    // Enable image smoothing for better quality
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
     
-    // Try WebP first for better compression, fallback to PNG if not supported
+    // Use PNG format with maximum quality for best image preservation
     if (canvas.toBlob) {
       canvas.toBlob((blob) => {
         if (blob) {
           resolve(blob);
         } else {
-          // Fallback to PNG if WebP fails
-          canvas.toBlob((pngBlob) => {
-            if (pngBlob) {
-              resolve(pngBlob);
-            } else {
-              reject(new Error('Could not convert image to blob'));
-            }
-          }, 'image/png');
+          reject(new Error('Could not convert image to PNG blob'));
         }
-      }, 'image/webp', 0.85); // 85% quality for good balance of size vs quality
+      }, 'image/png'); // PNG format for maximum quality
     } else {
       // Fallback for older browsers
       canvas.toBlob((pngBlob) => {

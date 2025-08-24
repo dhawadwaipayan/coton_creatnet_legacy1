@@ -866,18 +866,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             canvas.height = videoElement.videoHeight;
             ctx.drawImage(videoElement, 0, 0);
             
-            // Create image from canvas
-            const thumbnailImage = new Image();
-            thumbnailImage.onload = () => {
-              // Update video object with thumbnail immediately
-              setVideos(prev => prev.map(v => 
-                v.id === id 
-                  ? { ...v, thumbnail: thumbnailImage }
-                  : v
-              ));
-              console.log('🎬 Thumbnail generated and applied immediately');
-            };
-            thumbnailImage.src = canvas.toDataURL();
+                              // Create image from canvas
+                  const thumbnailImage = new Image();
+                  thumbnailImage.onload = () => {
+                    // Update video object with thumbnail immediately
+                    setVideos(prev => prev.map(v => 
+                      v.id === id 
+                        ? { ...v, thumbnail: thumbnailImage }
+                        : v
+                    ));
+                    console.log('🎬 Thumbnail generated and applied immediately');
+                  };
+                  thumbnailImage.src = canvas.toDataURL('image/png');
           }
         }, { once: true });
         
@@ -972,7 +972,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     ));
                     console.log('🎬 Thumbnail generated and applied in replaceImageById');
                   };
-                  thumbnailImage.src = canvas.toDataURL();
+                  thumbnailImage.src = canvas.toDataURL('image/png');
                 }
               }, { once: true });
               
@@ -1206,7 +1206,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                       : v
                   ));
                 };
-                thumbnailImage.src = canvas.toDataURL();
+                thumbnailImage.src = canvas.toDataURL('image/png');
               }
             }, { once: true });
             
