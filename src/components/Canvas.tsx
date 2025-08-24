@@ -759,6 +759,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           timestamp: Date.now()
         }
       ]);
+      
+      // Save board content after adding video
+      setTimeout(() => {
+        saveBoardContent();
+      }, 100);
+      
       return id;
     },
     replaceImageById: (id: string, newSrc: string, isVideo: boolean = false) => {
@@ -1723,6 +1729,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             ))}
           
           {/* Render all videos after images (oldest to newest) */}
+          {console.log('Rendering videos:', videos)}
           {videos
             .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
@@ -1781,6 +1788,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   <video
                     src={video.src}
                     controls
+                    preload="metadata"
                     style={{
                       width: '100%',
                       height: '100%',
@@ -1788,6 +1796,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                       position: 'relative',
                       zIndex: 0
                     }}
+                    onLoadStart={() => console.log('Video loading started:', video.src)}
+                    onLoadedMetadata={() => console.log('Video metadata loaded:', video.src)}
+                    onCanPlay={() => console.log('Video can play:', video.src)}
+                    onError={(e) => console.error('Video error:', e, video.src)}
                   />
                 </Html>
               </Group>
