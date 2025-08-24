@@ -359,7 +359,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Manual save function - upload images to Supabase Storage
   const saveBoardContent = useCallback(async () => {
-    if (!props.onContentChange || !props.boardContent) return;
+    console.log('🔄 saveBoardContent called');
+    console.log('props.onContentChange exists:', !!props.onContentChange);
+    console.log('props.boardContent exists:', !!props.boardContent);
+    console.log('Current videos state:', videos);
+    
+    if (!props.onContentChange || !props.boardContent) {
+      console.log('❌ saveBoardContent early return - missing required props');
+      return;
+    }
     
     try {
       // Upload images to Supabase Storage and get URLs
@@ -471,8 +479,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         console.warn('Thumbnail generation failed:', error);
       }
       
-      console.log('Manually saving board content with storage URLs:', content);
+      console.log('🎬 Manually saving board content with storage URLs:', content);
+      console.log('🎬 Content videos array length:', content.videos.length);
+      console.log('🎬 About to call props.onContentChange');
       props.onContentChange(content);
+      console.log('🎬 props.onContentChange called successfully');
     } catch (error) {
       console.error('Error saving board content:', error);
     }
@@ -816,6 +827,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return image.image.src;
     },
     importVideo: (src: string, x: number, y: number, width: number, height: number) => {
+      console.log('🎬 importVideo called with:', { src, x, y, width, height });
       pushToUndoStackWithSave();
       const id = Date.now().toString();
       
@@ -846,23 +858,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         console.error('Video loading error:', e, src);
       });
       
-      setVideos(prev => [
-        ...prev,
-        {
-          id,
-          src,
-          x,
-          y,
-          width: width || 500,
-          height: height || 889,
-          rotation: 0,
-          timestamp: Date.now(),
-          videoElement
-        }
-      ]);
+      const newVideo = {
+        id,
+        src,
+        x,
+        y,
+        width: width || 500,
+        height: height || 889,
+        rotation: 0,
+        timestamp: Date.now(),
+        videoElement
+      };
+      
+      console.log('🎬 Creating new video object:', newVideo);
+      
+      setVideos(prev => {
+        const updatedVideos = [...prev, newVideo];
+        console.log('🎬 Updated videos state:', updatedVideos);
+        return updatedVideos;
+      });
       
       // Save board content after adding video
       setTimeout(() => {
+        console.log('🎬 Calling saveBoardContent after video import');
         saveBoardContent();
       }, 100);
       
@@ -1043,7 +1061,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       // Load videos and recreate video elements
       const videoData = props.boardContent.videos || [];
-      console.log('Loading video data from board:', videoData);
+      console.log('🎬 Loading video data from board:', videoData);
+      console.log('Board content videos property:', props.boardContent.videos);
+      console.log('Board content keys:', Object.keys(props.boardContent));
       
       if (videoData.length > 0) {
         const videosWithElements = videoData.map(videoData => {
