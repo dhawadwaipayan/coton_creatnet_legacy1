@@ -1898,6 +1898,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     cornerRadius={8}
                   />
                 )}
+                
+                {/* Selection border - always visible but changes color */}
+                <Rect
+                  x={0}
+                  y={0}
+                  width={video.width}
+                  height={video.height}
+                  fill="transparent"
+                  stroke={isSelected(video.id, 'video') ? "#E1FF00" : "transparent"}
+                  strokeWidth={3}
+                  cornerRadius={8}
+                  listening={false}
+                />
                                  {/* Video controls overlay - no click functionality */}
                  <Rect
                    x={0}
