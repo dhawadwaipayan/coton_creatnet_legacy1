@@ -2122,16 +2122,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                    fill="transparent"
                  />
                  
-                 {/* Play/Pause button matching board panel styling */}
-                 <Rect
-                   x={10}
-                   y={10}
-                   width={28}
-                   height={28}
-                   fill="#1a1a1a"
-                   stroke="#373737"
-                   strokeWidth={1}
-                   cornerRadius={6}
+                 {/* Simple Play/Pause icon in brand green color */}
+                 <KonvaText
+                   x={15}
+                   y={15}
+                   text={video.videoElement && !video.videoElement.paused ? "⏸" : "▶"}
+                   fontSize={20}
+                   fill="#E1FF00"
+                   align="center"
+                   fontFamily="Arial, sans-serif"
                    onClick={() => {
                      if (video.videoElement) {
                        if (video.videoElement.paused) {
@@ -2142,39 +2141,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                      }
                    }}
                  />
-                 {/* Play/Pause icon using Phosphor-style design */}
-                 {video.videoElement && !video.videoElement.paused ? (
-                   // Pause icon - two white vertical bars with rounded corners
-                   <>
-                     <Rect
-                       x={13}
-                       y={11}
-                       width={2}
-                       height={6}
-                       fill="#ffffff"
-                       cornerRadius={1}
-                     />
-                     <Rect
-                       x={17}
-                       y={11}
-                       width={2}
-                       height={6}
-                       fill="#ffffff"
-                       cornerRadius={1}
-                     />
-                   </>
-                 ) : (
-                   // Play icon - white triangle pointing right
-                   <KonvaText
-                     x={11}
-                     y={9}
-                     text="▶"
-                     fontSize={12}
-                     fill="#ffffff"
-                     align="center"
-                     fontFamily="Arial, sans-serif"
-                   />
-                 )}
               </Group>
             ))}
           
