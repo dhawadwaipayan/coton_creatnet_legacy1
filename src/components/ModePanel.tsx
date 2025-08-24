@@ -439,6 +439,26 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     let x = selectedImage.x + selectedImage.width + 40;
     let y = selectedImage.y;
     
+    // Add placeholder image immediately for better UX
+    const placeholderUrl = '/Placeholder_Image_video.png';
+    const videoWidth = 764;   // Correct video width (aspect ratio)
+    const videoHeight = 1200; // Correct video height (aspect ratio)
+    
+    let placeholderId: string | null = null;
+    await new Promise<void>(resolve => {
+      if (canvasRef.current?.importImage) {
+        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, videoWidth, videoHeight, (id: string) => {
+          // After placeholder is loaded, select it
+          if (canvasRef.current && canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+    
     // Switch to select tool for better UX
     if (setSelectedMode) setSelectedMode('select');
     
@@ -462,7 +482,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       const result = await response.json();
       
       if (result.success && result.video) {
-        // Use the working importVideo method directly
+        // Remove placeholder image first
+        if (canvasRef.current?.removeImage && placeholderId) {
+          canvasRef.current.removeImage(placeholderId);
+          console.log('🎬 Placeholder image removed');
+        }
+        
+        // Use the working importVideo method to add video
         if (canvasRef.current?.importVideo) {
           const videoId = canvasRef.current.importVideo(
             result.video.url,  // Supabase video URL
@@ -493,7 +519,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       console.error('[Video AI] Error:', err);
       alert('[Video AI] Error: ' + (err instanceof Error ? err.message : String(err)));
       
-
+      // Remove placeholder on error
+      if (canvasRef.current?.removeImage && placeholderId) {
+        canvasRef.current.removeImage(placeholderId);
+        console.log('🎬 Placeholder image removed due to error');
+      }
     }
     
     console.log('Video generation requested:', { details, base64Image, selectedImage });
