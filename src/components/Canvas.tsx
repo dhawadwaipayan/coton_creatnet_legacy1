@@ -614,6 +614,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         pixelRatio: 1,
       });
     },
+    removeImage: (id: string) => {
+      console.log('🎬 Removing image with ID:', id);
+      setImages(prev => prev.filter(img => img.id !== id));
+      console.log('🎬 Image removed successfully');
+    },
     importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
       // Security validation (DISABLED FOR NOW)
       // const validation = securityManager.validateInput(src, 'string');

@@ -482,10 +482,17 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       const result = await response.json();
       
       if (result.success && result.video) {
+        console.log('🎬 Video generation successful, removing placeholder:', placeholderId);
+        
         // Remove placeholder image first
         if (canvasRef.current?.removeImage && placeholderId) {
+          console.log('🎬 Calling removeImage method');
           canvasRef.current.removeImage(placeholderId);
           console.log('🎬 Placeholder image removed');
+        } else {
+          console.log('🎬 Cannot remove placeholder - removeImage method not available or placeholderId missing');
+          console.log('🎬 removeImage available:', !!canvasRef.current?.removeImage);
+          console.log('🎬 placeholderId:', placeholderId);
         }
         
         // Use the working importVideo method to add video
