@@ -459,8 +459,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
     });
     
-    // After adding placeholder, close video tab and switch to select tool
-    if (closeSketchBar) closeSketchBar();
+    // After adding placeholder, switch to select tool
     if (setSelectedMode) setSelectedMode('select');
     
     try {
@@ -482,11 +481,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       
       const result = await response.json();
       
-              if (result.success && result.video) {
-          // Replace placeholder with video
-          if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-            canvasRef.current.replaceImageById(placeholderId, result.video.url, true); // isVideo = true
-          }
+      if (result.success && result.video) {
+        // Replace placeholder with video
+        if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+          canvasRef.current.replaceImageById(placeholderId, result.video.url, true); // isVideo = true
+        }
         
         setAiStatus('success');
         setTimeout(() => setAiStatus('idle'), 2000);
