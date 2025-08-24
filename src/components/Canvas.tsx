@@ -951,7 +951,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
     useEffect(() => {
+    console.log('🎬 Board content useEffect triggered');
+    console.log('🎬 props.boardContent:', props.boardContent);
+    console.log('🎬 lastBoardIdRef.current:', lastBoardIdRef.current);
+    
     if (!props.boardContent) {
+      console.log('🎬 No board content, clearing all content');
       // Clear all content when no board is selected (during overlays)
       setImages([]);
       setVideos([]);
@@ -963,7 +968,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     
     // Check if we have a valid board content object with the expected structure
     if (props.boardContent && lastBoardIdRef.current !== props.boardContent.id) {
-      console.log('Loading board content:', props.boardContent);
+      console.log('🎬 Loading board content for ID:', props.boardContent.id);
+      console.log('🎬 Board content object:', props.boardContent);
       PerformanceMonitor.startBoardLoad();
       
       // Load strokes and texts directly
@@ -1062,11 +1068,17 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Load videos and recreate video elements
       const videoData = props.boardContent.videos || [];
       console.log('🎬 Loading video data from board:', videoData);
-      console.log('Board content videos property:', props.boardContent.videos);
-      console.log('Board content keys:', Object.keys(props.boardContent));
+      console.log('🎬 Board content videos property:', props.boardContent.videos);
+      console.log('🎬 Board content keys:', Object.keys(props.boardContent));
+      console.log('🎬 Board content ID:', props.boardContent.id);
+      console.log('🎬 Board content type:', typeof props.boardContent.videos);
+      console.log('🎬 Board content videos length:', props.boardContent.videos?.length);
       
       if (videoData.length > 0) {
-        const videosWithElements = videoData.map(videoData => {
+        console.log('🎬 Found video data, creating video elements...');
+        const videosWithElements = videoData.map((videoData, index) => {
+          console.log(`🎬 Creating video element ${index + 1}:`, videoData);
+          
           const videoElement = document.createElement('video');
           videoElement.src = videoData.src;
           videoElement.preload = 'metadata';
@@ -1075,21 +1087,28 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           
           // Handle video loading
           videoElement.addEventListener('loadedmetadata', () => {
-            console.log('Video metadata loaded from board:', videoData.src);
+            console.log('🎬 Video metadata loaded from board:', videoData.src);
+            console.log('🎬 Video dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
             // Start animation after all videos are loaded
             if (layerRef.current) {
               startVideoAnimation();
             }
           });
           
+          // Handle video errors
+          videoElement.addEventListener('error', (e) => {
+            console.error('🎬 Video loading error from board:', e, videoData.src);
+          });
+          
           return { ...videoData, videoElement };
         });
         
+        console.log('🎬 Created videos with elements:', videosWithElements);
         setVideos(videosWithElements);
-        console.log('Loaded videos with elements:', videosWithElements.length);
+        console.log('🎬 Set videos state with', videosWithElements.length, 'videos');
       } else {
+        console.log('🎬 No videos to load from board');
         setVideos([]);
-        console.log('No videos to load from board');
       }
       
       // Restore viewport state if it exists, otherwise center new board
