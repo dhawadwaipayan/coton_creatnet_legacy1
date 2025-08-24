@@ -923,20 +923,81 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           if (idx === -1) return prev;
           const oldImg = prev[idx];
           
-          // Add video to videos array with correct aspect ratio
-          setVideos(videos => [
-            ...videos,
-            {
-              id: `video-${Date.now()}`,
-              src: newSrc,
-              x: oldImg.x,
-              y: oldImg.y,
-              width: 764,  // Use correct video aspect ratio width
-              height: 1200, // Use correct video aspect ratio height
-              rotation: oldImg.rotation,
-              timestamp: Date.now()
-            }
-          ]);
+          // Use the working importVideo method for proper video creation
+          if (newSrc) {
+            // Create video element following Konva.js pattern
+            const videoElement = document.createElement('video');
+            videoElement.src = newSrc;
+            videoElement.preload = 'metadata';
+            videoElement.muted = true;
+            videoElement.loop = true;
+            
+            // Set video dimensions when metadata loads
+            videoElement.addEventListener('loadedmetadata', () => {
+              console.log('🎬 Video metadata loaded in replaceImageById:', newSrc, 'Dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+              
+              // Always update video dimensions to match actual video aspect ratio
+              const actualWidth = videoElement.videoWidth;
+              const actualHeight = videoElement.videoHeight;
+              console.log('🎬 Updating video dimensions to actual:', actualWidth, 'x', actualHeight);
+              
+              setVideos(prev => prev.map(v => 
+                v.id === `video-${Date.now()}` ? { ...v, width: actualWidth, height: actualHeight } : v
+              ));
+              
+              // Immediately capture first frame as thumbnail
+              videoElement.currentTime = 0;
+              videoElement.addEventListener('seeked', () => {
+                // Create canvas to capture first frame
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  canvas.width = videoElement.videoWidth;
+                  canvas.height = videoElement.videoHeight;
+                  ctx.drawImage(videoElement, 0, 0);
+                  
+                  // Create image from canvas
+                  const thumbnailImage = new Image();
+                  thumbnailImage.onload = () => {
+                    // Update video object with thumbnail immediately
+                    setVideos(prev => prev.map(v => 
+                      v.id === `video-${Date.now()}` 
+                        ? { ...v, thumbnail: thumbnailImage }
+                        : v
+                    ));
+                    console.log('🎬 Thumbnail generated and applied in replaceImageById');
+                  };
+                  thumbnailImage.src = canvas.toDataURL();
+                }
+              }, { once: true });
+              
+              // Start video animation after metadata loads
+              if (layerRef.current) {
+                startVideoAnimation();
+              }
+            });
+            
+            // Handle video loading errors
+            videoElement.addEventListener('error', (e) => {
+              console.error('🎬 Video loading error in replaceImageById:', e, newSrc);
+            });
+            
+            // Add video to videos array with correct aspect ratio
+            setVideos(videos => [
+              ...videos,
+              {
+                id: `video-${Date.now()}`,
+                src: newSrc,
+                x: oldImg.x,
+                y: oldImg.y,
+                width: 764,  // Use correct video aspect ratio width
+                height: 1200, // Use correct video aspect ratio height
+                rotation: oldImg.rotation,
+                timestamp: Date.now(),
+                videoElement
+              }
+            ]);
+          }
           
           // Remove the placeholder image
           return prev.filter((_, i) => i !== idx);
