@@ -68,12 +68,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [temporaryPanStart, setTemporaryPanStart] = useState<{x: number, y: number} | null>(null);
   const [isSpacebarPressed, setIsSpacebarPressed] = useState(false);
 
-  // Keyboard event listeners for spacebar pan mode
+  // Keyboard event listeners for spacebar pan mode and delete
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && props.selectedTool === 'select') {
         e.preventDefault(); // Prevent page scrolling
         setIsSpacebarPressed(true);
+      }
+      
+      // Delete selected items (Delete or Backspace key)
+      if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIds.length > 0) {
+        e.preventDefault();
+        handleDeleteSelected();
       }
     };
 
@@ -263,6 +269,33 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return prev.slice(1);
     });
   }, [images, strokes, texts]);
+  
+  // Delete selected items handler
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    
+    pushToUndoStackWithSave();
+    
+    // Delete selected images
+    const selectedImageIds = selectedIds.filter(id => id.type === 'image').map(id => id.id);
+    setImages(prev => prev.filter(img => !selectedImageIds.includes(img.id)));
+    
+    // Delete selected strokes
+    const selectedStrokeIds = selectedIds.filter(id => id.type === 'stroke').map(id => id.id);
+    setStrokes(prev => prev.filter(stroke => !selectedStrokeIds.includes(stroke.id)));
+    
+    // Delete selected texts
+    const selectedTextIds = selectedIds.filter(id => id.type === 'text').map(id => id.id);
+    setTexts(prev => prev.filter(text => !selectedTextIds.includes(text.id)));
+    
+    // Delete selected videos
+    const selectedVideoIds = selectedIds.filter(id => id.type === 'video').map(id => id.id);
+    setVideos(prev => prev.filter(video => !selectedVideoIds.includes(video.id)));
+    
+    // Clear selection
+    setSelectedIds([]);
+    setSelectionRect(null);
+  }, [selectedIds, pushToUndoStackWithSave]);
 
   // Call onSelectedImageSrcChange with the data URL of the selected image (if one image is selected), or null if not
     useEffect(() => {
@@ -1814,11 +1847,41 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   strokeWidth={2}
                   cornerRadius={8}
                 />
-                <KonvaImage
-                  image={video.videoElement}
+                {video.videoElement ? (
+                  <KonvaImage
+                    image={video.videoElement}
+                    width={video.width}
+                    height={video.height}
+                    cornerRadius={8}
+                  />
+                ) : (
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={video.width}
+                    height={video.height}
+                    fill="#f0f0f0"
+                    stroke="#ccc"
+                    strokeWidth={1}
+                    cornerRadius={8}
+                  />
+                )}
+                {/* Video controls overlay */}
+                <Rect
+                  x={0}
+                  y={0}
                   width={video.width}
                   height={video.height}
-                  cornerRadius={8}
+                  fill="transparent"
+                  onClick={() => {
+                    if (video.videoElement) {
+                      if (video.videoElement.paused) {
+                        video.videoElement.play();
+                      } else {
+                        video.videoElement.pause();
+                      }
+                    }
+                  }}
                 />
               </Group>
             ))}
