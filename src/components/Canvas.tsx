@@ -841,12 +841,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Set video dimensions when metadata loads
       videoElement.addEventListener('loadedmetadata', () => {
         console.log('Video metadata loaded:', src, 'Dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
-        // Update video dimensions if not provided
-        if (!width || !height) {
-          setVideos(prev => prev.map(v => 
-            v.id === id ? { ...v, width: videoElement.videoWidth, height: videoElement.videoHeight } : v
-          ));
-        }
+        // Always update video dimensions to match actual video aspect ratio
+        const actualWidth = videoElement.videoWidth;
+        const actualHeight = videoElement.videoHeight;
+        console.log('🎬 Updating video dimensions to actual:', actualWidth, 'x', actualHeight);
+        
+        setVideos(prev => prev.map(v => 
+          v.id === id ? { ...v, width: actualWidth, height: actualHeight } : v
+        ));
         
         // Immediately capture first frame as thumbnail
         videoElement.currentTime = 0;
@@ -890,8 +892,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         src,
         x,
         y,
-        width: width || 500,
-        height: height || 889,
+        width: width || 764,  // Use correct video aspect ratio width
+        height: height || 1200, // Use correct video aspect ratio height
         rotation: 0,
         timestamp: Date.now(),
         videoElement
@@ -921,7 +923,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           if (idx === -1) return prev;
           const oldImg = prev[idx];
           
-          // Add video to videos array
+          // Add video to videos array with correct aspect ratio
           setVideos(videos => [
             ...videos,
             {
@@ -929,8 +931,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               src: newSrc,
               x: oldImg.x,
               y: oldImg.y,
-              width: oldImg.width,
-              height: oldImg.height,
+              width: 764,  // Use correct video aspect ratio width
+              height: 1200, // Use correct video aspect ratio height
               rotation: oldImg.rotation,
               timestamp: Date.now()
             }
