@@ -15,17 +15,52 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
         return;
       }
       
-      // List videos in user's folder
+      console.log('User ID:', user.id);
+      
+      // First, let's see what's in the root of board-videos bucket
+      const { data: rootFiles, error: rootError } = await supabase.storage
+        .from('board-videos')
+        .list('', { limit: 100 });
+      
+      console.log('Root files:', rootFiles);
+      if (rootError) console.log('Root error:', rootError);
+      
+      // Then check the user's folder
+      const { data: userFiles, error: userError } = await supabase.storage
+        .from('board-videos')
+        .list(`${user.id}`, { limit: 100 });
+      
+      console.log('User files:', userFiles);
+      if (userError) console.log('User error:', userError);
+      
+      // Then check the videos subfolder
       const { data: videoFiles, error } = await supabase.storage
         .from('board-videos')
-        .list(`${user.id}/videos`, {
-          limit: 1,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+        .list(`${user.id}/videos`, { limit: 100 });
+      
+      console.log('Video files:', videoFiles);
+      if (error) console.log('Video error:', error);
       
       if (error || !videoFiles || videoFiles.length === 0) {
-        alert('No videos found');
+        // Try to find any video files in the user's folder
+        if (userFiles && userFiles.length > 0) {
+          const videoFile = userFiles.find(file => file.name.endsWith('.mp4'));
+          if (videoFile) {
+            console.log('Found video in user folder:', videoFile);
+            const { data: { publicUrl } } = supabase.storage
+              .from('board-videos')
+              .getPublicUrl(`${user.id}/${videoFile.name}`);
+            
+            const centerX = (5000 / 2) - 250;
+            const centerY = (5000 / 2) - 444;
+            
+            onVideoLoad(publicUrl, centerX, centerY, 500, 889);
+            alert(`Video loaded: ${videoFile.name}`);
+            return;
+          }
+        }
+        
+        alert(`No videos found. Root files: ${rootFiles?.length || 0}, User files: ${userFiles?.length || 0}, Video files: ${videoFiles?.length || 0}`);
         return;
       }
       
