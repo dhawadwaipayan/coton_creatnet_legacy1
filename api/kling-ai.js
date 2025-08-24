@@ -116,34 +116,42 @@ export default async function handler(req, res) {
       body: JSON.stringify(segmindPayload)
     });
     
-    if (!segmindResponse.ok) {
-      const errorText = await segmindResponse.text();
-      throw new Error(`Segmind API error: ${segmindResponse.status} ${segmindResponse.statusText} - ${errorText}`);
-    }
+    // Check if response is JSON or binary video
+    const contentType = segmindResponse.headers.get('content-type');
+    let videoBuffer;
+    let segmindResult = null;
     
-    const segmindResult = await segmindResponse.json();
-    console.log('Segmind API response:', JSON.stringify(segmindResult, null, 2));
-    
-    // Get the generated video URL from Segmind response
-    let videoUrl = null;
-    if (segmindResult && segmindResult.video_url) {
-      videoUrl = segmindResult.video_url;
-    } else if (segmindResult && segmindResult.output && segmindResult.output.video_url) {
-      videoUrl = segmindResult.output.video_url;
+    if (contentType && contentType.includes('application/json')) {
+      // JSON response with video URL
+      segmindResult = await segmindResponse.json();
+      console.log('Segmind API response:', JSON.stringify(segmindResult, null, 2));
+      
+      // Get the generated video URL from Segmind response
+      let videoUrl = null;
+      if (segmindResult && segmindResult.video_url) {
+        videoUrl = segmindResult.video_url;
+      } else if (segmindResult && segmindResult.output && segmindResult.output.video_url) {
+        videoUrl = segmindResult.output.video_url;
+      } else {
+        throw new Error('No video URL found in Segmind response');
+      }
+      
+      console.log('Generated video URL from Segmind:', videoUrl);
+      
+      // Download the video from Segmind
+      const videoResponse = await fetch(videoUrl);
+      if (!videoResponse.ok) {
+        throw new Error(`Failed to download video from Segmind: ${videoResponse.status} ${videoResponse.statusText}`);
+      }
+      
+      const videoArrayBuffer = await videoResponse.arrayBuffer();
+      videoBuffer = Buffer.from(videoArrayBuffer);
     } else {
-      throw new Error('No video URL found in Segmind response');
+      // Direct binary video response
+      console.log('Segmind returned direct video binary response');
+      const videoArrayBuffer = await segmindResponse.arrayBuffer();
+      videoBuffer = Buffer.from(videoArrayBuffer);
     }
-    
-    console.log('Generated video URL from Segmind:', videoUrl);
-    
-    // Download the video from Segmind
-    const videoResponse = await fetch(videoUrl);
-    if (!videoResponse.ok) {
-      throw new Error(`Failed to download video from Segmind: ${videoResponse.status} ${videoResponse.statusText}`);
-    }
-    
-    const videoArrayBuffer = await videoResponse.arrayBuffer();
-    const videoBuffer = Buffer.from(videoArrayBuffer);
     
     console.log('Downloaded video from Segmind, size:', videoBuffer.length);
     
