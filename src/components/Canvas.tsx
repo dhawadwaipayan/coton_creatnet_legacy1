@@ -1,6 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback } from 'react';
+import Konva from 'konva';
 import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect, Group } from 'react-konva';
-import { Html } from 'react-konva-utils';
+
 import { uploadBoardImage, imageElementToBlob } from '../lib/utils';
 import { ThumbnailGenerator } from '../lib/thumbnailGenerator';
 import { IncrementalLoader } from '../lib/incrementalLoader';
@@ -140,8 +141,28 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
-  // Videos state: store video iframes
-  const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
+  // Videos state: store video elements with Konva.js video support
+  const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number, videoElement: HTMLVideoElement }>>([]);
+  
+  // Animation for video playback
+  const videoAnimationRef = useRef<any>(null);
+  
+  // Start video animation to continuously update the layer
+  const startVideoAnimation = useCallback(() => {
+    if (videoAnimationRef.current) {
+      videoAnimationRef.current.stop();
+    }
+    
+    const anim = new Konva.Animation(() => {
+      // Animation just needs to update the layer for video playback
+      if (layerRef.current) {
+        layerRef.current.batchDraw();
+      }
+    }, layerRef.current);
+    
+    videoAnimationRef.current = anim;
+    anim.start();
+  }, []);
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -746,6 +767,24 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     importVideo: (src: string, x: number, y: number, width: number, height: number) => {
       pushToUndoStackWithSave();
       const id = Date.now().toString();
+      
+      // Create video element following Konva.js pattern
+      const videoElement = document.createElement('video');
+      videoElement.src = src;
+      videoElement.preload = 'metadata';
+      videoElement.muted = true; // Mute to allow autoplay
+      
+      // Set video dimensions when metadata loads
+      videoElement.addEventListener('loadedmetadata', () => {
+        console.log('Video metadata loaded:', src);
+        // Update video dimensions if not provided
+        if (!width || !height) {
+          setVideos(prev => prev.map(v => 
+            v.id === id ? { ...v, width: videoElement.videoWidth, height: videoElement.videoHeight } : v
+          ));
+        }
+      });
+      
       setVideos(prev => [
         ...prev,
         {
@@ -753,10 +792,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           src,
           x,
           y,
-          width,
-          height,
+          width: width || 500,
+          height: height || 889,
           rotation: 0,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          videoElement
         }
       ]);
       
@@ -940,10 +980,22 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         PerformanceMonitor.endImageLoad();
       });
       
-      // Load videos
+      // Load videos and recreate video elements
       const videoData = props.boardContent.videos || [];
-      setVideos(videoData);
-      console.log('Loaded videos:', videoData);
+      const videosWithElements = videoData.map(videoData => {
+        const videoElement = document.createElement('video');
+        videoElement.src = videoData.src;
+        videoElement.preload = 'metadata';
+        videoElement.muted = true;
+        return { ...videoData, videoElement };
+      });
+      setVideos(videosWithElements);
+      console.log('Loaded videos with elements:', videosWithElements);
+      
+      // Start video animation if any videos exist
+      if (videosWithElements.length > 0) {
+        startVideoAnimation();
+      }
       
       // Restore viewport state if it exists, otherwise center new board
       if (props.boardContent.viewport) {
@@ -1762,45 +1814,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   strokeWidth={2}
                   cornerRadius={8}
                 />
-                <Html
-                  divProps={{
-                    style: {
-                      width: video.width,
-                      height: video.height,
-                      overflow: 'hidden',
-                      borderRadius: '8px',
-                      position: 'relative'
-                    }
-                  }}
-                >
-                  {/* Transparent overlay to capture events */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      zIndex: 1,
-                      cursor: 'pointer'
-                    }}
-                  />
-                  <iframe
-                    src={video.src}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                      borderRadius: '8px',
-                      position: 'relative',
-                      zIndex: 0
-                    }}
-                    onLoad={() => console.log('Video HTML iframe loaded:', video.src)}
-                    onError={(e) => console.error('Video HTML iframe error:', e, video.src)}
-                    allowFullScreen
-                    allow="autoplay; encrypted-media; picture-in-picture"
-                  />
-                </Html>
+                <KonvaImage
+                  image={video.videoElement}
+                  width={video.width}
+                  height={video.height}
+                  cornerRadius={8}
+                />
               </Group>
             ))}
           
