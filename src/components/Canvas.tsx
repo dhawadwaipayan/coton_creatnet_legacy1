@@ -722,6 +722,30 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
       return null;
     },
+    exportSelectedImageAsPng: () => {
+      const selectedImage = selectedIds.find(sel => sel.type === 'image');
+      if (!selectedImage) return null;
+      
+      const image = images.find(img => img.id === selectedImage.id);
+      if (!image || !image.image) return null;
+      
+      const stage = stageRef.current;
+      if (!stage) return null;
+      
+      // Convert canvas coordinates to screen coordinates for export
+      const screenX = image.x * zoom + stagePos.x;
+      const screenY = image.y * zoom + stagePos.y;
+      const screenWidth = (image.width || 200) * zoom;
+      const screenHeight = (image.height || 200) * zoom;
+      
+      return stage.toDataURL({
+        x: screenX,
+        y: screenY,
+        width: screenWidth,
+        height: screenHeight,
+        pixelRatio: 1,
+      });
+    },
     importVideo: (src: string, x: number, y: number, width: number, height: number) => {
       pushToUndoStackWithSave();
       const id = Date.now().toString();

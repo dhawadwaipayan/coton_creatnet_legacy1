@@ -428,9 +428,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     
     // Export the selected image as PNG
-    const base64Image = canvasRef.current.exportCurrentBoundingBoxAsPng();
+    const base64Image = canvasRef.current.exportSelectedImageAsPng();
     if (!base64Image) {
-      alert('Failed to export selected image.');
+      alert('Failed to export selected image. Please make sure an image is selected.');
       setAiStatus('idle');
       return;
     }
