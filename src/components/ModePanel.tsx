@@ -140,14 +140,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('idle');
       return;
     }
-    // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
+    // Place a placeholder beside the bounding box maintaining aspect ratio
     const sketchBox = canvasRef.current.sketchBox;
     // Bounding box coordinates are already in canvas space, no need to add stagePos
     let x = sketchBox ? sketchBox.x + sketchBox.width + 40 : 100;
     let y = sketchBox ? sketchBox.y : 100;
-    const placeholderUrl = '/Placeholder_Image.png';
+    const placeholderUrl = '/Placeholder_Image_portrait.png';
+    
+    // Calculate aspect ratio for portrait image (assuming 3:4 ratio for portrait)
+    const aspectRatio = 3/4; // width/height
     const placeholderWidth = 500;
-    const placeholderHeight = 500;
+    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (4/3) = 667
+    
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
       if (canvasRef.current.importImage) {
@@ -190,10 +194,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Remove the placeholder and add the real image in the same spot
+      // Remove the placeholder and add the real image in the same spot, maintaining aspect ratio
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
         canvasRef.current.replaceImageById(placeholderId, imageUrl);
       } else if (canvasRef.current.importImage) {
+        // Use the same dimensions as the placeholder to maintain aspect ratio
         canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
@@ -231,14 +236,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     // Handle material - only use what user uploaded
     const base64Material = renderMaterial;
-    // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
+    // Place a placeholder beside the bounding box maintaining aspect ratio
     const renderBox = canvasRef.current.renderBox;
     // Bounding box coordinates are already in canvas space, no need to add stagePos
     let x = renderBox ? renderBox.x + renderBox.width + 40 : 100;
     let y = renderBox ? renderBox.y : 100;
-    const placeholderUrl = '/Placeholder_Image.png';
+    const placeholderUrl = '/Placeholder_Image_portrait.png';
+    
+    // Calculate aspect ratio for portrait image (assuming 3:4 ratio for portrait)
+    const aspectRatio = 3/4; // width/height
     const placeholderWidth = 500;
-    const placeholderHeight = 500;
+    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (4/3) = 667
+    
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
       if (canvasRef.current.importImage) {
@@ -363,10 +372,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Replace the placeholder with the real image
+      // Replace the placeholder with the real image, maintaining aspect ratio
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
         canvasRef.current.replaceImageById(placeholderId, imageUrl);
       } else if (canvasRef.current.importImage) {
+        // Use the same dimensions as the placeholder to maintain aspect ratio
         canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
