@@ -107,15 +107,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${(selectedImageSrc || selectedVideoSrc) ? '' : 'opacity-50 cursor-not-allowed'}`}
         title={selectedVideoSrc ? "Download selected video" : "Download selected image"}
         disabled={!(selectedImageSrc || selectedVideoSrc)}
-        onClick={() => {
+        onClick={async () => {
           if (selectedVideoSrc) {
-            // Download video
-            const link = document.createElement('a');
-            link.href = selectedVideoSrc;
-            link.download = 'selected-video.mp4';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Download video - fetch as blob first
+            try {
+              const response = await fetch(selectedVideoSrc);
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'selected-video.mp4';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(url);
+            } catch (error) {
+              console.error('Failed to download video:', error);
+              alert('Failed to download video. Please try again.');
+            }
           } else if (selectedImageSrc) {
             // Download image
             const link = document.createElement('a');
