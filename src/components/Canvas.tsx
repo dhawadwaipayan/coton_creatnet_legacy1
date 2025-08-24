@@ -1745,7 +1745,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                       width: video.width,
                       height: video.height,
                       overflow: 'hidden',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      pointerEvents: 'none' // Prevent video from capturing mouse events
                     }
                   }}
                 >
@@ -1755,7 +1756,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      pointerEvents: 'auto' // Allow video controls to work
+                    }}
+                    onMouseDown={(e) => {
+                      // Prevent video from capturing mouse events for selection
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      // Prevent video from capturing click events for selection
+                      e.stopPropagation();
                     }}
                   />
                 </Html>
