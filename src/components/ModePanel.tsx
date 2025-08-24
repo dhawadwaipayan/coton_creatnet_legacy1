@@ -435,31 +435,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       return;
     }
     
-    // Place a placeholder beside the selected image (same pattern as images)
+    // Calculate position for video (beside selected image)
     let x = selectedImage.x + selectedImage.width + 40;
     let y = selectedImage.y;
-    const placeholderUrl = '/Placeholder_Image_portrait.png';
     
-    // Calculate aspect ratio based on video output resolution (9:16 - portrait)
-    const videoWidth = 500;
-    const videoHeight = Math.round(videoWidth * (16/9)); // 889px
-    
-    let placeholderId: string | null = null;
-    await new Promise<void>(resolve => {
-      if (canvasRef.current.importImage) {
-        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, videoWidth, videoHeight, (id: string) => {
-          // After image is loaded, select it
-          if (canvasRef.current && canvasRef.current.setSelectedIds) {
-            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
-    
-    // After adding placeholder, switch to select tool
+    // Switch to select tool for better UX
     if (setSelectedMode) setSelectedMode('select');
     
     try {
@@ -482,14 +462,27 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       const result = await response.json();
       
       if (result.success && result.video) {
-        // Replace placeholder with video
-        if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-          canvasRef.current.replaceImageById(placeholderId, result.video.url, true); // isVideo = true
+        // Use the working importVideo method directly
+        if (canvasRef.current?.importVideo) {
+          const videoId = canvasRef.current.importVideo(
+            result.video.url,  // Supabase video URL
+            x,                  // X position beside selected image
+            y,                  // Y position from selected image
+            764,                // Correct video width (aspect ratio)
+            1200                // Correct video height (aspect ratio)
+          );
+          
+          console.log('🎬 Video imported successfully with ID:', videoId);
+          
+          // Select the newly created video
+          if (canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id: videoId, type: 'video' }]);
+          }
         }
         
         setAiStatus('success');
         setTimeout(() => setAiStatus('idle'), 2000);
-        console.log('Video generated successfully:', result.video);
+        console.log('Video generated and imported successfully:', result.video);
       } else {
         throw new Error('Video generation failed');
       }
@@ -497,13 +490,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     } catch (err) {
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
-      setTimeout(() => setAiStatus('idle'), 4000);
+      console.error('[Video AI] Error:', err);
       alert('[Video AI] Error: ' + (err instanceof Error ? err.message : String(err)));
       
-      // Remove placeholder on error
-      if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-        canvasRef.current.replaceImageById(placeholderId, '', true); // isVideo = true
-      }
+
     }
     
     console.log('Video generation requested:', { details, base64Image, selectedImage });
