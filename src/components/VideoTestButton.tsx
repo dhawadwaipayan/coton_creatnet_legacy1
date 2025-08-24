@@ -13,14 +13,12 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
       
       console.log('Using direct video URL:', videoUrl);
       
-      // Calculate center position (5000x5000 board) - Make video larger
-      const videoWidth = 800; // Increased from 500
-      const videoHeight = Math.round(videoWidth * (16/9)); // 1422px for 9:16 ratio
-      const centerX = (5000 / 2) - (videoWidth / 2);
-      const centerY = (5000 / 2) - (videoHeight / 2);
+      // Calculate center position (5000x5000 board)
+      const centerX = (5000 / 2) - 250; // Half video width
+      const centerY = (5000 / 2) - 444; // Half video height (9:16 ratio)
       
       // Call the parent function to add video to canvas
-      onVideoLoad(videoUrl, centerX, centerY, videoWidth, videoHeight);
+      onVideoLoad(videoUrl, centerX, centerY, 500, 889);
       alert('Video loaded: 1756005533105-9525.mp4');
       
     } catch (err: any) {
