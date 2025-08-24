@@ -413,19 +413,21 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         })
       );
 
+      const videoData = videos.map(video => ({
+        id: video.id,
+        src: video.src,
+        x: video.x,
+        y: video.y,
+        width: video.width,
+        height: video.height,
+        rotation: video.rotation,
+        timestamp: video.timestamp
+      }));
+      
       const content = {
         id: props.boardContent.id,
         images: serializedImages,
-        videos: videos.map(video => ({
-          id: video.id,
-          src: video.src,
-          x: video.x,
-          y: video.y,
-          width: video.width,
-          height: video.height,
-          rotation: video.rotation,
-          timestamp: video.timestamp
-        })),
+        videos: videoData,
         strokes,
         texts,
         viewport: {
@@ -435,6 +437,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       };
       
       console.log('Saving board content with videos:', videos.length);
+      console.log('Video data being saved:', videoData);
+      console.log('Full content being saved:', content);
       
       // Generate and store thumbnail for fast previews
       try {
@@ -1039,19 +1043,33 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       // Load videos and recreate video elements
       const videoData = props.boardContent.videos || [];
-      const videosWithElements = videoData.map(videoData => {
-        const videoElement = document.createElement('video');
-        videoElement.src = videoData.src;
-        videoElement.preload = 'metadata';
-        videoElement.muted = true;
-        return { ...videoData, videoElement };
-      });
-      setVideos(videosWithElements);
-      console.log('Loaded videos with elements:', videosWithElements);
+      console.log('Loading video data from board:', videoData);
       
-      // Start video animation if any videos exist
-      if (videosWithElements.length > 0) {
-        startVideoAnimation();
+      if (videoData.length > 0) {
+        const videosWithElements = videoData.map(videoData => {
+          const videoElement = document.createElement('video');
+          videoElement.src = videoData.src;
+          videoElement.preload = 'metadata';
+          videoElement.muted = true;
+          videoElement.loop = true;
+          
+          // Handle video loading
+          videoElement.addEventListener('loadedmetadata', () => {
+            console.log('Video metadata loaded from board:', videoData.src);
+            // Start animation after all videos are loaded
+            if (layerRef.current) {
+              startVideoAnimation();
+            }
+          });
+          
+          return { ...videoData, videoElement };
+        });
+        
+        setVideos(videosWithElements);
+        console.log('Loaded videos with elements:', videosWithElements.length);
+      } else {
+        setVideos([]);
+        console.log('No videos to load from board');
       }
       
       // Restore viewport state if it exists, otherwise center new board
