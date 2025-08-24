@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
+import { VideoSubBar } from './VideoSubBar';
 import { BrushSubBar } from './BrushSubBar';
+import { FilmReel } from '@phosphor-icons/react';
 // Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
@@ -46,6 +48,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   userId // Destructure userId
 }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
+  const [showVideoSubBar, setShowVideoSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
   const [lastInputImage, setLastInputImage] = useState<string | null>(null);
@@ -63,9 +66,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     icon: 'https://cdn.builder.io/api/v1/image/assets/49361a2b7ce44657a799a73862a168f7/455b40b53a04278357300eaa66c8577afba94ea1?placeholderIfAbsent=true',
     label: 'Colorway'
   }, {
-    id: 'sides',
+    id: 'video',
     icon: 'https://cdn.builder.io/api/v1/image/assets/49361a2b7ce44657a799a73862a168f7/6eb8891421d30b1132ff78da0afd8482ce50b611?placeholderIfAbsent=true',
-    label: 'Sides'
+    label: 'Video'
   }];
   const handleModeSelect = (modeId: string) => {
     if (setSelectedMode) setSelectedMode(modeId);
@@ -77,13 +80,20 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
+      setShowVideoSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
     } else if (modeId === 'render') {
       setShowRenderSubBar(true);
+      setShowVideoSubBar(false);
+      if (closeSketchBar) closeSketchBar();
+    } else if (modeId === 'video') {
+      setShowRenderSubBar(false);
+      setShowVideoSubBar(true);
       if (closeSketchBar) closeSketchBar();
     } else {
       if (closeSketchBar) closeSketchBar();
       setShowRenderSubBar(false);
+      setShowVideoSubBar(false);
     }
     console.log(`Selected mode: ${modeId}`);
   };
@@ -120,6 +130,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setShowRenderSubBar(false);
     }
   }, [selectedMode, showRenderSubBar]);
+
+  // Close video sub bar if selectedMode changes to anything other than 'video'
+  useEffect(() => {
+    if (selectedMode !== 'video' && showVideoSubBar) {
+      setShowVideoSubBar(false);
+    }
+  }, [selectedMode, showVideoSubBar]);
 
   // Remove all functions, useEffects, and logic that reference fabric, FabricImage, or getFabricCanvas
   // Remove all bounding box logic that uses fabricCanvas or fabric.Rect
@@ -394,6 +411,114 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
   };
 
+  const handleVideoGenerate = async (details: string) => {
+    setAiStatus('generating');
+    setAiError(null);
+    if (!canvasRef.current) {
+      setAiStatus('idle');
+      return;
+    }
+    
+    // Get selected image from Canvas
+    const selectedImage = canvasRef.current.getSelectedImage();
+    if (!selectedImage) {
+      alert('Please select an image from the board to generate video.');
+      setAiStatus('idle');
+      return;
+    }
+    
+    // Export the selected image as PNG
+    const base64Image = canvasRef.current.exportCurrentBoundingBoxAsPng();
+    if (!base64Image) {
+      alert('Failed to export selected image.');
+      setAiStatus('idle');
+      return;
+    }
+    
+    // Place a placeholder beside the selected image (same pattern as images)
+    let x = selectedImage.x + selectedImage.width + 40;
+    let y = selectedImage.y;
+    const placeholderUrl = '/Placeholder_Image_portrait.png';
+    
+    // Calculate aspect ratio based on video output resolution (9:16 - portrait)
+    const videoWidth = 500;
+    const videoHeight = Math.round(videoWidth * (16/9)); // 889px
+    
+    let placeholderId: string | null = null;
+    await new Promise<void>(resolve => {
+      if (canvasRef.current.importImage) {
+        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, videoWidth, videoHeight, (id: string) => {
+          // After image is loaded, select it
+          if (canvasRef.current && canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+    
+    // After adding placeholder, close video tab and switch to select tool
+    if (closeSketchBar) closeSketchBar();
+    if (setSelectedMode) setSelectedMode('select');
+    
+    try {
+      // Call Segmind Kling AI API
+      const response = await fetch('/api/kling-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          base64Image, 
+          prompt: details || 'Generate a fashion video from this image',
+          userId 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+              if (result.success && result.video) {
+          // Replace placeholder with video
+          if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+            canvasRef.current.replaceImageById(placeholderId, result.video.url, true); // isVideo = true
+          }
+        
+        setAiStatus('success');
+        setTimeout(() => setAiStatus('idle'), 2000);
+        console.log('Video generated successfully:', result.video);
+      } else {
+        throw new Error('Video generation failed');
+      }
+      
+    } catch (err) {
+      setAiStatus('error');
+      setAiError(err instanceof Error ? err.message : String(err));
+      setTimeout(() => setAiStatus('idle'), 4000);
+      alert('[Video AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      
+      // Remove placeholder on error
+      if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+        canvasRef.current.replaceImageById(placeholderId, '', true); // isVideo = true
+      }
+    }
+    
+    console.log('Video generation requested:', { details, base64Image, selectedImage });
+  };
+
+  const handleVideoCancel = () => {
+    setShowVideoSubBar(false);
+    if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
+    if (canvasRef.current && canvasRef.current.clearSketchBox) {
+      canvasRef.current.clearSketchBox();
+    }
+    if (closeSketchBar) closeSketchBar();
+  };
+
   const handleRenderMaterial = (base64: string | null) => {
     setRenderMaterial(base64);
   };
@@ -418,6 +543,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onAddMaterial={handleAddMaterial}
           onMaterialChange={handleRenderMaterial}
           canGenerate={!!renderBoundingBox} // Only require bounding box, material is optional
+        />
+      )}
+      {showVideoSubBar && (
+        <VideoSubBar 
+          onCancel={handleVideoCancel}
+          onGenerate={handleVideoGenerate}
+          hasSelectedImage={!!canvasRef.current?.getSelectedImage?.()}
         />
       )}
       <div style={{
@@ -452,12 +584,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         <div className="self-stretch my-auto w-[62px]">Colorway</div>
       </div>
 
-      <div className={`flex gap-2.5 justify-center items-center self-stretch px-2.5 py-2 my-auto min-h-[30px] cursor-pointer transition-colors ${selectedMode === 'sides' ? 'text-[#E1FF00]' : 'text-neutral-400 hover:text-[#FFFFFF]'}`} onClick={() => handleModeSelect('sides')}>
-        <svg width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-          <path d="M18.5565 12.9548H21.6244M21.6244 12.9548V9.88696M21.6244 12.9548L19.8169 11.1473C18.7702 10.1006 17.353 9.50871 15.8727 9.5001C14.3924 9.49148 12.9684 10.0668 11.9095 11.1013M13.4435 17.0453H10.3756M10.3756 17.0453V20.1131M10.3756 17.0453L12.1831 18.8528C13.2298 19.8995 14.6471 20.4913 16.1273 20.4999C17.6076 20.5086 19.0316 19.9332 20.0905 18.8988" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <div className="self-stretch my-auto text-sm w-[35px]">
-          Sides
+      <div className={`flex gap-2.5 justify-center items-center self-stretch px-2.5 py-2 my-auto min-h-[30px] cursor-pointer transition-colors ${selectedMode === 'video' ? 'text-[#E1FF00]' : 'text-neutral-400 hover:text-[#FFFFFF]'}`} onClick={() => handleModeSelect('video')}>
+        <FilmReel size={18} className="shrink-0" />
+        <div className="self-stretch my-auto text-sm w-[40px]">
+          Video
         </div>
       </div>
       </div>

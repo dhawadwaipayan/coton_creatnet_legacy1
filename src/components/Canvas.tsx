@@ -139,6 +139,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
+  // Videos state: store video iframes
+  const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -146,10 +148,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Replace selection state and logic
   // Remove selectedId, selectedType
   // Use only selectedIds: Array<{ id: string, type: 'image' | 'stroke' }>
-  const [selectedIds, setSelectedIds] = useState<Array<{ id: string, type: 'image' | 'stroke' | 'text' }>>([]);
+  const [selectedIds, setSelectedIds] = useState<Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video' }>>([]);
   const [selectionRect, setSelectionRect] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ x: number, y: number } | null>(null);
-  const [groupDragStart, setGroupDragStart] = useState<{ x: number, y: number, items: Array<{ id: string, type: 'image' | 'stroke' | 'text', x: number, y: number }> } | null>(null);
+  const [groupDragStart, setGroupDragStart] = useState<{ x: number, y: number, items: Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video', x: number, y: number }> } | null>(null);
 
   // Add texts state
   const [texts, setTexts] = useState<Array<{ id: string, text: string, x: number, y: number, color: string, fontSize: number, rotation: number, timestamp: number }>>([]);
@@ -676,34 +678,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const newZoom = Math.max(zoom / 1.05, minZoomForWidth); // 5% zoom steps
       setZoom(newZoom);
     },
-    replaceImageById: (id: string, newSrc: string) => {
-      setImages(prev => {
-        const idx = prev.findIndex(img => img.id === id);
-        if (idx === -1) return prev;
-        const oldImg = prev[idx];
-        const newImg = new window.Image();
-        newImg.src = newSrc;
-        const newImageObj = {
-          id,
-          image: newImg,
-          x: oldImg.x,
-          y: oldImg.y,
-          width: oldImg.width,
-          height: oldImg.height,
-          rotation: oldImg.rotation,
-          timestamp: Date.now()
-        };
-        newImg.onload = () => {
-          setImages(current => [
-            ...current.slice(0, idx),
-            newImageObj,
-            ...current.slice(idx + 1)
-          ]);
-        };
-        // Remove the old image for now (will be replaced on load)
-        return prev.filter((_, i) => i !== idx);
-      });
-    },
+
     replaceSelectedImage: (newSrc: string) => {
       // Find the currently selected image
       const selectedImage = selectedIds.find(sel => sel.type === 'image');
@@ -738,12 +713,94 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         });
       }
     },
-    setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' }>) => setSelectedIds(ids),
+    setSelectedIds: (ids: Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video' }>) => setSelectedIds(ids),
+    // Video methods
+    getSelectedImage: () => {
+      const selectedImage = selectedIds.find(sel => sel.type === 'image');
+      if (selectedImage) {
+        return images.find(img => img.id === selectedImage.id);
+      }
+      return null;
+    },
+    importVideo: (src: string, x: number, y: number, width: number, height: number) => {
+      pushToUndoStackWithSave();
+      const id = Date.now().toString();
+      setVideos(prev => [
+        ...prev,
+        {
+          id,
+          src,
+          x,
+          y,
+          width,
+          height,
+          rotation: 0,
+          timestamp: Date.now()
+        }
+      ]);
+      return id;
+    },
+    replaceImageById: (id: string, newSrc: string, isVideo: boolean = false) => {
+      if (isVideo) {
+        // Handle video replacement - remove placeholder image and add video
+        setImages(prev => {
+          const idx = prev.findIndex(img => img.id === id);
+          if (idx === -1) return prev;
+          const oldImg = prev[idx];
+          
+          // Add video to videos array
+          setVideos(videos => [
+            ...videos,
+            {
+              id: `video-${Date.now()}`,
+              src: newSrc,
+              x: oldImg.x,
+              y: oldImg.y,
+              width: oldImg.width,
+              height: oldImg.height,
+              rotation: oldImg.rotation,
+              timestamp: Date.now()
+            }
+          ]);
+          
+          // Remove the placeholder image
+          return prev.filter((_, i) => i !== idx);
+        });
+      } else {
+        // Handle image replacement (existing logic)
+        setImages(prev => {
+          const idx = prev.findIndex(img => img.id === id);
+          if (idx === -1) return prev;
+          const oldImg = prev[idx];
+          const newImg = new window.Image();
+          newImg.src = newSrc;
+          const newImageObj = {
+            id,
+            image: newImg,
+            x: oldImg.x,
+            y: oldImg.y,
+            width: oldImg.width,
+            height: oldImg.height,
+            rotation: oldImg.rotation,
+            timestamp: Date.now()
+          };
+          newImg.onload = () => {
+            setImages(current => [
+              ...current.slice(0, idx),
+              newImageObj,
+              ...current.slice(idx + 1)
+            ]);
+          };
+          // Remove the old image for now (will be replaced on load)
+          return prev.filter((_, i) => i !== idx);
+        });
+      }
+    },
     // Expose manual save function
     saveBoardContent,
     undo: handleUndo,
     redo: handleRedo,
-  }), [sketchBox, renderBox, stageRef, stagePos, zoom, getViewportCenter, centerViewportOnElement, screenToCanvas, props.renderModeActive, saveBoardContent, handleUndo, handleRedo]);
+  }), [sketchBox, renderBox, stageRef, stagePos, zoom, getViewportCenter, centerViewportOnElement, screenToCanvas, props.renderModeActive, saveBoardContent, handleUndo, handleRedo, images, selectedIds, videos]);
 
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
@@ -1096,7 +1153,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
 
   // Selection helpers
-  const isSelected = (id: string, type: 'image' | 'stroke' | 'text') => selectedIds.some(sel => sel.id === id && sel.type === type);
+  const isSelected = (id: string, type: 'image' | 'stroke' | 'text' | 'video') => selectedIds.some(sel => sel.id === id && sel.type === type);
 
   // Handle click on image/stroke
   const handleItemClick = (id: string, type: 'image' | 'stroke' | 'text', evt: any) => {
@@ -1637,6 +1694,63 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 />
               )
             ))}
+          
+          {/* Render all videos after images (oldest to newest) */}
+          {videos
+            .slice()
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .map(video => (
+              <Group
+                key={video.id}
+                id={`video-${video.id}`}
+                x={video.x}
+                y={video.y}
+                rotation={video.rotation || 0}
+                draggable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
+                onClick={evt => handleItemClick(video.id, 'video', evt)}
+                onTap={evt => handleItemClick(video.id, 'video', evt)}
+                onDragEnd={e => {
+                  pushToUndoStackWithSave();
+                  const { x, y } = e.target.position();
+                  setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x, y } : v));
+                  handleGroupDragEnd();
+                }}
+                onDragStart={e => handleGroupDragStart(e, video.id, 'video')}
+                onDragMove={e => handleGroupDragMove(e, video.id, 'video')}
+              >
+                <Rect
+                  x={0}
+                  y={0}
+                  width={video.width}
+                  height={video.height}
+                  fill="transparent"
+                  stroke={isSelected(video.id, 'video') ? "#E1FF00" : "#666"}
+                  strokeWidth={2}
+                  cornerRadius={8}
+                />
+                <Html
+                  divProps={{
+                    style: {
+                      width: video.width,
+                      height: video.height,
+                      overflow: 'hidden',
+                      borderRadius: '8px'
+                    }
+                  }}
+                >
+                  <video
+                    src={video.src}
+                    controls
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                </Html>
+              </Group>
+            ))}
+          
           {/* Render all texts after images (oldest to newest) */}
           {texts
             .slice()
