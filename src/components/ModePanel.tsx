@@ -229,39 +229,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('idle');
       return;
     }
-    // Handle material - use dummy.png if no material uploaded
-    let base64Material = renderMaterial;
-    if (!base64Material) {
-      try {
-        // Load dummy.png and convert to base64
-        const response = await fetch('/dummy.png');
-        const blob = await response.blob();
-        const reader = new FileReader();
-        base64Material = await new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (error) {
-        console.error('Failed to load dummy.png:', error);
-        // Create a simple white image as fallback
-      const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 512, 512);
-      // Use WebP for better compression and smaller file sizes
-      try {
-        base64Material = canvas.toDataURL('image/webp', 0.85); // 85% quality for good compression
-      } catch (error) {
-        // Fallback to PNG if WebP is not supported
-        console.log('WebP not supported, falling back to PNG');
-        base64Material = canvas.toDataURL('image/png');
-      }
-    }
-      }
-    }
+    // Handle material - only use what user uploaded
+    const base64Material = renderMaterial;
     // Place a 500x500 placeholder beside the bounding box using the provided transparent PNG
     const renderBox = canvasRef.current.renderBox;
     // Bounding box coordinates are already in canvas space, no need to add stagePos
@@ -293,7 +262,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       "task": "fashion_sketch_to_realistic_render",
       "input": {
         "sketch_image": base64Sketch,
-        "material_reference": base64Material ? base64Material : "not_provided",
+        "material_reference": base64Material || null,
         "reference_style": "high-resolution fashion photography",
         "model_preferences": {
           "height": "tall",
@@ -301,7 +270,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           "body_type": "slim but natural proportions"
         },
         "garment_rendering": {
-          "fabric": base64Material ? "if material_reference is provided, apply its weave, texture, and color to the entire garment; if not, use sketches default fabric fall and drape with gravity" : "use sketches default fabric fall and drape with gravity",
+          "fabric": base64Material ? "apply material's weave, texture, and color to the entire garment" : "use sketch's default fabric fall and drape with gravity",
           "texture": "show accurate textile weave, sheen, and depth",
           "lighting": "studio lighting, soft shadows",
           "details": "retain sketch design lines, seams, closures, buttons, collars, hems"

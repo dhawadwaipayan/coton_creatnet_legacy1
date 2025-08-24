@@ -33,7 +33,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4.1',
+        model: 'gpt-4.1-nano',
         input: [
           {
             role: 'user',
@@ -45,10 +45,10 @@ export default async function handler(req, res) {
         tools: [
           {
             type: 'image_generation',
-            size: '1024x1024',
+            size: '1024x1536',
             quality: 'high',
             output_format: 'png',
-            background: 'transparent',
+            background: 'opaque',
             moderation: 'low'
           }
         ],
