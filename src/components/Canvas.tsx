@@ -1527,14 +1527,17 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           return layerRef.current.findOne(`#img-${sel.id}`);
         } else if (sel.type === 'stroke') {
           return layerRef.current.findOne(`#stroke-${sel.id}`);
-        } else {
+        } else if (sel.type === 'text') {
           return layerRef.current.findOne(`#text-${sel.id}`);
+        } else if (sel.type === 'video') {
+          return layerRef.current.findOne(`#video-${sel.id}`);
         }
+        return null;
       }).filter(Boolean);
       transformerRef.current.nodes(nodes);
       transformerRef.current.getLayer().batchDraw();
     }
-  }, [selectedIds, images, strokes, texts]);
+  }, [selectedIds, images, strokes, texts, videos]);
 
   // Delete selected items
   useEffect(() => {
@@ -1544,6 +1547,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         setImages(prev => prev.filter(img => !selectedIds.some(sel => sel.id === img.id && sel.type === 'image')));
         setStrokes(prev => prev.filter(stroke => !selectedIds.some(sel => sel.id === stroke.id && sel.type === 'stroke')));
         setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
+        setVideos(prev => prev.filter(video => !selectedIds.some(sel => sel.id === video.id && sel.type === 'video')));
         setSelectedIds([]);
       }
       // Allow deleting the bounding box with Delete/Backspace
