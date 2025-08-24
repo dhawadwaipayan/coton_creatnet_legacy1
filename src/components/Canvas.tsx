@@ -148,7 +148,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
   // Videos state: store video elements with Konva.js video support
-  const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number, videoElement: HTMLVideoElement }>>([]);
+  const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number, videoElement: HTMLVideoElement, thumbnail?: HTMLImageElement }>>([]);
   
   // Animation for video playback
   const videoAnimationRef = useRef<any>(null);
@@ -1089,6 +1089,32 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           videoElement.addEventListener('loadedmetadata', () => {
             console.log('🎬 Video metadata loaded from board:', videoData.src);
             console.log('🎬 Video dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+            
+            // Capture first frame as thumbnail
+            videoElement.currentTime = 0;
+            videoElement.addEventListener('seeked', () => {
+              // Create canvas to capture first frame
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                ctx.drawImage(videoElement, 0, 0);
+                
+                // Create image from canvas
+                const thumbnailImage = new Image();
+                thumbnailImage.onload = () => {
+                  // Update video object with thumbnail
+                  setVideos(prev => prev.map(v => 
+                    v.id === videoData.id 
+                      ? { ...v, thumbnail: thumbnailImage }
+                      : v
+                  ));
+                };
+                thumbnailImage.src = canvas.toDataURL();
+              }
+            }, { once: true });
+            
             // Start animation after all videos are loaded
             if (layerRef.current) {
               startVideoAnimation();
@@ -1943,6 +1969,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 {video.videoElement ? (
                   <KonvaImage
                     image={video.videoElement}
+                    width={video.width}
+                    height={video.height}
+                    cornerRadius={8}
+                  />
+                ) : video.thumbnail ? (
+                  <KonvaImage
+                    image={video.thumbnail}
                     width={video.width}
                     height={video.height}
                     cornerRadius={8}
