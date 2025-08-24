@@ -1738,26 +1738,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   strokeWidth={2}
                   cornerRadius={8}
                 />
-                <Html
-                  divProps={{
-                    style: {
-                      width: video.width,
-                      height: video.height,
-                      overflow: 'hidden',
-                      borderRadius: '8px'
-                    }
-                  }}
-                >
-                  <video
-                    src={video.src}
-                    controls
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                </Html>
+                {/* Video placeholder - we'll handle video rendering differently */}
+                <Rect
+                  x={2}
+                  y={2}
+                  width={video.width - 4}
+                  height={video.height - 4}
+                  fill="#1a1a1a"
+                  cornerRadius={6}
+                />
+                <KonvaText
+                  x={video.width / 2}
+                  y={video.height / 2}
+                  text="🎬 Video"
+                  fontSize={16}
+                  fill="#E1FF00"
+                  align="center"
+                  verticalAlign="middle"
+                  listening={false}
+                />
               </Group>
             ))}
           
