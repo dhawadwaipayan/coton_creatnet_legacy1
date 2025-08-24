@@ -2122,13 +2122,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                    fill="transparent"
                  />
                  
-                 {/* Simple Play/Pause icon in brand green color */}
+                 {/* Simple Play/Pause icon with consistent sizing and dark color */}
                  <KonvaText
                    x={15}
                    y={15}
                    text={video.videoElement && !video.videoElement.paused ? "⏸" : "▶"}
-                   fontSize={20}
-                   fill="#E1FF00"
+                   fontSize={24}
+                   fill="#1A1A1A"
                    align="center"
                    fontFamily="Arial, sans-serif"
                    onClick={() => {
