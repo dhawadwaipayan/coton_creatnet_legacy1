@@ -729,22 +729,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const image = images.find(img => img.id === selectedImage.id);
       if (!image || !image.image) return null;
       
-      const stage = stageRef.current;
-      if (!stage) return null;
-      
-      // Convert canvas coordinates to screen coordinates for export
-      const screenX = image.x * zoom + stagePos.x;
-      const screenY = image.y * zoom + stagePos.y;
-      const screenWidth = (image.width || 200) * zoom;
-      const screenHeight = (image.height || 200) * zoom;
-      
-      return stage.toDataURL({
-        x: screenX,
-        y: screenY,
-        width: screenWidth,
-        height: screenHeight,
-        pixelRatio: 1,
-      });
+      // Simply return the image data as is - no need for complex canvas export
+      return image.image.src;
     },
     importVideo: (src: string, x: number, y: number, width: number, height: number) => {
       pushToUndoStackWithSave();

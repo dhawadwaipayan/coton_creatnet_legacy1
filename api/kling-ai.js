@@ -52,8 +52,23 @@ export default async function handler(req, res) {
     }
     
     // Convert base64 to buffer for Supabase upload
-    const base64Data = base64Image.split(',')[1] || base64Image;
-    const imageBuffer = Buffer.from(base64Data, 'base64');
+                // Handle both data URLs and direct URLs
+            let imageBuffer;
+            if (base64Image.startsWith('data:')) {
+              // It's a data URL, extract base64
+              const base64Data = base64Image.split(',')[1];
+              imageBuffer = Buffer.from(base64Data, 'base64');
+            } else if (base64Image.startsWith('http')) {
+              // It's a URL, download the image
+              const imageResponse = await fetch(base64Image);
+              if (!imageResponse.ok) {
+                throw new Error(`Failed to download image: ${imageResponse.status}`);
+              }
+              const imageArrayBuffer = await imageResponse.arrayBuffer();
+              imageBuffer = Buffer.from(imageArrayBuffer);
+            } else {
+              throw new Error('Invalid image format');
+            }
     
     // Upload image to Supabase temporarily to get a public URL
     const tempImageId = `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
