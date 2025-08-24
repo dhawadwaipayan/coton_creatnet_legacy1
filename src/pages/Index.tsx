@@ -8,7 +8,7 @@ import ZoomBar from '@/components/ZoomBar';
 import UserBar from '@/components/UserBar';
 import { BrushSubBar } from '@/components/BrushSubBar';
 import { TextSubBar } from '@/components/TextSubBar';
-import { VideoTestButton } from '@/components/VideoTestButton';
+
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 const Index = () => {
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
+  const [selectedVideoSrc, setSelectedVideoSrc] = useState<string | null>(null);
   const [sketchBarOpen, setSketchBarOpen] = useState(false);
   const [boundingBoxCreated, setBoundingBoxCreated] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string>('');
@@ -426,37 +427,30 @@ const Index = () => {
         
         <div style={{ pointerEvents: showAuth ? 'none' : 'auto' }}>
           {/* Canvas Background - behind everything */}
-          <Canvas
-            ref={canvasRef}
-            selectedTool={selectedTool || 'select'}
-            onSelectedImageSrcChange={setSelectedImageSrc}
-            brushColor={brushColor}
-            brushSize={brushSize}
-            textColor={textColor}
-            onTextAdded={handleTextAdded}
-            sketchModeActive={sketchModeActive}
-            renderModeActive={renderModeActive}
-            onRenderBoundingBoxChange={setRenderBoundingBox}
-            boardContent={getBoardContentForCanvas()}
-            onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
-          />
-
-          {/* TEMPORARY VIDEO TEST BUTTON - Remove after testing */}
-          {!showAuth && !showBoardOverlay && (
-            <VideoTestButton
-              onVideoLoad={(videoUrl, x, y, width, height) => {
-                if (canvasRef.current && canvasRef.current.importVideo) {
-                  canvasRef.current.importVideo(videoUrl, x, y, width, height);
-                }
-              }}
+                      <Canvas
+              ref={canvasRef}
+              selectedTool={selectedTool || 'select'}
+              onSelectedImageSrcChange={setSelectedImageSrc}
+              onSelectedVideoSrcChange={setSelectedVideoSrc}
+              brushColor={brushColor}
+              brushSize={brushSize}
+              textColor={textColor}
+              onTextAdded={handleTextAdded}
+              sketchModeActive={sketchModeActive}
+              renderModeActive={renderModeActive}
+              onRenderBoundingBoxChange={setRenderBoundingBox}
+              boardContent={getBoardContentForCanvas()}
+              onContentChange={content => currentBoard && handleUpdateBoardContent(currentBoard.id, content)}
             />
-          )}
+
+
 
           {/* Sidebar - positioned center left - hidden during auth overlay and board overlay */}
           {!showAuth && !showBoardOverlay && (
             <Sidebar 
               onToolSelect={handleToolSelect} 
               selectedImageSrc={selectedImageSrc} 
+              selectedVideoSrc={selectedVideoSrc}
               selectedTool={selectedTool} 
               setSelectedTool={setSelectedTool}
               onBackgroundRemoved={handleBackgroundRemoved}

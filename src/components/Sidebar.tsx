@@ -5,6 +5,7 @@ import { removeImageBackground, blobToBase64 } from '@/lib/backgroundRemoval';
 interface SidebarProps {
   onToolSelect?: (toolId: string) => void;
   selectedImageSrc?: string | null;
+  selectedVideoSrc?: string | null;
   selectedTool: string | null;
   setSelectedTool: (toolId: string) => void;
   onBackgroundRemoved?: (newImageSrc: string) => void;
@@ -12,6 +13,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   onToolSelect,
   selectedImageSrc,
+  selectedVideoSrc,
   selectedTool,
   setSelectedTool,
   onBackgroundRemoved
@@ -102,27 +104,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })}
       {/* Download button */}
       <button
-        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc ? '' : 'opacity-50 cursor-not-allowed'}`}
-        title="Download selected image"
-        disabled={!selectedImageSrc}
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${(selectedImageSrc || selectedVideoSrc) ? '' : 'opacity-50 cursor-not-allowed'}`}
+        title={selectedVideoSrc ? "Download selected video" : "Download selected image"}
+        disabled={!(selectedImageSrc || selectedVideoSrc)}
         onClick={() => {
-          if (!selectedImageSrc) return;
-          const link = document.createElement('a');
-          link.href = selectedImageSrc;
-          link.download = 'selected-image.png';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          if (selectedVideoSrc) {
+            // Download video
+            const link = document.createElement('a');
+            link.href = selectedVideoSrc;
+            link.download = 'selected-video.mp4';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } else if (selectedImageSrc) {
+            // Download image
+            const link = document.createElement('a');
+            link.href = selectedImageSrc;
+            link.download = 'selected-image.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
         }}
       >
-        <DownloadSimple size={20} color={selectedImageSrc ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
+        <DownloadSimple size={20} color={(selectedImageSrc || selectedVideoSrc) ? '#fff' : '#A9A9A9'} className="group-hover:!text-white transition-colors duration-75" />
       </button>
       
       {/* Background Remove button */}
       <button
-        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc && !isRemovingBackground ? '' : 'opacity-50 cursor-not-allowed'}`}
-        title={isRemovingBackground ? "Removing background..." : "Remove background from selected image"}
-        disabled={!selectedImageSrc || isRemovingBackground}
+        className={`group flex items-center justify-center w-[30px] h-[30px] rounded-lg transition-colors duration-75 ${selectedImageSrc && !selectedVideoSrc && !isRemovingBackground ? '' : 'opacity-50 cursor-not-allowed'}`}
+        title={isRemovingBackground ? "Removing background..." : selectedVideoSrc ? "Background removal not available for videos" : "Remove background from selected image"}
+        disabled={!selectedImageSrc || selectedVideoSrc || isRemovingBackground}
         onClick={handleBackgroundRemove}
       >
         {isRemovingBackground ? (
@@ -130,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           <SelectionBackground 
             size={20} 
-            color={selectedImageSrc ? '#fff' : '#A9A9A9'} 
+            color={selectedImageSrc && !selectedVideoSrc ? '#fff' : '#A9A9A9'} 
             className="group-hover:!text-white transition-colors duration-75" 
           />
         )}

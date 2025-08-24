@@ -336,6 +336,22 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [selectedIds, images]);
 
+  // Call onSelectedVideoSrcChange with the video source URL (if one video is selected), or null if not
+  useEffect(() => {
+    if (!props.onSelectedVideoSrcChange) return;
+    const selectedVideoIds = selectedIds.filter(sel => sel.type === 'video');
+    if (selectedVideoIds.length === 1) {
+      const videoObj = videos.find(video => video.id === selectedVideoIds[0].id);
+      if (videoObj && videoObj.src) {
+        props.onSelectedVideoSrcChange(videoObj.src);
+      } else {
+        props.onSelectedVideoSrcChange(null);
+      }
+    } else {
+      props.onSelectedVideoSrcChange(null);
+    }
+  }, [selectedIds, videos]);
+
   // Add state for Sketch mode bounding box
   const [sketchBox, setSketchBox] = useState<null | { x: number, y: number, width: number, height: number }>(null);
   const [sketchBoxDrawing, setSketchBoxDrawing] = useState(false);
