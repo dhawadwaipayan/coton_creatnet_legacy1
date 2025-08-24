@@ -147,10 +147,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     let y = sketchBox ? sketchBox.y : 100;
     const placeholderUrl = '/Placeholder_Image_portrait.png';
     
-    // Calculate aspect ratio for portrait image (assuming 3:4 ratio for portrait)
-    const aspectRatio = 3/4; // width/height
+    // Calculate aspect ratio based on AI output resolution (1024x1536)
+    const aiWidth = 1024;
+    const aiHeight = 1536;
+    const aspectRatio = aiWidth / aiHeight; // 1024/1536 = 2/3
     const placeholderWidth = 500;
-    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (4/3) = 667
+    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (3/2) = 750
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
@@ -243,10 +245,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     let y = renderBox ? renderBox.y : 100;
     const placeholderUrl = '/Placeholder_Image_portrait.png';
     
-    // Calculate aspect ratio for portrait image (assuming 3:4 ratio for portrait)
-    const aspectRatio = 3/4; // width/height
+    // Calculate aspect ratio based on AI output resolution (1024x1536)
+    const aiWidth = 1024;
+    const aiHeight = 1536;
+    const aspectRatio = aiWidth / aiHeight; // 1024/1536 = 2/3
     const placeholderWidth = 500;
-    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (4/3) = 667
+    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (3/2) = 750
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
