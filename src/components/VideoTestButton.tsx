@@ -1,11 +1,5 @@
 import React from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabase = createClient(
-  'https://mtflgvphxklyzqmvrdyw.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZmxndnBoeGtseXpxbXZyZHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NzE5NzAsImV4cCI6MjA3MTU0Nzk3MH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
-);
+import { supabase } from '../lib/utils';
 
 interface VideoTestButtonProps {
   onVideoLoad: (videoUrl: string, x: number, y: number, width: number, height: number) => void;
