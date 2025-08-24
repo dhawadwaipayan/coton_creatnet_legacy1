@@ -847,7 +847,34 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             v.id === id ? { ...v, width: videoElement.videoWidth, height: videoElement.videoHeight } : v
           ));
         }
-        // Start video animation after metadata loads
+        
+        // Immediately capture first frame as thumbnail
+        videoElement.currentTime = 0;
+        videoElement.addEventListener('seeked', () => {
+          // Create canvas to capture first frame
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            ctx.drawImage(videoElement, 0, 0);
+            
+            // Create image from canvas
+            const thumbnailImage = new Image();
+            thumbnailImage.onload = () => {
+              // Update video object with thumbnail immediately
+              setVideos(prev => prev.map(v => 
+                v.id === id 
+                  ? { ...v, thumbnail: thumbnailImage }
+                  : v
+              ));
+              console.log('🎬 Thumbnail generated and applied immediately');
+            };
+            thumbnailImage.src = canvas.toDataURL();
+          }
+        }, { once: true });
+        
+        // Start video animation after all videos are loaded
         if (layerRef.current) {
           startVideoAnimation();
         }
@@ -1967,13 +1994,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 >
 
                 {video.videoElement ? (
-                  <KonvaImage
-                    image={video.videoElement}
-                    width={video.width}
-                    height={video.height}
-                    cornerRadius={8}
-                  />
+                  video.thumbnail ? (
+                    // Show thumbnail when video is paused/not playing
+                    <KonvaImage
+                      image={video.thumbnail}
+                      width={video.width}
+                      height={video.height}
+                      cornerRadius={8}
+                    />
+                  ) : (
+                    // Show live video when playing and no thumbnail yet
+                    <KonvaImage
+                      image={video.videoElement}
+                      width={video.width}
+                      height={video.height}
+                      cornerRadius={8}
+                    />
+                  )
                 ) : video.thumbnail ? (
+                  // Show thumbnail when video element not ready
                   <KonvaImage
                     image={video.thumbnail}
                     width={video.width}
@@ -1981,6 +2020,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     cornerRadius={8}
                   />
                 ) : (
+                  // Show loading placeholder while thumbnail generates
                   <Rect
                     x={0}
                     y={0}
