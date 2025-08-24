@@ -1819,24 +1819,41 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
             .map(video => (
-              <Group
-                key={video.id}
-                id={`video-${video.id}`}
-                x={video.x}
-                y={video.y}
-                rotation={video.rotation || 0}
-                draggable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
-                onClick={evt => handleItemClick(video.id, 'video', evt)}
-                onTap={evt => handleItemClick(video.id, 'video', evt)}
-                onDragEnd={e => {
-                  pushToUndoStackWithSave();
-                  const { x, y } = e.target.position();
-                  setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x, y } : v));
-                  handleGroupDragEnd();
-                }}
-                onDragStart={e => handleGroupDragStart(e, video.id, 'video')}
-                onDragMove={e => handleGroupDragMove(e, video.id, 'video')}
-              >
+                              <Group
+                  key={video.id}
+                  id={`video-${video.id}`}
+                  x={video.x}
+                  y={video.y}
+                  rotation={video.rotation || 0}
+                  draggable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
+                  transformable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
+                  onClick={evt => handleItemClick(video.id, 'video', evt)}
+                  onTap={evt => handleItemClick(video.id, 'video', evt)}
+                  onDragEnd={e => {
+                    pushToUndoStackWithSave();
+                    const { x, y } = e.target.position();
+                    setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x, y } : v));
+                    handleGroupDragEnd();
+                  }}
+                  onTransformEnd={e => {
+                    pushToUndoStackWithSave();
+                    const node = e.target;
+                    const scaleX = node.scaleX();
+                    const scaleY = node.scaleY();
+                    const rotation = node.rotation();
+                    const x = node.x();
+                    const y = node.y();
+                    setVideos(prev => prev.map(v =>
+                      v.id === video.id
+                        ? { ...v, x, y, width: v.width * scaleX, height: v.height * scaleY, rotation }
+                        : v
+                    ));
+                    node.scaleX(1);
+                    node.scaleY(1);
+                  }}
+                  onDragStart={e => handleGroupDragStart(e, video.id, 'video')}
+                  onDragMove={e => handleGroupDragMove(e, video.id, 'video')}
+                >
                 <Rect
                   x={0}
                   y={0}
@@ -1866,23 +1883,43 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     cornerRadius={8}
                   />
                 )}
-                {/* Video controls overlay */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={video.width}
-                  height={video.height}
-                  fill="transparent"
-                  onClick={() => {
-                    if (video.videoElement) {
-                      if (video.videoElement.paused) {
-                        video.videoElement.play();
-                      } else {
-                        video.videoElement.pause();
-                      }
-                    }
-                  }}
-                />
+                                 {/* Video controls overlay - no click functionality */}
+                 <Rect
+                   x={0}
+                   y={0}
+                   width={video.width}
+                   height={video.height}
+                   fill="transparent"
+                 />
+                 
+                 {/* Play/Pause button in corner */}
+                 <Rect
+                   x={10}
+                   y={10}
+                   width={40}
+                   height={40}
+                   fill="#E1FF00"
+                   stroke="#000"
+                   strokeWidth={2}
+                   cornerRadius={6}
+                   onClick={() => {
+                     if (video.videoElement) {
+                       if (video.videoElement.paused) {
+                         video.videoElement.play();
+                       } else {
+                         video.videoElement.pause();
+                       }
+                     }
+                   }}
+                 />
+                 <KonvaText
+                   x={15}
+                   y={15}
+                   text={video.videoElement && !video.videoElement.paused ? "⏸" : "▶"}
+                   fontSize={20}
+                   fill="#000"
+                   align="center"
+                 />
               </Group>
             ))}
           
