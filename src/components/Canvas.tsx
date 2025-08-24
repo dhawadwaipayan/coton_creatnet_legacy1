@@ -1786,7 +1786,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     }}
                   />
                   <iframe
-                    src={video.src}
+                    src={`/video-player.html?video=${encodeURIComponent(video.src)}`}
                     style={{
                       width: '100%',
                       height: '100%',

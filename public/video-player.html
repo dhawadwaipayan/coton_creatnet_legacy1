@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: transparent;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .video-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        /* Custom video controls */
+        .video-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .video-container:hover .video-controls {
+            opacity: 1;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .control-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .play-pause {
+            background: #E1FF00;
+            color: #000;
+            font-weight: bold;
+        }
+        
+        .play-pause:hover {
+            background: #cce600;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <video id="videoPlayer" preload="metadata">
+            <source id="videoSource" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        
+        <div class="video-controls">
+            <div class="control-buttons">
+                <button class="control-btn play-pause" id="playPauseBtn">▶ Play</button>
+                <button class="control-btn" id="fullscreenBtn">⛶ Fullscreen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get video URL from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoUrl = urlParams.get('video');
+        
+        if (videoUrl) {
+            const video = document.getElementById('videoPlayer');
+            const source = document.getElementById('videoSource');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            
+            // Set video source
+            source.src = videoUrl;
+            video.load();
+            
+            // Play/Pause functionality
+            playPauseBtn.addEventListener('click', () => {
+                if (video.paused) {
+                    video.play();
+                    playPauseBtn.textContent = '⏸ Pause';
+                    playPauseBtn.classList.add('playing');
+                } else {
+                    video.pause();
+                    playPauseBtn.textContent = '▶ Play';
+                    playPauseBtn.classList.remove('playing');
+                }
+            });
+            
+            // Fullscreen functionality
+            fullscreenBtn.addEventListener('click', () => {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    video.requestFullscreen();
+                }
+            });
+            
+            // Update button text when video ends
+            video.addEventListener('ended', () => {
+                playPauseBtn.textContent = '▶ Play';
+                playPauseBtn.classList.remove('playing');
+            });
+            
+            // Auto-hide controls after 3 seconds of inactivity
+            let controlsTimeout;
+            const showControls = () => {
+                clearTimeout(controlsTimeout);
+                document.querySelector('.video-controls').style.opacity = '1';
+                controlsTimeout = setTimeout(() => {
+                    document.querySelector('.video-controls').style.opacity = '0';
+                }, 3000);
+            };
+            
+            video.addEventListener('mousemove', showControls);
+            video.addEventListener('click', showControls);
+            
+            // Log for debugging
+            console.log('Video player loaded with URL:', videoUrl);
+        } else {
+            console.error('No video URL provided');
+            document.body.innerHTML = '<div style="color: white; text-align: center; padding: 20px;">No video URL provided</div>';
+        }
+    </script>
+</body>
+</html>
