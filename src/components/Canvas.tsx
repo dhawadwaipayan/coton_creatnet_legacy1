@@ -2122,16 +2122,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                    fill="transparent"
                  />
                  
-                 {/* Simple Play/Pause button in corner */}
+                 {/* Beautiful Neumorphic Play/Pause button in corner */}
                  <Rect
-                   x={5}
-                   y={5}
-                   width={30}
-                   height={30}
-                   fill="#E1FF00"
-                   stroke="#000"
-                   strokeWidth={1}
-                   cornerRadius={4}
+                   x={8}
+                   y={8}
+                   width={32}
+                   height={32}
+                   fill="#000000"
+                   stroke="#ffffff"
+                   strokeWidth={1.5}
+                   cornerRadius={8}
+                   shadowBlur={4}
+                   shadowColor="rgba(0,0,0,0.3)"
+                   shadowOffset={{ x: 2, y: 2 }}
                    onClick={() => {
                      if (video.videoElement) {
                        if (video.videoElement.paused) {
@@ -2142,14 +2145,39 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                      }
                    }}
                  />
-                 <KonvaText
-                   x={10}
-                   y={8}
-                   text={video.videoElement && !video.videoElement.paused ? "⏸" : "▶"}
-                   fontSize={16}
-                   fill="#000"
-                   align="center"
-                 />
+                 {/* Play/Pause icon - white outline triangle for play, pause bars for pause */}
+                 {video.videoElement && !video.videoElement.paused ? (
+                   // Pause icon - two white vertical bars
+                   <>
+                     <Rect
+                       x={14}
+                       y={12}
+                       width={2}
+                       height={8}
+                       fill="#ffffff"
+                       cornerRadius={1}
+                     />
+                     <Rect
+                       x={18}
+                       y={12}
+                       width={2}
+                       height={8}
+                       fill="#ffffff"
+                       cornerRadius={1}
+                     />
+                   </>
+                 ) : (
+                   // Play icon - white outline triangle pointing right
+                   <KonvaText
+                     x={12}
+                     y={10}
+                     text="▶"
+                     fontSize={14}
+                     fill="#ffffff"
+                     align="center"
+                     fontFamily="Arial, sans-serif"
+                   />
+                 )}
               </Group>
             ))}
           
