@@ -1786,7 +1786,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     }}
                   />
                   <iframe
-                    src={`/video-player.html?video=${encodeURIComponent(video.src)}`}
+                    src={video.src}
                     style={{
                       width: '100%',
                       height: '100%',
@@ -1795,8 +1795,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                       position: 'relative',
                       zIndex: 0
                     }}
-                    onLoad={() => console.log('Video iframe loaded:', video.src)}
-                    onError={(e) => console.error('Video iframe error:', e, video.src)}
+                    onLoad={() => console.log('Video HTML iframe loaded:', video.src)}
+                    onError={(e) => console.error('Video HTML iframe error:', e, video.src)}
                     allowFullScreen
                     allow="autoplay; encrypted-media; picture-in-picture"
                   />
