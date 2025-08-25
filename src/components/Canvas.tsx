@@ -1782,7 +1782,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Inline text editing logic (Fabric.js style, single textarea, no flicker)
+  // Inline text editing logic - transform existing text to editable state
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
@@ -2215,7 +2215,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 fill={txt.color}
                 draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
                 rotation={txt.rotation}
-                visible={!(editingText && editingText.id === txt.id)}
+                // Show text normally, but with edit styling when editing
+                opacity={editingText && editingText.id === txt.id ? 0.3 : 1}
                 onClick={evt => handleItemClick(txt.id, 'text', evt)}
                 onTap={evt => handleItemClick(txt.id, 'text', evt)}
                 onDblClick={() => handleTextDblClick(txt)}
@@ -2414,23 +2415,23 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             top: canvasToScreen(editingText.x, editingText.y).y,
             fontSize: editingText.fontSize,
             color: editingText.color,
-            background: 'rgba(0,0,0,0.8)',
-            border: '2px solid #E1FF00',
-            borderRadius: 8,
-            padding: '4px 12px',
+            background: 'rgba(0,0,0,0.1)',
+            border: '1px solid rgba(225,255,0,0.6)',
+            borderRadius: 2,
+            padding: '1px 2px',
             zIndex: 1000,
             outline: 'none',
-            minWidth: Math.max(100, editingText.value.length * 20),
-            maxWidth: 600,
+            minWidth: Math.max(80, editingText.value.length * 18),
+            maxWidth: 800,
             fontFamily: 'Arial, sans-serif',
             fontWeight: 'normal',
             fontStyle: 'normal',
-            boxShadow: '0 0 20px rgba(225,255,0,0.3)',
-            caretColor: '#E1FF00',
+            boxShadow: 'none',
+            caretColor: editingText.color,
             letterSpacing: 'normal',
             lineHeight: 1.2,
             textAlign: 'left',
-            transition: 'all 0.2s ease',
+            transition: 'none',
             resize: 'none',
             whiteSpace: 'pre',
             transform: editingText.rotation ? `rotate(${editingText.rotation}deg)` : undefined,
