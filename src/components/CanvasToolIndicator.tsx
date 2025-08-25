@@ -18,7 +18,7 @@ export const CanvasToolIndicator: React.FC<CanvasToolIndicatorProps> = ({ select
       case 'shape':
         return 'Shape mode';
       case 'text':
-        return 'Text mode';
+        return 'Text mode - Click anywhere to add text, double-click existing text to edit';
       default:
         return '';
     }

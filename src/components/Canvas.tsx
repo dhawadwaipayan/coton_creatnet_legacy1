@@ -145,6 +145,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
   }, [stagePos, zoom]);
 
+  // Convert canvas coordinates to screen coordinates (for textarea positioning)
+  const canvasToScreen = useCallback((canvasX: number, canvasY: number) => {
+    return {
+      x: canvasX * zoom + stagePos.x,
+      y: canvasY * zoom + stagePos.y
+    };
+  }, [zoom, stagePos]);
+
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
   // Videos state: store video elements with Konva.js video support
@@ -208,8 +216,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo stacks
-  const [undoStack, setUndoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
-  const [redoStack, setRedoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts }>>([]);
+  const [undoStack, setUndoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts; videos: typeof videos }>>([]);
+  const [redoStack, setRedoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts; videos: typeof videos }>>([]);
 
   // Debounced saving state
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -218,12 +226,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Helper to push current state to undo stack
   const pushToUndoStack = useCallback(() => {
     setUndoStack(prev => {
-      const newStack = [...prev, { images: JSON.parse(JSON.stringify(images)), strokes: JSON.parse(JSON.stringify(strokes)), texts: JSON.parse(JSON.stringify(texts)) }];
+      const newStack = [...prev, { images: JSON.parse(JSON.stringify(images)), strokes: JSON.parse(JSON.stringify(strokes)), texts: JSON.parse(JSON.stringify(texts)), videos: JSON.parse(JSON.stringify(videos)) }];
       // Limit to 50 entries
       return newStack.length > 50 ? newStack.slice(newStack.length - 50) : newStack;
     });
     setRedoStack([]); // Clear redo stack on new action
-  }, [images, strokes, texts]);
+  }, [images, strokes, texts, videos]);
 
   // Debounced save function - saves after 2 seconds of inactivity
   const debouncedSave = useCallback(() => {
@@ -260,27 +268,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const handleUndo = useCallback(() => {
     setUndoStack(prev => {
       if (prev.length === 0) return prev;
-      setRedoStack(rStack => [{ images, strokes, texts }, ...rStack]);
+      setRedoStack(rStack => [{ images, strokes, texts, videos }, ...rStack]);
       const last = prev[prev.length - 1];
       setImages(last.images);
       setStrokes(last.strokes);
       setTexts(last.texts);
+      setVideos(last.videos);
       return prev.slice(0, -1);
     });
-  }, [images, strokes, texts]);
+  }, [images, strokes, texts, videos]);
 
   // Redo handler
   const handleRedo = useCallback(() => {
     setRedoStack(prev => {
       if (prev.length === 0) return prev;
-      setUndoStack(uStack => [...uStack, { images, strokes, texts }]);
+      setUndoStack(uStack => [...uStack, { images, strokes, texts, videos }]);
       const next = prev[0];
       setImages(next.images);
       setStrokes(next.strokes);
       setTexts(next.texts);
+      setVideos(next.videos);
       return prev.slice(1);
     });
-  }, [images, strokes, texts]);
+  }, [images, strokes, texts, videos]);
   
   // Delete selected items handler
   const handleDeleteSelected = useCallback(() => {
@@ -1456,6 +1466,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Add text tool logic
   const handleStageClick = (e: any) => {
     if (props.selectedTool === 'text') {
+      // Don't create text if we're currently editing
+      if (editingText) return;
+      
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
@@ -1478,9 +1491,22 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           timestamp: Date.now()
         }
       ]);
-      // Select the new text and switch to select tool
+      
+      // Immediately enter edit mode for the new text
+      setEditingText({
+        id,
+        value: 'Add text',
+        x: canvasPos.x,
+        y: canvasPos.y,
+        color: props.textColor || '#FF0000',
+        fontSize: 32,
+        rotation: 0,
+      });
+      
+      // Select the new text
       setSelectedIds([{ id, type: 'text' }]);
-      if (props.onTextAdded) props.onTextAdded();
+      
+      // Don't auto-switch to select tool yet - let user finish editing
       return;
     }
     if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
@@ -1491,8 +1517,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Selection helpers
   const isSelected = (id: string, type: 'image' | 'stroke' | 'text' | 'video') => selectedIds.some(sel => sel.id === id && sel.type === type);
 
-  // Handle click on image/stroke
-  const handleItemClick = (id: string, type: 'image' | 'stroke' | 'text', evt: any) => {
+  // Handle click on image/stroke/text/video
+  const handleItemClick = (id: string, type: 'image' | 'stroke' | 'text' | 'video', evt: any) => {
     if (props.selectedTool !== 'select') return;
     const isMulti = evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey;
     if (isMulti) {
@@ -1580,7 +1606,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setTemporaryPanStart(null);
     } else if (selectionRect && selectionStart) {
       // Find all items that intersect the selection rectangle
-      const selected: Array<{ id: string, type: 'image' | 'stroke' | 'text' }> = [];
+              const selected: Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video' }> = [];
       images.forEach(img => {
         if (
           img.x + (img.width || 200) > selectionRect.x &&
@@ -1620,7 +1646,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
 
   // Multi-select: drag group
-  const handleGroupDragStart = (e: any, id: string, type: 'image' | 'stroke' | 'text') => {
+  const handleGroupDragStart = (e: any, id: string, type: 'image' | 'stroke' | 'text' | 'video') => {
     if (props.selectedTool === 'select' && isSelected(id, type)) {
       const items = selectedIds.map(sel => {
         if (sel.type === 'image') {
@@ -1633,11 +1659,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           const txt = texts.find(t => t.id === sel.id);
           return txt ? { id: sel.id, type: 'text', x: txt.x, y: txt.y } : null;
         }
-      }).filter(Boolean) as Array<{ id: string, type: 'image' | 'stroke' | 'text', x: number, y: number }>; 
+              }).filter(Boolean) as Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video', x: number, y: number }>; 
       setGroupDragStart({ x: e.target.x(), y: e.target.y(), items });
     }
   };
-  const handleGroupDragMove = (e: any, id: string, type: 'image' | 'stroke' | 'text') => {
+  const handleGroupDragMove = (e: any, id: string, type: 'image' | 'stroke' | 'text' | 'video') => {
     if (groupDragStart) {
       const dx = e.target.x() - groupDragStart.x;
       const dy = e.target.y() - groupDragStart.y;
@@ -1759,6 +1785,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Inline text editing logic (Fabric.js style, single textarea, no flicker)
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
+    
+    // Clear any existing selection
+    setSelectedIds([]);
+    
     setEditingText({
       id: txt.id,
       value: txt.text,
@@ -1768,23 +1798,33 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       fontSize: txt.fontSize,
       rotation: txt.rotation || 0,
     });
+    
+    // Focus and select text after a brief delay to ensure state is updated
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
         textareaRef.current.select();
       }
-    }, 0);
+    }, 50);
   };
   const handleTextareaBlur = () => {
     if (editingText) {
       pushToUndoStackWithSave();
       setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
       setEditingText(null);
+      
+      // Switch to select tool after editing is complete
+      if (props.onTextAdded) props.onTextAdded();
     }
   };
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Escape') {
+      // Cancel editing and revert to original text
       setEditingText(null);
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      // Confirm editing on Enter (but allow Shift+Enter for new lines)
+      e.preventDefault();
+      handleTextareaBlur();
     }
   };
 
@@ -2180,6 +2220,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onTap={evt => handleItemClick(txt.id, 'text', evt)}
                 onDblClick={() => handleTextDblClick(txt)}
                 onDblTap={() => handleTextDblClick(txt)}
+                // Add subtle highlight when text tool is active
+                shadowColor={props.selectedTool === 'text' ? 'rgba(225,255,0,0.3)' : 'transparent'}
+                shadowBlur={props.selectedTool === 'text' ? 8 : 0}
+                shadowOffset={{ x: 0, y: 0 }}
                 onDragEnd={e => {
                   pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
@@ -2366,27 +2410,27 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           onKeyDown={handleTextareaKeyDown}
           style={{ 
             position: 'absolute',
-            left: editingText.x + stagePos.x,
-            top: editingText.y + stagePos.y,
+            left: canvasToScreen(editingText.x, editingText.y).x,
+            top: canvasToScreen(editingText.x, editingText.y).y,
             fontSize: editingText.fontSize,
             color: editingText.color,
-            background: 'transparent',
-            border: '1.5px solid #E1FF00',
-            borderRadius: 6,
-            padding: '2px 8px',
+            background: 'rgba(0,0,0,0.8)',
+            border: '2px solid #E1FF00',
+            borderRadius: 8,
+            padding: '4px 12px',
             zIndex: 1000,
             outline: 'none',
-            minWidth: Math.max(80, editingText.value.length * 18),
+            minWidth: Math.max(100, editingText.value.length * 20),
             maxWidth: 600,
             fontFamily: 'Arial, sans-serif',
             fontWeight: 'normal',
             fontStyle: 'normal',
-            boxShadow: '0 0 0 2px rgba(225,255,0,0.15)',
+            boxShadow: '0 0 20px rgba(225,255,0,0.3)',
             caretColor: '#E1FF00',
             letterSpacing: 'normal',
-            lineHeight: 1.1,
+            lineHeight: 1.2,
             textAlign: 'left',
-            transition: 'border 0.1s',
+            transition: 'all 0.2s ease',
             resize: 'none',
             whiteSpace: 'pre',
             transform: editingText.rotation ? `rotate(${editingText.rotation}deg)` : undefined,
