@@ -292,18 +292,30 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       "task": "fashion_sketch_to_realistic_render",
       "input": {
         "sketch_image": base64Sketch,
+        "annotations": "text descriptions written on top of the sketch indicating garment details such as smocking, pleats, embroidery, fabric finish, or construction style",
+        "additional_details": "optional free-text or structured notes for any further garment specifics (e.g., asymmetric hem, puff sleeves, layered panels, lace trims)",
         "material_reference": base64Material || null,
         "reference_style": "high-resolution fashion photography",
         "model_preferences": {
           "height": "tall",
           "pose": "neutral runway stance, arms relaxed by sides",
-          "body_type": "slim but natural proportions"
+          "body_type": "slim but natural proportions",
+          "skin": "natural texture with soft shading",
+          "hands": "anatomically correct, relaxed by sides"
         },
         "garment_rendering": {
-          "fabric": base64Material ? "apply material's weave, texture, and color to the entire garment" : "use sketch's default fabric fall and drape with gravity",
-          "texture": "show accurate textile weave, sheen, and depth",
-          "lighting": "studio lighting, soft shadows",
-          "details": "retain sketch design lines, seams, closures, buttons, collars, hems"
+          "fabric_mode": "material_reference_or_sketch",
+          "fabric_logic": {
+            "if_material_reference": "apply material's weave, texture, and color accurately across garment zones, respecting scale and construction",
+            "if_no_material_reference": "faithfully reproduce fabric from sketch, preserving original color palette, pattern scaling (checks, stripes, prints), and fabric effect"
+          },
+          "fabric_application": {
+            "zones": "interpret from sketch + annotations (e.g., smocked bodice, pleated skirt, plain sleeves)"
+          },
+          "texture": "accurate textile weave, sheen, and depth",
+          "drape": "gravity-driven fabric fall with folds as specified by annotations",
+          "lighting": "studio lighting with soft shadows and highlights on folds",
+          "details": "preserve all annotated and additional garment features (smocking, pleats, trims, buttons, seams, lace, embroidery, etc.) with realistic 3D depth and shadow"
         }
       },
       "output": {
@@ -315,14 +327,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         },
         "consistency": {
           "style": "same rendering style for every garment",
-          "accuracy": "garment should exactly follow sketch silhouette"
+          "accuracy": "garment must follow both sketch silhouette, annotations, and any additional details"
         }
       }
     };
     
     // Add any additional details from user input
     if (details && details.trim()) {
-      jsonPrompt.input.additional_requirements = details.trim();
+      jsonPrompt.input.additional_details = details.trim();
     }
     
     const promptText = JSON.stringify(jsonPrompt, null, 2);
