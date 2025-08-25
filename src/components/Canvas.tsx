@@ -1782,7 +1782,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Inline text editing logic - make text editable directly in Konva
+  // Inline text editing logic - make text editable in place
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
@@ -1800,7 +1800,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       rotation: txt.rotation || 0,
     });
     
-    // Create a temporary input element for inline editing
+    // Create a temporary input element positioned exactly over the text
     const input = document.createElement('input');
     input.type = 'text';
     input.value = txt.text;
@@ -1819,8 +1819,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     input.style.minWidth = Math.max(80, txt.text.length * 18) + 'px';
     input.style.transform = txt.rotation ? `rotate(${txt.rotation}deg)` : '';
     
-    // Add to DOM
-    document.body.appendChild(input);
+    // Add to the canvas container instead of body for better positioning
+    const canvasContainer = stageRef.current?.container()?.parentElement;
+    if (canvasContainer) {
+      canvasContainer.appendChild(input);
+    } else {
+      document.body.appendChild(input);
+    }
     
     // Focus and select
     input.focus();
@@ -1847,7 +1852,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       input.removeEventListener('input', handleInputChange);
       input.removeEventListener('blur', handleInputComplete);
       input.removeEventListener('keydown', handleKeyDown);
-      document.body.removeChild(input);
+      
+      // Remove from the correct container
+      const canvasContainer = stageRef.current?.container()?.parentElement;
+      if (canvasContainer && canvasContainer.contains(input)) {
+        canvasContainer.removeChild(input);
+      } else if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
     };
     
     // Handle keyboard events
@@ -1861,7 +1873,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         input.removeEventListener('input', handleInputChange);
         input.removeEventListener('blur', handleInputComplete);
         input.removeEventListener('keydown', handleKeyDown);
-        document.body.removeChild(input);
+        
+        // Remove from the correct container
+        const canvasContainer = stageRef.current?.container()?.parentElement;
+        if (canvasContainer && canvasContainer.contains(input)) {
+          canvasContainer.removeChild(input);
+        } else if (document.body.contains(input)) {
+          document.body.removeChild(input);
+        }
       }
     };
     
