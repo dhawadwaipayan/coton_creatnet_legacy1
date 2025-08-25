@@ -292,8 +292,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       "task": "fashion_sketch_to_realistic_render",
       "input": {
         "sketch_image": base64Sketch,
-        "annotations": "Annotations written directly on the sketch, specifying garment details (e.g., smocking, pleats, embroidery, fabric finish, construction style) or visual directions (such as drawn marks or highlights on the garment itself). Use annotations for guidance only. Do not render any text, arrows, labels, or overlay graphics. Remove all on-canvas annotation marks and clean leftover text artifacts; keep only the garment itself for final render.",
-        "additional_details": "optional free-text or structured notes for any further garment specifics (e.g., asymmetric hem, puff sleeves, layered panels, lace trims)",
+        "annotations": "Annotations written directly on the sketch specifying garment details or visual directions (drawn marks on the garment). TREAT AS BINDING CONSTRAINTS. Do not render any text, arrows, labels, or overlay graphics. Remove all on-canvas annotation marks and clean leftover text artifacts; keep only the garment itself for final render.",
+        "additional_details": "Optional free-text or structured notes for further specifics (e.g., asymmetric hem, puff sleeves, layered panels, lace trims).",
         "material_reference": base64Material || null,
         "reference_style": "high-resolution fashion photography",
         "model_preferences": {
@@ -306,16 +306,19 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         "garment_rendering": {
           "fabric_mode": "material_reference_or_sketch",
           "fabric_logic": {
-            "if_material_reference": "apply material's weave, texture, and color accurately across garment zones, respecting scale and construction",
-            "if_no_material_reference": "faithfully reproduce fabric from sketch, preserving original color palette, pattern scaling (checks, stripes, prints), and fabric effect"
+            "if_material_reference": "Map the material's weave, texture, and color smoothly onto the garment WITHOUT compression, gathering, smocking, or shirring unless explicitly annotated. Preserve scale (no stretch) and align pattern directions per zones.",
+            "if_no_material_reference": "Faithfully reproduce the sketch's intended fabric and color. Preserve pattern scaling (checks, stripes, prints) and fabric effect without adding gathers/pleats/smocking unless explicitly annotated."
           },
           "fabric_application": {
-            "zones": "interpret from sketch + annotations (e.g., smocked bodice, pleated skirt, plain sleeves)"
+            "zones": "EXACT from sketch; do not reinterpret. Respect boundaries for bodice, sleeves, skirt, waistband, trims, and hem. Do NOT invent construction details.",
+            "pattern_behavior": "Maintain stripe/print continuity and straightness; avoid compression or wave artifacts. Keep vertical stripes vertical and evenly spaced across the bodice and skirt unless annotated otherwise.",
+            "seam_alignment": "Align pattern across seams and at CF/CB where applicable; no distortion at high-curvature areas."
           },
-          "texture": "accurate textile weave, sheen, and depth",
-          "drape": "gravity-driven fabric fall with folds as specified by annotations",
-          "lighting": "studio lighting with soft shadows and highlights on folds",
-          "details": "preserve all annotated and additional garment features (smocking, pleats, trims, buttons, seams, lace, embroidery, etc.) with realistic 3D depth and shadow"
+          "texture": "Show accurate textile weave, subtle sheen, and depth. Use the reference material's microtexture as-is with correct scale and no over-sharpening.",
+          "drape": "Apply fabric FLAT to match the sketch silhouette. NO added folds, gathers, shirring, or smocking unless explicitly annotated.",
+          "outlines": "HARD CONSTRAINT. Preserve neckline, sleeve, waist, side seams, and hem lines pixel-accurate to the sketch with zero geometry changes.",
+          "lighting": "Studio lighting with soft shadows and subtle specular highlights on folds (only if annotated).",
+          "details": "Preserve all annotated and additional features (pleats, trims, buttons, seams, lace, embroidery). Depth/shadow only where those features exist; do not hallucinate extra construction."
         }
       },
       "output": {
@@ -326,8 +329,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           "framing": "full height, centered"
         },
         "consistency": {
-          "style": "same rendering style for every garment",
-          "accuracy": "garment must follow both sketch silhouette, annotations, and any additional details"
+          "style": "uniform rendering style across garments in the project",
+          "accuracy": "STRICT: match sketch silhouette and zone boundaries exactly; follow annotations over model priors; when uncertain, default to flat, plain construction with no gathers."
         }
       }
     };
