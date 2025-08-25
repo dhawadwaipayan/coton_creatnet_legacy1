@@ -292,7 +292,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       "task": "fashion_sketch_to_realistic_render",
       "input": {
         "sketch_image": base64Sketch,
-        "annotations": "Annotations written directly on the sketch, specifying garment details (e.g., smocking, pleats, embroidery, fabric finish, construction style) or visual directions (such as drawn marks or highlights on the garment itself)",
+        "annotations": "Annotations written directly on the sketch, specifying garment details (e.g., smocking, pleats, embroidery, fabric finish, construction style) or visual directions (such as drawn marks or highlights on the garment itself). Use annotations for guidance only. Do not render any text, arrows, labels, or overlay graphics. Remove all on-canvas annotation marks and clean leftover text artifacts; keep only the garment itself for final render.",
         "additional_details": "optional free-text or structured notes for any further garment specifics (e.g., asymmetric hem, puff sleeves, layered panels, lace trims)",
         "material_reference": base64Material || null,
         "reference_style": "high-resolution fashion photography",
