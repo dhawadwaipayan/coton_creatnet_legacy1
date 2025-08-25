@@ -1487,7 +1487,84 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Select the new text
       setSelectedIds([{ id, type: 'text' }]);
       
-      // Don't auto-switch to select tool yet - let user finish editing
+      // Immediately show the editing interface for new text
+      setTimeout(() => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        
+        // Calculate the exact position where the text appears on screen
+        const stageRect = stage.container().getBoundingClientRect();
+        const textX = stageRect.left + (canvasPos.x * zoom + stagePos.x);
+        const textY = stageRect.top + (canvasPos.y * zoom + stagePos.y);
+        
+        // Create a simple input element positioned exactly over the text
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = 'Add text';
+        input.style.position = 'fixed';
+        input.style.left = textX + 'px';
+        input.style.top = textY + 'px';
+        input.style.fontSize = '32px';
+        input.style.color = props.textColor || '#FF0000';
+        input.style.background = 'rgba(255,255,255,0.95)';
+        input.style.border = '2px solid rgba(225,255,0,0.8)';
+        input.style.borderRadius = '4px';
+        input.style.padding = '4px 8px';
+        input.style.outline = 'none';
+        input.style.fontFamily = 'Arial, sans-serif';
+        input.style.fontWeight = 'normal';
+        input.style.fontStyle = 'normal';
+        input.style.zIndex = '1000';
+        input.style.minWidth = '120px';
+        input.style.maxWidth = '600px';
+        
+        // Add to body
+        document.body.appendChild(input);
+        
+        // Focus and select all text
+        input.focus();
+        input.select();
+        
+        // Handle input changes in real-time
+        const handleInput = () => {
+          const newValue = input.value;
+          setEditingText(prev => prev ? { ...prev, value: newValue } : null);
+        };
+        
+        // Handle completion (Enter key or blur)
+        const handleComplete = () => {
+          const newValue = input.value;
+          
+          if (newValue.trim() !== '') {
+            // Save the changes
+            pushToUndoStackWithSave();
+            setTexts(prev => prev.map(t => t.id === id ? { ...t, text: newValue } : t));
+            
+            // Switch to select tool after editing
+            if (props.onTextAdded) props.onTextAdded();
+          }
+          
+          // Clean up
+          cleanupSimpleTextEditing(input);
+        };
+        
+        // Handle keyboard events
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleComplete();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cleanupSimpleTextEditing(input);
+          }
+        };
+        
+        // Add event listeners
+        input.addEventListener('input', handleInput);
+        input.addEventListener('blur', handleComplete);
+        input.addEventListener('keydown', handleKeyDown);
+      }, 100); // Small delay to ensure state is updated
+      
       return;
     }
     if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
