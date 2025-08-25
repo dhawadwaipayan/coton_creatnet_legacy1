@@ -1782,13 +1782,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Inline text editing logic - transform existing text to editable state
+  // Inline text editing logic - make text editable directly in Konva
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
     // Clear any existing selection
     setSelectedIds([]);
     
+    // Set editing state
     setEditingText({
       id: txt.id,
       value: txt.text,
@@ -1799,48 +1800,79 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       rotation: txt.rotation || 0,
     });
     
-    // Focus and select text after a brief delay to ensure state is updated
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.select();
+    // Create a temporary input element for inline editing
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = txt.text;
+    input.style.position = 'absolute';
+    input.style.left = canvasToScreen(txt.x, txt.y).x + 'px';
+    input.style.top = canvasToScreen(txt.x, txt.y).y + 'px';
+    input.style.fontSize = txt.fontSize + 'px';
+    input.style.color = txt.color;
+    input.style.background = 'transparent';
+    input.style.border = 'none';
+    input.style.outline = 'none';
+    input.style.fontFamily = 'Arial, sans-serif';
+    input.style.fontWeight = 'normal';
+    input.style.fontStyle = 'normal';
+    input.style.zIndex = '1000';
+    input.style.minWidth = Math.max(80, txt.text.length * 18) + 'px';
+    input.style.transform = txt.rotation ? `rotate(${txt.rotation}deg)` : '';
+    
+    // Add to DOM
+    document.body.appendChild(input);
+    
+    // Focus and select
+    input.focus();
+    input.select();
+    
+    // Handle input changes
+    const handleInputChange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      setEditingText(prev => prev ? { ...prev, value: target.value } : null);
+    };
+    
+    // Handle input completion
+    const handleInputComplete = () => {
+      if (editingText) {
+        pushToUndoStackWithSave();
+        setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
+        setEditingText(null);
+        
+        // Switch to select tool after editing
+        if (props.onTextAdded) props.onTextAdded();
       }
-    }, 50);
-  };
-  const handleTextareaBlur = () => {
-    if (editingText) {
-      pushToUndoStackWithSave();
-      setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
-      setEditingText(null);
       
-      // Switch to select tool after editing is complete
-      if (props.onTextAdded) props.onTextAdded();
-    }
-  };
-  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Escape') {
-      // Cancel editing and revert to original text
-      setEditingText(null);
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      // Confirm editing on Enter (but allow Shift+Enter for new lines)
-      e.preventDefault();
-      handleTextareaBlur();
-    }
-  };
-
-  // Handle click outside textarea to close editing
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (editingText && textareaRef.current && !textareaRef.current.contains(e.target as Node)) {
-        handleTextareaBlur();
+      // Clean up
+      input.removeEventListener('input', handleInputChange);
+      input.removeEventListener('blur', handleInputComplete);
+      input.removeEventListener('keydown', handleKeyDown);
+      document.body.removeChild(input);
+    };
+    
+    // Handle keyboard events
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleInputComplete();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setEditingText(null);
+        input.removeEventListener('input', handleInputChange);
+        input.removeEventListener('blur', handleInputComplete);
+        input.removeEventListener('keydown', handleKeyDown);
+        document.body.removeChild(input);
       }
     };
+    
+    // Add event listeners
+    input.addEventListener('input', handleInputChange);
+    input.addEventListener('blur', handleInputComplete);
+    input.addEventListener('keydown', handleKeyDown);
+  };
+  // Text editing is now handled inline, no separate textarea needed
 
-    if (editingText) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [editingText]);
+  // Text editing is now handled inline, no need for click outside handlers
 
   // Handle mouse events for sketch mode bounding box
   const handleSketchBoxMouseDown = (e: any) => {
@@ -2215,8 +2247,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 fill={txt.color}
                 draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
                 rotation={txt.rotation}
-                // Show text normally, but with edit styling when editing
-                opacity={editingText && editingText.id === txt.id ? 0.3 : 1}
+                // Show text normally
+                opacity={1}
                 onClick={evt => handleItemClick(txt.id, 'text', evt)}
                 onTap={evt => handleItemClick(txt.id, 'text', evt)}
                 onDblClick={() => handleTextDblClick(txt)}
@@ -2401,46 +2433,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           )}
         </Layer>
       </Stage>
-      {/* Textarea overlay for editing - positioned outside Konva Stage */}
-      {editingText && (
-        <textarea
-          ref={textareaRef}
-          value={editingText.value}
-          onChange={e => setEditingText(editingText ? { ...editingText, value: e.target.value } : null)}
-          onBlur={handleTextareaBlur}
-          onKeyDown={handleTextareaKeyDown}
-          style={{ 
-            position: 'absolute',
-            left: canvasToScreen(editingText.x, editingText.y).x,
-            top: canvasToScreen(editingText.x, editingText.y).y,
-            fontSize: editingText.fontSize,
-            color: editingText.color,
-            background: 'rgba(0,0,0,0.1)',
-            border: '1px solid rgba(225,255,0,0.6)',
-            borderRadius: 2,
-            padding: '1px 2px',
-            zIndex: 1000,
-            outline: 'none',
-            minWidth: Math.max(80, editingText.value.length * 18),
-            maxWidth: 800,
-            fontFamily: 'Arial, sans-serif',
-            fontWeight: 'normal',
-            fontStyle: 'normal',
-            boxShadow: 'none',
-            caretColor: editingText.color,
-            letterSpacing: 'normal',
-            lineHeight: 1.2,
-            textAlign: 'left',
-            transition: 'none',
-            resize: 'none',
-            whiteSpace: 'pre',
-            transform: editingText.rotation ? `rotate(${editingText.rotation}deg)` : undefined,
-          }}
-          autoFocus
-          rows={1}
-          spellCheck={false}
-        />
-      )}
+      {/* Inline text editing is now handled directly in the text elements */}
       </div>
     );
 });
