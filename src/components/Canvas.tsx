@@ -1782,7 +1782,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Inline text editing logic - make text editable in place
+  // Inline text editing logic - fixed positioning and stable editing
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
@@ -1800,32 +1800,41 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       rotation: txt.rotation || 0,
     });
     
-    // Create a temporary input element positioned exactly over the text
+    // Get the stage container for proper positioning
+    const stage = stageRef.current;
+    if (!stage) return;
+    
+    const stageContainer = stage.container();
+    const stageRect = stageContainer.getBoundingClientRect();
+    
+    // Calculate position relative to the viewport, not canvas coordinates
+    const screenX = stageRect.left + (txt.x * zoom + stagePos.x);
+    const screenY = stageRect.top + (txt.y * zoom + stagePos.y);
+    
+    // Create a temporary input element with fixed positioning
     const input = document.createElement('input');
     input.type = 'text';
     input.value = txt.text;
-    input.style.position = 'absolute';
-    input.style.left = canvasToScreen(txt.x, txt.y).x + 'px';
-    input.style.top = canvasToScreen(txt.x, txt.y).y + 'px';
+    input.style.position = 'fixed'; // Use fixed positioning to avoid zoom issues
+    input.style.left = screenX + 'px';
+    input.style.top = screenY + 'px';
     input.style.fontSize = txt.fontSize + 'px';
     input.style.color = txt.color;
-    input.style.background = 'transparent';
-    input.style.border = 'none';
+    input.style.background = 'rgba(0,0,0,0.1)';
+    input.style.border = '1px solid rgba(225,255,0,0.6)';
+    input.style.borderRadius = '2px';
+    input.style.padding = '1px 2px';
     input.style.outline = 'none';
     input.style.fontFamily = 'Arial, sans-serif';
     input.style.fontWeight = 'normal';
     input.style.fontStyle = 'normal';
     input.style.zIndex = '1000';
     input.style.minWidth = Math.max(80, txt.text.length * 18) + 'px';
+    input.style.maxWidth = '800px';
     input.style.transform = txt.rotation ? `rotate(${txt.rotation}deg)` : '';
     
-    // Add to the canvas container instead of body for better positioning
-    const canvasContainer = stageRef.current?.container()?.parentElement;
-    if (canvasContainer) {
-      canvasContainer.appendChild(input);
-    } else {
-      document.body.appendChild(input);
-    }
+    // Add to body for consistent positioning
+    document.body.appendChild(input);
     
     // Focus and select
     input.focus();
@@ -1842,24 +1851,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (editingText) {
         pushToUndoStackWithSave();
         setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
-        setEditingText(null);
         
         // Switch to select tool after editing
         if (props.onTextAdded) props.onTextAdded();
       }
       
-      // Clean up
-      input.removeEventListener('input', handleInputChange);
-      input.removeEventListener('blur', handleInputComplete);
-      input.removeEventListener('keydown', handleKeyDown);
-      
-      // Remove from the correct container
-      const canvasContainer = stageRef.current?.container()?.parentElement;
-      if (canvasContainer && canvasContainer.contains(input)) {
-        canvasContainer.removeChild(input);
-      } else if (document.body.contains(input)) {
-        document.body.removeChild(input);
-      }
+      // Clean up using the cleanup function
+      cleanupTextEditing(input);
     };
     
     // Handle keyboard events
@@ -1869,18 +1867,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         handleInputComplete();
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        setEditingText(null);
-        input.removeEventListener('input', handleInputChange);
-        input.removeEventListener('blur', handleInputComplete);
-        input.removeEventListener('keydown', handleKeyDown);
-        
-        // Remove from the correct container
-        const canvasContainer = stageRef.current?.container()?.parentElement;
-        if (canvasContainer && canvasContainer.contains(input)) {
-          canvasContainer.removeChild(input);
-        } else if (document.body.contains(input)) {
-          document.body.removeChild(input);
-        }
+        cleanupTextEditing(input);
       }
     };
     
@@ -1890,6 +1877,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     input.addEventListener('keydown', handleKeyDown);
   };
   // Text editing is now handled inline, no separate textarea needed
+  
+  // Cleanup function to ensure proper text editing cleanup
+  const cleanupTextEditing = useCallback((input: HTMLInputElement) => {
+    if (!input) return;
+    
+    // Remove from DOM
+    if (document.body.contains(input)) {
+      document.body.removeChild(input);
+    }
+    
+    // Clear editing state
+    setEditingText(null);
+  }, []);
 
   // Text editing is now handled inline, no need for click outside handlers
 
@@ -2266,16 +2266,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 fill={txt.color}
                 draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
                 rotation={txt.rotation}
-                // Show text normally
-                opacity={1}
-                onClick={evt => handleItemClick(txt.id, 'text', evt)}
-                onTap={evt => handleItemClick(txt.id, 'text', evt)}
-                onDblClick={() => handleTextDblClick(txt)}
-                onDblTap={() => handleTextDblClick(txt)}
+                // Show text normally, but highlight when editing
+                opacity={editingText && editingText.id === txt.id ? 0.3 : 1}
                 // Add subtle highlight when text tool is active
                 shadowColor={props.selectedTool === 'text' ? 'rgba(225,255,0,0.3)' : 'transparent'}
                 shadowBlur={props.selectedTool === 'text' ? 8 : 0}
                 shadowOffset={{ x: 0, y: 0 }}
+                // Add border when editing
+                stroke={editingText && editingText.id === txt.id ? 'rgba(225,255,0,0.6)' : 'transparent'}
+                strokeWidth={editingText && editingText.id === txt.id ? 0.5 : 0}
+                onClick={evt => handleItemClick(txt.id, 'text', evt)}
+                onTap={evt => handleItemClick(txt.id, 'text', evt)}
+                onDblClick={() => handleTextDblClick(txt)}
+                onDblTap={() => handleTextDblClick(txt)}
                 onDragEnd={e => {
                   pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
