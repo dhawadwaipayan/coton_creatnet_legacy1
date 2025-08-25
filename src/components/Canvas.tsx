@@ -1763,7 +1763,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Inline text editing logic - fixed positioning and stable editing
+  // ContentEditable text editing - make Konva text directly editable
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
@@ -1781,96 +1781,137 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       rotation: txt.rotation || 0,
     });
     
-    // Get the stage container for proper positioning
+    // Get the Konva text node
     const stage = stageRef.current;
     if (!stage) return;
     
-    const stageContainer = stage.container();
-    const stageRect = stageContainer.getBoundingClientRect();
+    const textNode = stage.findOne(`#text-${txt.id}`);
+    if (!textNode) return;
     
-    // Calculate position relative to the viewport, not canvas coordinates
-    const screenX = stageRect.left + (txt.x * zoom + stagePos.x);
-    const screenY = stageRect.top + (txt.y * zoom + stagePos.y);
+    // Make the text node editable
+    textNode.setAttrs({
+      draggable: false,
+      listening: false
+    });
     
-    // Create a temporary input element with fixed positioning
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = txt.text;
-    input.style.position = 'fixed'; // Use fixed positioning to avoid zoom issues
-    input.style.left = screenX + 'px';
-    input.style.top = screenY + 'px';
-    input.style.fontSize = txt.fontSize + 'px';
-    input.style.color = txt.color;
-    input.style.background = 'rgba(0,0,0,0.1)';
-    input.style.border = '1px solid rgba(225,255,0,0.6)';
-    input.style.borderRadius = '2px';
-    input.style.padding = '1px 2px';
-    input.style.outline = 'none';
-    input.style.fontFamily = 'Arial, sans-serif';
-    input.style.fontWeight = 'normal';
-    input.style.fontStyle = 'normal';
-    input.style.zIndex = '1000';
-    input.style.minWidth = Math.max(80, txt.text.length * 18) + 'px';
-    input.style.maxWidth = '800px';
-    input.style.transform = txt.rotation ? `rotate(${txt.rotation}deg)` : '';
+    // Create a contentEditable div positioned over the text
+    const editableDiv = document.createElement('div');
+    editableDiv.contentEditable = true;
+    editableDiv.textContent = txt.text;
+    editableDiv.style.position = 'absolute';
+    editableDiv.style.left = '0';
+    editableDiv.style.top = '0';
+    editableDiv.style.fontSize = txt.fontSize + 'px';
+    editableDiv.style.color = txt.color;
+    editableDiv.style.background = 'transparent';
+    editableDiv.style.border = '1px solid rgba(225,255,0,0.6)';
+    editableDiv.style.borderRadius = '2px';
+    editableDiv.style.padding = '2px 4px';
+    editableDiv.style.outline = 'none';
+    editableDiv.style.fontFamily = 'Arial, sans-serif';
+    editableDiv.style.fontWeight = 'normal';
+    editableDiv.style.fontStyle = 'normal';
+    editableDiv.style.zIndex = '1000';
+    editableDiv.style.minWidth = Math.max(80, txt.text.length * 18) + 'px';
+    editableDiv.style.maxWidth = '800px';
+    editableDiv.style.whiteSpace = 'pre-wrap';
+    editableDiv.style.wordWrap = 'break-word';
+    editableDiv.style.transform = txt.rotation ? `rotate(${txt.rotation}deg)` : '';
     
-    // Add to body for consistent positioning
-    document.body.appendChild(input);
+    // Position the editable div over the text node
+    const textRect = textNode.getClientRect();
+    const stageRect = stage.container().getBoundingClientRect();
     
-    // Focus and select
-    input.focus();
-    input.select();
+    editableDiv.style.left = (stageRect.left + textRect.x) + 'px';
+    editableDiv.style.top = (stageRect.top + textRect.y) + 'px';
+    editableDiv.style.width = textRect.width + 'px';
+    editableDiv.style.height = textRect.height + 'px';
+    
+    // Add to body
+    document.body.appendChild(editableDiv);
+    
+    // Focus and select all text
+    editableDiv.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editableDiv);
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
     
     // Handle input changes
-    const handleInputChange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      setEditingText(prev => prev ? { ...prev, value: target.value } : null);
+    const handleInput = () => {
+      setEditingText(prev => prev ? { ...prev, value: editableDiv.textContent || '' } : null);
     };
     
     // Handle input completion
-    const handleInputComplete = () => {
+    const handleComplete = () => {
       if (editingText) {
+        const newText = editableDiv.textContent || '';
         pushToUndoStackWithSave();
-        setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: editingText.value } : t));
+        setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
         
         // Switch to select tool after editing
         if (props.onTextAdded) props.onTextAdded();
       }
       
-      // Clean up using the cleanup function
-      cleanupTextEditing(input);
+      // Clean up
+      cleanupContentEditable(editableDiv, textNode);
     };
     
     // Handle keyboard events
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleInputComplete();
+        handleComplete();
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        cleanupTextEditing(input);
+        cleanupContentEditable(editableDiv, textNode);
       }
     };
     
     // Add event listeners
-    input.addEventListener('input', handleInputChange);
-    input.addEventListener('blur', handleInputComplete);
-    input.addEventListener('keydown', handleKeyDown);
+    editableDiv.addEventListener('input', handleInput);
+    editableDiv.addEventListener('blur', handleComplete);
+    editableDiv.addEventListener('keydown', handleKeyDown);
+    
+    // Store references for cleanup
+    (editableDiv as any)._handleInput = handleInput;
+    (editableDiv as any)._handleComplete = handleComplete;
+    (editableDiv as any)._handleKeyDown = handleKeyDown;
   };
   // Text editing is now handled inline, no separate textarea needed
   
-  // Cleanup function to ensure proper text editing cleanup
-  const cleanupTextEditing = useCallback((input: HTMLInputElement) => {
-    if (!input) return;
+  // Cleanup function for contentEditable text editing
+  const cleanupContentEditable = useCallback((editableDiv: any, textNode: any) => {
+    if (!editableDiv || !textNode) return;
+    
+    // Remove event listeners
+    if (editableDiv._handleInput) {
+      editableDiv.removeEventListener('input', editableDiv._handleInput);
+    }
+    if (editableDiv._handleComplete) {
+      editableDiv.removeEventListener('blur', editableDiv._handleComplete);
+    }
+    if (editableDiv._handleKeyDown) {
+      editableDiv.removeEventListener('keydown', editableDiv._handleKeyDown);
+    }
     
     // Remove from DOM
-    if (document.body.contains(input)) {
-      document.body.removeChild(input);
+    if (document.body.contains(editableDiv)) {
+      document.body.removeChild(editableDiv);
     }
+    
+    // Restore text node properties
+    textNode.setAttrs({
+      draggable: props.selectedTool === 'select',
+      listening: true
+    });
     
     // Clear editing state
     setEditingText(null);
-  }, []);
+  }, [props.selectedTool]);
 
   // Text editing is now handled inline, no need for click outside handlers
 
