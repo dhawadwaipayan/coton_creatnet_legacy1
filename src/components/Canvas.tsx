@@ -63,19 +63,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [lastPos, setLastPos] = useState<{x: number, y: number} | null>(null);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
-  // Temporary pan mode state (for middle mouse button or spacebar in select mode)
+  // Temporary pan mode state (for middle mouse button in select mode)
   const [isTemporaryPanMode, setIsTemporaryPanMode] = useState(false);
   const [temporaryPanStart, setTemporaryPanStart] = useState<{x: number, y: number} | null>(null);
-  const [isSpacebarPressed, setIsSpacebarPressed] = useState(false);
 
-  // Keyboard event listeners for spacebar pan mode and delete
+  // Keyboard event listeners for delete functionality
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && props.selectedTool === 'select') {
-        e.preventDefault(); // Prevent page scrolling
-        setIsSpacebarPressed(true);
-      }
-      
       // Delete selected items (Delete or Backspace key)
       if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIds.length > 0) {
         e.preventDefault();
@@ -83,25 +77,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
-        setIsSpacebarPressed(false);
-        // Exit temporary pan mode if it was active
-        if (isTemporaryPanMode) {
-          setIsTemporaryPanMode(false);
-          setTemporaryPanStart(null);
-        }
-      }
-    };
-
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [props.selectedTool, isTemporaryPanMode]);
+  }, []);
 
   // Zoom state
   const [zoom, setZoom] = useState(1);
@@ -1538,9 +1519,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Multi-select: start selection rectangle or temporary pan mode
   const handleStageMouseDown = (e: any) => {
-    // Check if middle mouse button is pressed (button 1) or spacebar is held
+    // Check if middle mouse button is pressed (button 1)
     const isMiddleButton = e.evt.button === 1;
-    const shouldPan = isMiddleButton || isSpacebarPressed;
+    const shouldPan = isMiddleButton;
     
     if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
       if (shouldPan) {
@@ -2027,7 +2008,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         ref={stageRef}
         style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: 
           isTemporaryPanMode ? 'grabbing' : 
-          isSpacebarPressed && props.selectedTool === 'select' ? 'grab' : 
           props.selectedTool === 'hand' && isDragging ? 'grabbing' : 
           props.selectedTool === 'hand' ? 'grab' : 
           props.selectedTool === 'draw' ? 'crosshair' : 
