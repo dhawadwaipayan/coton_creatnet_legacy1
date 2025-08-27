@@ -44,22 +44,11 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        "model": "google/gemini-2.5-flash-image-preview",
+        "model": "black-forest-labs/flux-1.1-pro",
         "messages": [
           {
-            "role": "user",
-            "content": [
-              {
-                "type": "text",
-                "text": enhancedPrompt + " Provide a detailed description of this sketch for photorealistic image generation, including materials, lighting, colors, and realistic details."
-              },
-              {
-                "type": "image_url",
-                "image_url": {
-                  "url": `data:image/png;base64,${cleanBase64}`
-                }
-              }
-            ]
+            "role": "user", 
+            "content": enhancedPrompt
           }
         ],
         "temperature": 1,
@@ -123,7 +112,7 @@ export default async function handler(req, res) {
     // Return the response in the expected format
     const responseData = {
       success: true,
-      model_used: 'google/gemini-2.5-flash-image-preview',
+      model_used: 'black-forest-labs/flux-1.1-pro',
       enhanced_prompt: description,
       original_sketch: cleanBase64,
       output: [{

@@ -8,6 +8,7 @@ import { FilmReel } from '@phosphor-icons/react';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
+import { generateImage, transformGeminiResponse } from '../services/geminiService';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -348,17 +349,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       let base64 = null;
       
       if (isFastMode) {
-        // Use OpenRouter API for Fastrack mode
-        console.log('[Render AI] Using OpenRouter API for Fastrack mode');
-        console.log('[Render AI] Details parameter:', details);
-        console.log('[Render AI] Details length:', details.length);
-        console.log('[Render AI] Details type:', typeof details);
-        result = await callOpenRouterRender({
-          base64Sketch,
-          promptText: details,
-          isFastMode: true
-        });
-        console.log('[Render AI] OpenRouter API full response:', result);
+        // Use Gemini API for Fastrack mode - following referenced GitHub repo structure
+        console.log('[Render AI] Using Gemini API for Fastrack mode');
+        console.log('[Render AI] Base prompt: "Make this sketch photorealistic."');
+        
+        const geminiResponse = await generateImage(base64Sketch);
+        result = transformGeminiResponse(geminiResponse);
+        
+        console.log('[Render AI] Gemini API full response:', result);
         console.log('[Render AI] Response structure:', {
           success: result.success,
           mode: result.mode,
@@ -370,7 +368,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         
         // Log enhanced prompt for debugging
         if (result.enhanced_prompt) {
-          console.log('[Render AI] Enhanced prompt generated:', result.enhanced_prompt);
+          console.log('[Render AI] Enhanced prompt used:', result.enhanced_prompt);
         }
       } else {
         // Use OpenAI for Accurate mode
@@ -395,7 +393,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
       
       if (!base64) {
-        const aiProvider = isFastMode ? 'Together.ai Flux Kontext Dev' : 'OpenAI';
+        const aiProvider = isFastMode ? 'Gemini 2.0 Flash' : 'OpenAI';
         setAiStatus('error');
         setAiError(`No image returned from ${aiProvider}.`);
         setTimeout(() => setAiStatus('idle'), 4000);
