@@ -36,30 +36,16 @@ export const generateImage = async (imageData: string, materialImage?: string): 
     // Clean material image data if provided
     const cleanMaterialBase64 = materialImage ? materialImage.replace(/^data:image\/[a-z]+;base64,/, '') : null;
     
-    // Create the detailed fashion rendering prompt
-    const fashionPrompt = {
-      "task": "fashion_sketch_to_realistic_render",
-      "input": {
-        "base64Sketch": cleanBase64,
-        "base64Material": cleanMaterialBase64 || null,
-        "reference_style": "high-resolution fashion photography",
-        "model_preferences": {
-          "pose": "neutral runway stance, arms relaxed",
-          "height": "tall",
-          "body_type": "slim but natural proportions",
-          "skin": "natural texture with soft shading"
-        },
-        "garment_rendering": {
-          "fabric_mode": "use base64Material if provided, else follow base64Sketch fabric accurately (color, drape, texture, scale)",
-          "lighting": "studio lighting, soft shadows",
-          "background": "solid white",
-          "focus": "maintain garment accuracy while producing photorealistic output"
-        }
-      }
-    };
-    
-    // Convert prompt to string for Gemini
-    const promptText = JSON.stringify(fashionPrompt, null, 2);
+    // Create a concise text prompt (without base64 data to avoid token limit issues)
+    const promptText = `Task: Fashion sketch to realistic render
+
+Style: High-resolution fashion photography
+Model: Neutral runway stance, arms relaxed, tall, slim but natural proportions, natural texture with soft shading
+Lighting: Studio lighting with soft shadows
+Background: Solid white
+Focus: Maintain garment accuracy while producing photorealistic output
+
+Instructions: Transform the provided fashion sketch into a photorealistic render. If a material reference image is provided, use it for fabric details. Otherwise, follow the sketch's fabric specifications accurately (color, drape, texture, scale).`;
     
     // Get the model directly from Gemini SDK
     const model = genAI.getGenerativeModel({ 

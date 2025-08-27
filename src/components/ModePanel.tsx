@@ -355,7 +355,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       if (isFastMode) {
         // Use Gemini API for Fastrack mode - following referenced GitHub repo structure
         console.log('[Render AI] Using Gemini API for Fastrack mode');
-        console.log('[Render AI] Using detailed fashion rendering prompt with material reference support');
+        console.log('[Render AI] Using concise fashion rendering prompt with material reference support');
         
         const geminiResponse = await generateImage(base64Sketch, base64Material);
         result = transformGeminiResponse(geminiResponse);
