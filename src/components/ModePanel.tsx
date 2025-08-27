@@ -350,6 +350,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       if (isFastMode) {
         // Use OpenRouter API for Fastrack mode
         console.log('[Render AI] Using OpenRouter API for Fastrack mode');
+        console.log('[Render AI] Details parameter:', details);
+        console.log('[Render AI] Details length:', details.length);
+        console.log('[Render AI] Details type:', typeof details);
         result = await callOpenRouterRender({
           base64Sketch,
           promptText: details,

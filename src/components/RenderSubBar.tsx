@@ -21,6 +21,9 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerate = () => {
+    console.log('[RenderSubBar] Generate clicked with details:', additionalDetails);
+    console.log('[RenderSubBar] Generate clicked with fastMode:', isFastMode);
+    console.log('[RenderSubBar] Details length:', additionalDetails.length);
     onGenerate(additionalDetails, isFastMode);
   };
 
