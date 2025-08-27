@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     
     console.log('Making OpenRouter API call with Gemini 2.5 Flash...');
 
-    console.log('Generating image with Gemini 2.5 Flash Image Preview...');
+    console.log('Step 1: Analyzing sketch with Gemini 2.5 Flash...');
     
     const geminiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
             "content": [
               {
                 "type": "text",
-                "text": enhancedPrompt
+                "text": enhancedPrompt + " Provide a detailed description of this sketch for photorealistic image generation, including materials, lighting, colors, and realistic details."
               },
               {
                 "type": "image_url",
@@ -76,6 +76,9 @@ export default async function handler(req, res) {
 
     const geminiData = await geminiResponse.json();
     console.log('Gemini response received');
+    console.log('=== FULL GEMINI RESPONSE ===');
+    console.log(JSON.stringify(geminiData, null, 2));
+    console.log('=== END GEMINI RESPONSE ===');
 
     // Extract generated image from Gemini response
     let generatedImageBase64 = cleanBase64; // Fallback to original sketch
@@ -84,6 +87,13 @@ export default async function handler(req, res) {
     // Check if Gemini returned an image or description
     if (geminiData.choices?.[0]?.message?.content) {
       const content = geminiData.choices[0].message.content;
+      console.log('=== CONTENT ANALYSIS ===');
+      console.log('Content type:', typeof content);
+      console.log('Content length:', content.length);
+      console.log('First 200 chars:', content.substring(0, 200));
+      console.log('Contains data:image/:', content.includes('data:image/'));
+      console.log('Matches base64 pattern:', !!content.match(/^[A-Za-z0-9+/=]{100,}$/));
+      console.log('=== END CONTENT ANALYSIS ===');
       
       // Check if content contains base64 image data
       if (content.includes('data:image/') || content.match(/^[A-Za-z0-9+/=]{100,}$/)) {
@@ -95,6 +105,14 @@ export default async function handler(req, res) {
         description = content;
         console.log('Received text description from Gemini:', description);
       }
+    } else {
+      console.log('=== NO CONTENT FOUND ===');
+      console.log('geminiData.choices exists:', !!geminiData.choices);
+      console.log('geminiData.choices length:', geminiData.choices?.length);
+      console.log('First choice exists:', !!geminiData.choices?.[0]);
+      console.log('Message exists:', !!geminiData.choices?.[0]?.message);
+      console.log('Content exists:', !!geminiData.choices?.[0]?.message?.content);
+      console.log('=== END NO CONTENT ANALYSIS ===');
     }
 
     console.log('Gemini processing complete');
