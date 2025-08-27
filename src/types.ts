@@ -11,6 +11,11 @@ export interface GeminiRenderResponse {
     enhanced_description: string;
   }>;
   message: string;
+  imageDimensions?: {
+    width: number;
+    height: number;
+    aspectRatio: number;
+  };
 }
 
 // Existing render interfaces for compatibility

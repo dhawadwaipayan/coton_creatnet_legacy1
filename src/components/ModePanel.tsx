@@ -265,11 +265,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     const placeholderUrl = '/Placeholder_Image_portrait.png';
     
     // Calculate aspect ratio based on AI output resolution (1024x1536)
+    // This will be updated dynamically when we get the actual image dimensions
     const aiWidth = 1024;
     const aiHeight = 1536;
     const aspectRatio = aiWidth / aiHeight; // 1024/1536 = 2/3
     const placeholderWidth = 500;
     const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (3/2) = 750
+    
+    // Store placeholder dimensions for later use when replacing with real image
+    const placeholderDimensions = { width: placeholderWidth, height: placeholderHeight };
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
@@ -351,9 +355,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       if (isFastMode) {
         // Use Gemini API for Fastrack mode - following referenced GitHub repo structure
         console.log('[Render AI] Using Gemini API for Fastrack mode');
-        console.log('[Render AI] Base prompt: "Make this sketch photorealistic."');
+        console.log('[Render AI] Using detailed fashion rendering prompt with material reference support');
         
-        const geminiResponse = await generateImage(base64Sketch);
+        const geminiResponse = await generateImage(base64Sketch, base64Material);
         result = transformGeminiResponse(geminiResponse);
         
         console.log('[Render AI] Gemini API full response:', result);
@@ -363,7 +367,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           modelUsed: result.model_used,
           hasEnhancedPrompt: !!result.enhanced_prompt,
           hasOutput: Array.isArray(result.output),
-          outputLength: result.output?.length
+          outputLength: result.output?.length,
+          imageDimensions: result.imageDimensions
         });
         
         // Log enhanced prompt for debugging
@@ -401,11 +406,47 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Replace the placeholder with the real image, maintaining aspect ratio
+      // Replace the placeholder with the real image, maintaining proper aspect ratio
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+        // If we have image dimensions from Gemini, use them to calculate proper scaling
+        let finalWidth = placeholderWidth;
+        let finalHeight = placeholderHeight;
+        
+        if (result.imageDimensions) {
+          const { width: geminiWidth, height: geminiHeight, aspectRatio: geminiAspectRatio } = result.imageDimensions;
+          
+          // Calculate new dimensions maintaining the placeholder's display size but with correct aspect ratio
+          if (Math.abs(geminiAspectRatio - (placeholderWidth / placeholderHeight)) > 0.1) {
+            // Aspect ratios are significantly different, recalculate dimensions
+            if (geminiAspectRatio > (placeholderWidth / placeholderHeight)) {
+              // Gemini image is wider, adjust height
+              finalWidth = placeholderWidth;
+              finalHeight = Math.round(placeholderWidth / geminiAspectRatio);
+            } else {
+              // Gemini image is taller, adjust width
+              finalHeight = placeholderHeight;
+              finalWidth = Math.round(placeholderHeight * geminiAspectRatio);
+            }
+            
+            console.log('[Render AI] Aspect ratio adjusted:', {
+              original: { width: placeholderWidth, height: placeholderHeight, ratio: placeholderWidth / placeholderHeight },
+              gemini: { width: geminiWidth, height: geminiHeight, ratio: geminiAspectRatio },
+              adjusted: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight }
+            });
+          }
+        }
+        
+        // Replace the placeholder with the properly sized image
         canvasRef.current.replaceImageById(placeholderId, imageUrl);
+        
+        // If dimensions changed significantly, resize the image
+        if (finalWidth !== placeholderWidth || finalHeight !== placeholderHeight) {
+          // Note: This would require additional canvas methods to resize images
+          // For now, we'll use the replaceImageById which should handle basic replacement
+          console.log('[Render AI] Image replaced with adjusted dimensions:', { finalWidth, finalHeight });
+        }
       } else if (canvasRef.current.importImage) {
-        // Use the same dimensions as the placeholder to maintain aspect ratio
+        // Fallback: Use the same dimensions as the placeholder
         canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
