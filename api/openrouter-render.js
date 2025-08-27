@@ -33,9 +33,9 @@ export default async function handler(req, res) {
     
     console.log('Making OpenRouter API call with Gemini 2.5 Flash...');
 
-    // Step 1: Analyze the image with vision model first
-    console.log('Step 1: Analyzing image with Gemini...');
-    const visionResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    console.log('Generating image with Gemini 2.5 Flash Image Preview...');
+    
+    const geminiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
             "content": [
               {
                 "type": "text",
-                "text": enhancedPrompt + " Describe this sketch in detail for photorealistic image generation, including specific materials, lighting, colors, and realistic details."
+                "text": enhancedPrompt
               },
               {
                 "type": "image_url",
@@ -65,85 +65,44 @@ export default async function handler(req, res) {
       })
     });
 
-    if (!visionResponse.ok) {
-      const errorData = await visionResponse.json();
-      console.error('OpenRouter vision API error:', errorData);
-      return res.status(visionResponse.status).json({ 
-        error: errorData.error || 'Vision analysis failed',
+    if (!geminiResponse.ok) {
+      const errorData = await geminiResponse.json();
+      console.error('OpenRouter Gemini API error:', errorData);
+      return res.status(geminiResponse.status).json({ 
+        error: errorData.error || 'Gemini image generation failed',
         details: errorData
       });
     }
 
-    const visionData = await visionResponse.json();
-    const description = visionData.choices?.[0]?.message?.content;
+    const geminiData = await geminiResponse.json();
+    console.log('Gemini response received');
 
-    if (!description) {
-      return res.status(500).json({ error: 'No description received from Gemini analysis' });
-    }
-
-    console.log('Step 1 complete: Image analysis finished');
-    console.log('Generated description:', description);
-
-    // Step 2: Generate image using the description
-    console.log('Step 2: Generating image with FLUX...');
-    const imageGenResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": siteUrl,
-        "X-Title": siteName,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        "model": "black-forest-labs/flux-1.1-pro",
-        "messages": [
-          {
-            "role": "user",
-            "content": description
-          }
-        ]
-      })
-    });
-
-    if (!imageGenResponse.ok) {
-      const errorData = await imageGenResponse.json();
-      console.error('OpenRouter image generation error:', errorData);
-      // Fallback to description-only response if image generation fails
-      return res.status(200).json({
-        success: true,
-        model_used: 'google/gemini-2.5-flash-image-preview',
-        enhanced_prompt: description,
-        original_sketch: cleanBase64,
-        output: [{
-          type: 'image_generation_call',
-          result: cleanBase64,
-          enhanced_description: description
-        }],
-        message: 'Analysis complete, but image generation failed. Returning enhanced description.',
-        error: 'Image generation failed: ' + (errorData.error || 'Unknown error')
-      });
-    }
-
-    const imageGenData = await imageGenResponse.json();
-    console.log('Step 2 complete: Image generation finished');
-
-    // Extract generated image from response
-    let generatedImageBase64 = cleanBase64; // Fallback to original
+    // Extract generated image from Gemini response
+    let generatedImageBase64 = cleanBase64; // Fallback to original sketch
+    let description = 'Image processed by Gemini 2.5 Flash';
     
-    // Try to extract generated image - this depends on FLUX response format
-    if (imageGenData.choices?.[0]?.message?.content) {
-      const content = imageGenData.choices[0].message.content;
-      // If FLUX returns base64 image in content, extract it
-      if (content.includes('data:image/') || content.match(/^[A-Za-z0-9+/=]+$/)) {
+    // Check if Gemini returned an image or description
+    if (geminiData.choices?.[0]?.message?.content) {
+      const content = geminiData.choices[0].message.content;
+      
+      // Check if content contains base64 image data
+      if (content.includes('data:image/') || content.match(/^[A-Za-z0-9+/=]{100,}$/)) {
         generatedImageBase64 = content.replace(/^data:image\/[a-z]+;base64,/, '');
-        console.log('Successfully extracted generated image');
+        console.log('Successfully extracted generated image from Gemini');
+        description = 'Photorealistic render generated by Gemini 2.5 Flash';
+      } else {
+        // If it's text content, use it as description
+        description = content;
+        console.log('Received text description from Gemini:', description);
       }
     }
+
+    console.log('Gemini processing complete');
 
     // Return the response in the expected format
     const responseData = {
       success: true,
-      model_used: 'google/gemini-2.5-flash-image-preview + black-forest-labs/flux-1.1-pro',
+      model_used: 'google/gemini-2.5-flash-image-preview',
       enhanced_prompt: description,
       original_sketch: cleanBase64,
       output: [{
@@ -151,7 +110,7 @@ export default async function handler(req, res) {
         result: generatedImageBase64,
         enhanced_description: description
       }],
-      message: 'Render complete using OpenRouter Gemini analysis + FLUX generation'
+      message: 'Render complete using OpenRouter Gemini 2.5 Flash'
     };
 
     res.status(200).json(responseData);
