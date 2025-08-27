@@ -105,6 +105,9 @@ export default async function handler(req, res) {
     };
     
     console.log('Calling Segmind Kling AI with payload:', segmindPayload);
+    console.log('SEGMIND_API_KEY present:', !!process.env.SEGMIND_API_KEY);
+    console.log('SEGMIND_API_KEY length:', process.env.SEGMIND_API_KEY?.length || 0);
+    console.log('Making request to:', 'https://api.segmind.com/v1/kling-2.1');
     
     // Call Segmind Kling AI API
     const segmindResponse = await fetch('https://api.segmind.com/v1/kling-2.1', {
@@ -115,6 +118,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify(segmindPayload)
     });
+    
+    console.log('Segmind response status:', segmindResponse.status);
+    console.log('Segmind response headers:', Object.fromEntries(segmindResponse.headers.entries()));
     
     // Check if response is JSON or binary video
     const contentType = segmindResponse.headers.get('content-type');
