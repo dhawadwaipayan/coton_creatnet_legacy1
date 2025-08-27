@@ -7,6 +7,7 @@ import { FilmReel } from '@phosphor-icons/react';
 // Removed CanvasHandle import; use any for canvasRef
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
+import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -347,35 +348,26 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       let base64 = null;
       
       if (isFastMode) {
-        // Use Together.ai Flux Kontext Dev for Fastrack mode
-        console.log('[Render AI] Using Together.ai Flux Kontext Dev for Fastrack mode');
-        const response = await fetch('/api/flux-kontext-ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64Sketch, userId }),
+        // Use OpenRouter API for Fastrack mode
+        console.log('[Render AI] Using OpenRouter API for Fastrack mode');
+        result = await callOpenRouterRender({
+          base64Sketch,
+          promptText: details,
+          isFastMode: true
         });
-        result = await response.json();
-        console.log('[Render AI] Together.ai API full response:', result);
-        console.log('[Render AI] Response keys:', Object.keys(result));
-        console.log('[Render AI] Has output array:', Array.isArray(result.output));
-        console.log('[Render AI] Output length:', result.output?.length);
-        if (result.output && result.output.length > 0) {
-          console.log('[Render AI] First output item:', result.output[0]);
-        }
-        console.log('[Render AI] Together.ai response structure:', {
-          hasData: !!result.data,
-          dataLength: result.data?.length,
-          firstDataItem: result.data?.[0],
-          hasUrl: !!result.data?.[0]?.url
+        console.log('[Render AI] OpenRouter API full response:', result);
+        console.log('[Render AI] Response structure:', {
+          success: result.success,
+          mode: result.mode,
+          modelUsed: result.model_used,
+          hasEnhancedPrompt: !!result.enhanced_prompt,
+          hasOutput: Array.isArray(result.output),
+          outputLength: result.output?.length
         });
         
-        // Debug info
-        if (result.debug) {
-          console.log('[Render AI] Debug info:', result.debug);
-          if (result.debug.originalUrl) {
-            console.log('[Render AI] Original image URL:', result.debug.originalUrl);
-            console.log('[Render AI] Base64 length:', result.debug.base64Length);
-          }
+        // Log enhanced prompt for debugging
+        if (result.enhanced_prompt) {
+          console.log('[Render AI] Enhanced prompt generated:', result.enhanced_prompt);
         }
       } else {
         // Use OpenAI for Accurate mode
