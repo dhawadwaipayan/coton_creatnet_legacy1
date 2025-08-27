@@ -371,6 +371,25 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           imageDimensions: result.imageDimensions
         });
         
+        // Debug aspect ratio information
+        if (result.imageDimensions) {
+          console.log('[Render AI] Aspect ratio debug info:', {
+            geminiImage: {
+              width: result.imageDimensions.width,
+              height: result.imageDimensions.height,
+              aspectRatio: result.imageDimensions.aspectRatio
+            },
+            placeholder: {
+              width: placeholderWidth,
+              height: placeholderHeight,
+              aspectRatio: placeholderWidth / placeholderHeight
+            },
+            difference: Math.abs(result.imageDimensions.aspectRatio - (placeholderWidth / placeholderHeight))
+          });
+        } else {
+          console.log('[Render AI] Warning: No imageDimensions in result');
+        }
+        
         // Log enhanced prompt for debugging
         if (result.enhanced_prompt) {
           console.log('[Render AI] Enhanced prompt used:', result.enhanced_prompt);
@@ -436,14 +455,30 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           }
         }
         
-        // Replace the placeholder with the properly sized image
-        canvasRef.current.replaceImageById(placeholderId, imageUrl);
+        // First remove the placeholder
+        if (canvasRef.current.removeImage && placeholderId) {
+          canvasRef.current.removeImage(placeholderId);
+          console.log('[Render AI] Placeholder removed for aspect ratio adjustment');
+        }
         
-        // If dimensions changed significantly, resize the image
-        if (finalWidth !== placeholderWidth || finalHeight !== placeholderHeight) {
-          // Note: This would require additional canvas methods to resize images
-          // For now, we'll use the replaceImageById which should handle basic replacement
-          console.log('[Render AI] Image replaced with adjusted dimensions:', { finalWidth, finalHeight });
+        // Now add the real image with correct dimensions
+        if (canvasRef.current.importImage) {
+          const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
+          console.log('[Render AI] Real image imported with adjusted dimensions:', { 
+            finalWidth, 
+            finalHeight, 
+            newImageId,
+            aspectRatio: finalWidth / finalHeight 
+          });
+          
+          // Select the new image
+          if (canvasRef.current.setSelectedIds && newImageId) {
+            canvasRef.current.setSelectedIds([{ id: newImageId, type: 'image' }]);
+          }
+        } else {
+          // Fallback to replaceImageById if importImage is not available
+          canvasRef.current.replaceImageById(placeholderId, imageUrl);
+          console.log('[Render AI] Image replaced using fallback method');
         }
       } else if (canvasRef.current.importImage) {
         // Fallback: Use the same dimensions as the placeholder
