@@ -42,7 +42,7 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     const cleanMaterialBase64 = materialImage ? materialImage.replace(/^data:image\/[a-z]+;base64,/, '') : null;
     
     // Create a concise prompt for fashion sketch to photorealistic render
-    let promptText = `Make this sketch photorealistic with white background from fashion point of view. Enhance fabric fall as per garment requirement. Make sure fabric color, print, scale is accurately same as per sketch. If Material reference attached, replace overall garment fabric as per material reference and scale it as per requirement. Lighting of the image should be natural and studio quality.`;
+    let promptText = `Make this sketch photorealistic with white background from fashion point of view. Enhance fabric drape as per garment. Make sure fabric color, print, scale is accurately same as per this sketch. If Material reference attached, replace overall garment fabric as per material reference and scale it down 20x. Lighting of the image should be natural and studio quality.`;
 
     // Add additional details if provided by the user
     if (additionalDetails && additionalDetails.trim()) {
