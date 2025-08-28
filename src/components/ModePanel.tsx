@@ -547,11 +547,40 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     
     // Export the selected image as PNG
-    const base64Sketch = canvasRef.current.exportSelectedImageAsPng();
-    if (!base64Sketch) {
+    const imageData = canvasRef.current.exportSelectedImageAsPng();
+    if (!imageData) {
       alert('Failed to export selected image. Please make sure an image is selected.');
       setAiStatus('idle');
       return;
+    }
+
+    // Convert URL to base64 if needed
+    let base64Sketch: string;
+    if (imageData.startsWith('http')) {
+      // If it's a URL, fetch and convert to base64
+      try {
+        const response = await fetch(imageData);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            // Remove the data:image/png;base64, prefix
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.readAsDataURL(blob);
+        });
+        base64Sketch = base64;
+      } catch (error) {
+        console.error('Failed to convert URL to base64:', error);
+        alert('Failed to process selected image. Please try again.');
+        setAiStatus('idle');
+        return;
+      }
+    } else {
+      // If it's already base64, clean it
+      base64Sketch = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
     // Place a placeholder beside the selected image maintaining aspect ratio
@@ -680,11 +709,40 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     
     // Export the selected image as PNG
-    const base64Image = canvasRef.current.exportSelectedImageAsPng();
-    if (!base64Image) {
+    const imageData = canvasRef.current.exportSelectedImageAsPng();
+    if (!imageData) {
       alert('Failed to export selected image. Please make sure an image is selected.');
       setAiStatus('idle');
       return;
+    }
+
+    // Convert URL to base64 if needed
+    let base64Image: string;
+    if (imageData.startsWith('http')) {
+      // If it's a URL, fetch and convert to base64
+      try {
+        const response = await fetch(imageData);
+        const blob = await response.blob();
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            // Remove the data:image/png;base64, prefix
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.readAsDataURL(blob);
+        });
+        base64Image = base64;
+      } catch (error) {
+        console.error('Failed to convert URL to base64:', error);
+        alert('Failed to process selected image. Please try again.');
+        setAiStatus('idle');
+        return;
+      }
+    } else {
+      // If it's already base64, clean it
+      base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     }
     
     // Calculate position for video (beside selected image)
