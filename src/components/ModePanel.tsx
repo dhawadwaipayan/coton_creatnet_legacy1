@@ -583,17 +583,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       base64Sketch = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     }
 
-    // Place a placeholder beside the selected image maintaining aspect ratio
+    // Place a placeholder beside the selected image
     let x = selectedImage.x + selectedImage.width + 40;
     let y = selectedImage.y;
     const placeholderUrl = '/Placeholder_Image_portrait.png';
     
-    // Calculate aspect ratio based on AI output resolution (1024x1536)
-    const aiWidth = 1024;
-    const aiHeight = 1536;
-    const aspectRatio = aiWidth / aiHeight; // 1024/1536 = 2/3
+    // Use a flexible placeholder size - will be adjusted based on actual AI output
     const placeholderWidth = 500;
-    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (3/2) = 750
+    const placeholderHeight = 750; // Default height, will be adjusted based on actual aspect ratio
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
@@ -647,14 +644,21 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           const base64 = imageOutput.result;
           const imageUrl = `data:image/png;base64,${base64}`;
           
-          // Replace the placeholder with the real image, maintaining proper aspect ratio
+          // Replace the placeholder with the real image, adjusting to actual AI-generated aspect ratio
           if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-            // If we have image dimensions from colorway, use them to calculate proper scaling
+            // Use actual dimensions from Gemini AI to calculate proper scaling
             let finalWidth = placeholderWidth;
             let finalHeight = placeholderHeight;
             
             if (result.imageDimensions) {
               const { width: colorwayWidth, height: colorwayHeight, aspectRatio: colorwayAspectRatio } = result.imageDimensions;
+              
+              console.log('[Colorway AI] Received image dimensions from Gemini:', {
+                width: colorwayWidth,
+                height: colorwayHeight,
+                aspectRatio: colorwayAspectRatio,
+                placeholderAspectRatio: placeholderWidth / placeholderHeight
+              });
               
               // Calculate new dimensions maintaining the placeholder's display size but with correct aspect ratio
               if (Math.abs(colorwayAspectRatio - (placeholderWidth / placeholderHeight)) > 0.1) {
@@ -670,6 +674,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
                 }
                 
                 console.log('[Colorway AI] Adjusted dimensions:', { finalWidth, finalHeight, colorwayAspectRatio });
+              } else {
+                console.log('[Colorway AI] Using placeholder dimensions (aspect ratios are similar)');
               }
             }
             
