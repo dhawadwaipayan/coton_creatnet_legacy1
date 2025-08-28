@@ -93,18 +93,22 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const canvasCenterX = boardWidth / 2;
       const canvasCenterY = boardHeight / 2;
       
+      // Use 0.8 zoom for initial centering (default zoom level)
+      const initialZoom = 0.8;
+      
       // Calculate stage position to center the canvas in the viewport
-      const newStagePosX = (viewport.width / 2) - (canvasCenterX * zoom);
-      const newStagePosY = (viewport.height / 2) - (canvasCenterY * zoom);
+      const newStagePosX = (viewport.width / 2) - (canvasCenterX * initialZoom);
+      const newStagePosY = (viewport.height / 2) - (canvasCenterY * initialZoom);
       
       setStagePos({ x: newStagePosX, y: newStagePosY });
+      setZoom(initialZoom); // Set initial zoom
     };
     
     // Wait for viewport to be set before centering
     if (viewport.width > 0 && viewport.height > 0) {
       centerCanvas();
     }
-  }, [viewport.width, viewport.height, boardWidth, boardHeight]); // Removed zoom dependency
+  }, [viewport.width, viewport.height, boardWidth, boardHeight]);
 
   // Utility function to get current viewport center
   const getViewportCenter = useCallback(() => {
@@ -1290,8 +1294,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       } else {
         // New board - use default 80% zoom and center viewport on canvas
         setZoom(0.8); // Always start at 80% zoom
-        setStagePos({ x: 0, y: 0 });
-        console.log('New board - using default 80% zoom');
+        
+        // Center the viewport on the canvas for new boards
+        const canvasCenterX = boardWidth / 2;
+        const canvasCenterY = boardHeight / 2;
+        const newStagePosX = (viewport.width / 2) - (canvasCenterX * 0.8);
+        const newStagePosY = (viewport.height / 2) - (canvasCenterY * 0.8);
+        
+        setStagePos({ x: newStagePosX, y: newStagePosY });
+        console.log('New board - using default 80% zoom and centered viewport');
       }
       
       lastBoardIdRef.current = props.boardContent.id;
