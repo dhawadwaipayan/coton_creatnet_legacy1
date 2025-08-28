@@ -11,6 +11,7 @@ import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
 import { generateImage, transformGeminiResponse } from '../services/geminiService';
 import { generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
+import { generateVideo } from '../services/videoService';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -779,23 +780,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (setSelectedMode) setSelectedMode('select');
     
     try {
-      // Call Segmind Kling AI API
-      const response = await fetch('/api/kling-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          base64Image, 
-          prompt: details || 'Generate a fashion video from this image',
-          userId 
-        }),
+      // Call the new video service
+      console.log('[Video AI] Calling video service with:', {
+        imageDataLength: base64Image.length,
+        prompt: details || 'Generate a fashion video from this image',
+        userId
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `API error: ${response.status}`);
-      }
-      
-      const result = await response.json();
+      const result = await generateVideo({
+        imageData: base64Image,
+        prompt: details || 'Generate a fashion video from this image',
+        userId
+      });
       
       if (result.success && result.video) {
         console.log('🎬 Video generation successful, removing placeholder:', placeholderId);
