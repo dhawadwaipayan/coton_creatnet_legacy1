@@ -249,8 +249,8 @@ export class DatabaseOptimizer {
           id: `img-${offset + i}`,
           boardId,
           src: `mock-src-${offset + i}`,
-          x: Math.random() * 5000,
-          y: Math.random() * 5000
+                  x: Math.random() * 30000,
+        y: Math.random() * 30000
         }));
 
         return {

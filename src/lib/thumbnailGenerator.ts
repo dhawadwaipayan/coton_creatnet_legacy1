@@ -86,8 +86,8 @@ export class ThumbnailGenerator {
       }
 
       // Set canvas size to board dimensions
-      canvas.width = 5000; // Standard board width
-      canvas.height = 5000; // Standard board height
+      canvas.width = 30000; // Standard board width
+      canvas.height = 30000; // Standard board height
 
       // Clear canvas
       ctx.fillStyle = '#ffffff';

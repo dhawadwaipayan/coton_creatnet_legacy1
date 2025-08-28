@@ -47,7 +47,7 @@ const ZoomBar: React.FC<ZoomBarProps> = ({ zoom, onZoomIn, onZoomOut, viewportWi
         <div className="w-px h-8 bg-[#232323] mx-0 flex-shrink-0" />
       </div>
       <span className="text-white text-sm font-gilroy font-medium select-none text-right" style={{ minWidth: 48 }}>
-        {zoom === viewportWidth / 5000 ? '50%' : `${Math.round(zoom * 100)}%`}
+        {zoom === viewportWidth / 30000 ? '50%' : `${Math.round(zoom * 100)}%`}
       </span>
     </div>
   );

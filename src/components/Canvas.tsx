@@ -15,8 +15,8 @@ import { cdnManager } from '../lib/cdnManager';
 import { securityManager } from '../lib/securityManager';
 import { productionMonitor } from '../lib/productionMonitor';
 
-// Helper to generate grid lines for a 5000x5000 board
-function generateGridLines(size = 5000, gridSize = 20) {
+// Helper to generate grid lines for a 30000x30000 board
+function generateGridLines(size = 30000, gridSize = 20) {
   const lines = [];
   // Vertical lines
   for (let x = 0; x <= size; x += gridSize) {
@@ -38,8 +38,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const layerRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
-  const boardWidth = 5000;
-  const boardHeight = 5000;
+  const boardWidth = 30000;
+  const boardHeight = 30000;
   const gridLines = generateGridLines(boardWidth, 20);
 
   // Get viewport size
@@ -55,8 +55,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-
 
   // Hand tool state
   const [isDragging, setIsDragging] = useState(false);
@@ -84,9 +82,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
   }, []);
 
-  // Zoom state
-  const [zoom, setZoom] = useState(1);
+  // Zoom state - initialize at 80% zoom
+  const [zoom, setZoom] = useState(0.8);
   const [zoomCenter, setZoomCenter] = useState({ x: 0, y: 0 });
+
+  // Initialize viewport to center of canvas at 80% zoom (only on mount)
+  React.useEffect(() => {
+    // Center the viewport on the canvas when component mounts
+    const centerCanvas = () => {
+      const canvasCenterX = boardWidth / 2;
+      const canvasCenterY = boardHeight / 2;
+      
+      // Calculate stage position to center the canvas in the viewport
+      const newStagePosX = (viewport.width / 2) - (canvasCenterX * zoom);
+      const newStagePosY = (viewport.height / 2) - (canvasCenterY * zoom);
+      
+      setStagePos({ x: newStagePosX, y: newStagePosY });
+    };
+    
+    // Wait for viewport to be set before centering
+    if (viewport.width > 0 && viewport.height > 0) {
+      centerCanvas();
+    }
+  }, [viewport.width, viewport.height, boardWidth, boardHeight]); // Removed zoom dependency
 
   // Utility function to get current viewport center
   const getViewportCenter = useCallback(() => {
@@ -764,7 +782,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     centerViewportOnElement,
     // Zoom control functions
     resetZoom: () => {
-      setZoom(1);
+      setZoom(0.8); // Reset to default 80% zoom
       setStagePos({ x: 0, y: 0 });
     },
     fitToViewport: () => {
@@ -1246,13 +1264,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         setStagePos(props.boardContent.viewport.stagePos);
         console.log('Restored viewport state:', props.boardContent.viewport);
       } else {
-        // New board - center viewport on canvas
-        const scaleX = viewport.width / boardWidth;
-        const scaleY = viewport.height / boardHeight;
-        const newZoom = Math.min(scaleX, 1);
-        setZoom(newZoom);
+        // New board - use default 80% zoom and center viewport on canvas
+        setZoom(0.8); // Always start at 80% zoom
         setStagePos({ x: 0, y: 0 });
-        console.log('New board - centered viewport');
+        console.log('New board - using default 80% zoom');
       }
       
       lastBoardIdRef.current = props.boardContent.id;
@@ -1266,18 +1281,23 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const boardWidthScaled = boardWidth * zoom;
     const boardHeightScaled = boardHeight * zoom;
     
-    // Calculate bounds - canvas should always be visible in viewport
-    // When zoomed out, don't allow panning beyond edges
-    // When zoomed in, allow panning to see different parts of canvas
-    const minX = Math.min(0, viewport.width - boardWidthScaled);
-    const minY = Math.min(0, viewport.height - boardHeightScaled);
-    const maxX = 0;
-    const maxY = 0;
-    
-    return {
-      x: clamp(pos.x, minX, maxX),
-      y: clamp(pos.y, minY, maxY)
-    };
+    // Only clamp when zoomed in (canvas is larger than viewport)
+    // When zoomed out, allow free positioning to prevent unwanted centering
+    if (boardWidthScaled > viewport.width || boardHeightScaled > viewport.height) {
+      // Canvas is larger than viewport - apply bounds to prevent panning outside
+      const minX = viewport.width - boardWidthScaled;
+      const minY = viewport.height - boardHeightScaled;
+      const maxX = 0;
+      const maxY = 0;
+      
+      return {
+        x: clamp(pos.x, minX, maxX),
+        y: clamp(pos.y, minY, maxY)
+      };
+    } else {
+      // Canvas is smaller than viewport - no need to clamp, allow free positioning
+      return pos;
+    }
   }
 
   // Wheel event handler for zooming
@@ -1293,23 +1313,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const oldScale = zoom;
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     
-          // Calculate minimum zoom to fit canvas width in viewport
-      const minZoomForWidth = viewport.width / boardWidth;
-      
-      // Clamp zoom between width-fit minimum and 5x maximum
-      const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
+    // Calculate minimum zoom to fit canvas width in viewport
+    const minZoomForWidth = viewport.width / boardWidth;
     
-    // Calculate new center point
+    // Clamp zoom between width-fit minimum and 5x maximum
+    const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
+    
+    // Calculate the point under the mouse in canvas coordinates
     const mousePointTo = {
       x: (pointer.x - stagePos.x) / oldScale,
       y: (pointer.y - stagePos.y) / oldScale,
     };
     
+    // Calculate new stage position to keep the mouse point in the same screen position
     const newPos = {
       x: pointer.x - mousePointTo.x * clampedScale,
       y: pointer.y - mousePointTo.y * clampedScale,
     };
     
+    // Update both zoom and stage position to zoom relative to mouse cursor
     setZoom(clampedScale);
     setStagePos(clampStagePos(newPos));
   };

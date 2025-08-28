@@ -12,9 +12,9 @@ export const VideoTestButton: React.FC<VideoTestButtonProps> = ({ onVideoLoad })
       
       console.log('Adding video to current board:', videoUrl);
       
-      // Calculate center position (5000x5000 board)
-      const centerX = (5000 / 2) - 250; // Half video width
-      const centerY = (5000 / 2) - 444; // Half video height (9:16 ratio)
+          // Calculate center position (30000x30000 board)
+    const centerX = (30000 / 2) - 250; // Half video width
+    const centerY = (30000 / 2) - 444; // Half video height (9:16 ratio)
       
       // Call the parent function to add video to canvas using Konva.js
       onVideoLoad(videoUrl, centerX, centerY, 500, 889);
