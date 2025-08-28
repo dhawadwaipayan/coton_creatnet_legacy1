@@ -53,8 +53,15 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     console.log('[GeminiService] Prompt length:', promptText.length);
     
     // Get the model directly from Gemini SDK
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-image-preview" 
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-image-preview",
+      generationConfig: {
+        temperature: 1,
+        topP: 0.95,
+        // No maxOutputTokens as requested
+        // stopSequences: [], // optional
+      },
+      // safetySettings: [], // optional: keep SDK defaults
     });
 
     // Generate content directly using the SDK
