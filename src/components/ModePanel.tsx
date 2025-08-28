@@ -538,18 +538,25 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       return;
     }
 
-    // Get the bounding box PNG from Canvas
-    const base64Sketch = canvasRef.current.exportCurrentRenderBoxAsPng();
+    // Get the selected image from Canvas for colorway generation
+    const selectedImage = canvasRef.current.getSelectedImage();
+    if (!selectedImage) {
+      alert('Please select an image from the board for colorway generation.');
+      setAiStatus('idle');
+      return;
+    }
+    
+    // Export the selected image as PNG
+    const base64Sketch = canvasRef.current.exportSelectedImageAsPng();
     if (!base64Sketch) {
-      alert('No bounding box defined for export.');
+      alert('Failed to export selected image. Please make sure an image is selected.');
       setAiStatus('idle');
       return;
     }
 
-    // Place a placeholder beside the bounding box maintaining aspect ratio
-    const renderBox = canvasRef.current.renderBox;
-    let x = renderBox ? renderBox.x + renderBox.width + 40 : 100;
-    let y = renderBox ? renderBox.y : 100;
+    // Place a placeholder beside the selected image maintaining aspect ratio
+    let x = selectedImage.x + selectedImage.width + 40;
+    let y = selectedImage.y;
     const placeholderUrl = '/Placeholder_Image_portrait.png';
     
     // Calculate aspect ratio based on AI output resolution (1024x1536)
@@ -831,7 +838,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onGenerate={handleColorwayGenerate}
           onAddReference={handleAddColorwayReference}
           onReferenceChange={handleColorwayReference}
-          canGenerate={true} // Colorway doesn't require bounding box
         />
       )}
       {showVideoSubBar && (
