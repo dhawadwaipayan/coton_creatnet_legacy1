@@ -10,6 +10,7 @@ import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
 import { generateImage, transformGeminiResponse } from '../services/geminiService';
+import { generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
@@ -529,10 +530,130 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   };
 
   const handleColorwayGenerate = async (details: string, isPrintMode: boolean) => {
-    console.log('[Colorway AI] Generate clicked with details:', details);
-    console.log('[Colorway AI] Print mode:', isPrintMode);
-    console.log('[Colorway AI] Reference image:', colorwayReference ? 'Present' : 'None');
-    // Add your colorway generation logic here
+    setAiStatus('generating');
+    setAiError(null);
+    
+    if (!canvasRef.current) {
+      setAiStatus('idle');
+      return;
+    }
+
+    // Get the bounding box PNG from Canvas
+    const base64Sketch = canvasRef.current.exportCurrentRenderBoxAsPng();
+    if (!base64Sketch) {
+      alert('No bounding box defined for export.');
+      setAiStatus('idle');
+      return;
+    }
+
+    // Place a placeholder beside the bounding box maintaining aspect ratio
+    const renderBox = canvasRef.current.renderBox;
+    let x = renderBox ? renderBox.x + renderBox.width + 40 : 100;
+    let y = renderBox ? renderBox.y : 100;
+    const placeholderUrl = '/Placeholder_Image_portrait.png';
+    
+    // Calculate aspect ratio based on AI output resolution (1024x1536)
+    const aiWidth = 1024;
+    const aiHeight = 1536;
+    const aspectRatio = aiWidth / aiHeight; // 1024/1536 = 2/3
+    const placeholderWidth = 500;
+    const placeholderHeight = Math.round(placeholderWidth / aspectRatio); // 500 * (3/2) = 750
+    
+    let placeholderId: string | null = null;
+    await new Promise<void>(resolve => {
+      if (canvasRef.current.importImage) {
+        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+          // After image is loaded, select it
+          if (canvasRef.current && canvasRef.current.setSelectedIds) {
+            canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+
+    // After adding placeholder, close render tab and switch to select tool
+    if (closeSketchBar) closeSketchBar();
+    if (setSelectedMode) setSelectedMode('select');
+
+    try {
+      let result;
+      
+      if (isPrintMode) {
+        // Print mode: Generate print/pattern variations
+        if (!colorwayReference) {
+          alert('Print mode requires a reference image. Please add a reference image first.');
+          setAiStatus('idle');
+          return;
+        }
+        
+        console.log('[Colorway AI] Using Print mode with reference image');
+        const colorwayResponse = await generateColorwayPrint(base64Sketch, colorwayReference);
+        result = transformColorwayResponse(colorwayResponse, 'print');
+        
+      } else {
+        // Color mode: Generate color variations
+        console.log('[Colorway AI] Using Color mode with color:', details);
+        const colorwayResponse = await generateColorwayColor(base64Sketch, details, colorwayReference || undefined);
+        result = transformColorwayResponse(colorwayResponse, 'color', details);
+      }
+      
+      console.log('[Colorway AI] Full response:', result);
+      
+      // Extract the generated image data
+      if (result && Array.isArray(result.output)) {
+        const imageOutput = result.output.find(
+          (item) => item.type === 'image_generation_call' && item.result
+        );
+        if (imageOutput) {
+          const base64 = imageOutput.result;
+          const imageUrl = `data:image/png;base64,${base64}`;
+          
+          // Replace the placeholder with the real image, maintaining proper aspect ratio
+          if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
+            // If we have image dimensions from colorway, use them to calculate proper scaling
+            let finalWidth = placeholderWidth;
+            let finalHeight = placeholderHeight;
+            
+            if (result.imageDimensions) {
+              const { width: colorwayWidth, height: colorwayHeight, aspectRatio: colorwayAspectRatio } = result.imageDimensions;
+              
+              // Calculate new dimensions maintaining the placeholder's display size but with correct aspect ratio
+              if (Math.abs(colorwayAspectRatio - (placeholderWidth / placeholderHeight)) > 0.1) {
+                // Aspect ratios are significantly different, recalculate dimensions
+                if (colorwayAspectRatio > (placeholderWidth / placeholderHeight)) {
+                  // Colorway image is wider, adjust height
+                  finalWidth = placeholderWidth;
+                  finalHeight = Math.round(placeholderWidth / colorwayAspectRatio);
+                } else {
+                  // Colorway image is taller, adjust width
+                  finalHeight = placeholderHeight;
+                  finalWidth = Math.round(placeholderHeight * colorwayAspectRatio);
+                }
+                
+                console.log('[Colorway AI] Adjusted dimensions:', { finalWidth, finalHeight, colorwayAspectRatio });
+              }
+            }
+            
+            canvasRef.current.replaceImageById(placeholderId, imageUrl, finalWidth, finalHeight);
+          } else if (canvasRef.current.importImage) {
+            // Use the same dimensions as the placeholder to maintain aspect ratio
+            canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
+          }
+        }
+      }
+      
+      setAiStatus('success');
+      setTimeout(() => setAiStatus('idle'), 2000);
+      
+    } catch (err) {
+      setAiStatus('error');
+      setAiError(err instanceof Error ? err.message : String(err));
+      setTimeout(() => setAiStatus('idle'), 4000);
+      alert(`[Colorway AI] Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   const handleVideoGenerate = async (details: string) => {
