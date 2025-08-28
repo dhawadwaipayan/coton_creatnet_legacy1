@@ -899,14 +899,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Set video dimensions when metadata loads
       videoElement.addEventListener('loadedmetadata', () => {
         console.log('Video metadata loaded:', src, 'Dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
-        // Always update video dimensions to match actual video aspect ratio
-        const actualWidth = videoElement.videoWidth;
-        const actualHeight = videoElement.videoHeight;
-        console.log('🎬 Updating video dimensions to actual:', actualWidth, 'x', actualHeight);
         
-        setVideos(prev => prev.map(v => 
-          v.id === id ? { ...v, width: actualWidth, height: actualHeight } : v
-        ));
+        // IMPORTANT: Don't override the desqueezed dimensions!
+        // The AI outputs 9:16, but we want to display it at the original input aspect ratio
+        // Keep the dimensions that were passed to importVideo (which are desqueezed)
+        console.log('🎬 Keeping desqueezed dimensions:', width, 'x', height);
+        console.log('🎬 AI output dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+        
+        // Only update if dimensions weren't explicitly provided (fallback case)
+        if (!width || !height) {
+          const actualWidth = videoElement.videoWidth;
+          const actualHeight = videoElement.videoHeight;
+          console.log('🎬 No dimensions provided, using actual video dimensions:', actualWidth, 'x', actualHeight);
+          
+          setVideos(prev => prev.map(v => 
+            v.id === id ? { ...v, width: actualWidth, height: actualHeight } : v
+          ));
+        } else {
+          console.log('🎬 Using provided desqueezed dimensions:', width, 'x', height);
+        }
         
         // Immediately capture first frame as thumbnail
         videoElement.currentTime = 0;
@@ -994,14 +1005,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             videoElement.addEventListener('loadedmetadata', () => {
               console.log('🎬 Video metadata loaded in replaceImageById:', newSrc, 'Dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
               
-              // Always update video dimensions to match actual video aspect ratio
-              const actualWidth = videoElement.videoWidth;
-              const actualHeight = videoElement.videoHeight;
-              console.log('🎬 Updating video dimensions to actual:', actualWidth, 'x', actualHeight);
+              // IMPORTANT: Don't override the desqueezed dimensions!
+              // Keep the dimensions that were passed to replaceImageById
+              console.log('🎬 Keeping provided dimensions in replaceImageById');
               
-              setVideos(prev => prev.map(v => 
-                v.id === `video-${Date.now()}` ? { ...v, width: actualWidth, height: actualHeight } : v
-              ));
+              // Note: Dimensions are set when creating the video object below
+              console.log('🎬 Video metadata loaded, dimensions will be set from video object');
               
               // Immediately capture first frame as thumbnail
               videoElement.currentTime = 0;
@@ -1040,7 +1049,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               console.error('🎬 Video loading error in replaceImageById:', e, newSrc);
             });
             
-            // Add video to videos array with correct aspect ratio
+            // Add video to videos array with desqueezed dimensions
             setVideos(videos => [
               ...videos,
               {
@@ -1048,8 +1057,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 src: newSrc,
                 x: oldImg.x,
                 y: oldImg.y,
-                width: 764,  // Use correct video aspect ratio width
-                height: 1200, // Use correct video aspect ratio height
+                width: width || 764,  // Use provided width (desqueezed) or fallback
+                height: height || 1200, // Use provided height (desqueezed) or fallback
                 rotation: oldImg.rotation,
                 timestamp: Date.now(),
                 videoElement

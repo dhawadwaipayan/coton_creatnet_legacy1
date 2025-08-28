@@ -809,24 +809,42 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           console.log('🎬 placeholderId:', placeholderId);
         }
         
-        // Calculate video dimensions based on original aspect ratio
-        const originalAspectRatio = result.video.originalAspectRatio;
-        let videoWidth = 764;  // Default width
-        let videoHeight = 1200; // Default height
+        // Calculate video dimensions based on ORIGINAL INPUT IMAGE dimensions (not AI output)
+        // This is crucial for proper desqueezing - we need the dimensions BEFORE squeezing to 9:16
+        const originalInputAspectRatio = result.video.finalDimensions.aspectRatio;
+        const originalInputWidth = result.video.finalDimensions.width;
+        const originalInputHeight = result.video.finalDimensions.height;
         
-        // Adjust dimensions to maintain original aspect ratio
-        if (Math.abs(originalAspectRatio - (764/1200)) > 0.1) {
-          if (originalAspectRatio > (764/1200)) {
-            // Original is wider, adjust height
-            videoWidth = 764;
-            videoHeight = Math.round(764 / originalAspectRatio);
-          } else {
-            // Original is taller, adjust width
-            videoHeight = 1200;
-            videoWidth = Math.round(1200 * originalAspectRatio);
-          }
-          console.log('🎬 Adjusted video dimensions to match original aspect ratio:', { videoWidth, videoHeight, originalAspectRatio });
+        console.log('🎬 Desqueezing video to original input dimensions:', {
+          originalInputWidth,
+          originalInputHeight,
+          originalInputAspectRatio,
+          aiOutputAspectRatio: 9/16, // AI always outputs 9:16
+          difference: Math.abs(originalInputAspectRatio - (9/16))
+        });
+        
+        // Calculate desqueezed dimensions based on original input image
+        let videoWidth: number;
+        let videoHeight: number;
+        
+        // Use a reasonable display size while maintaining the original aspect ratio
+        const maxDisplayDimension = 800; // Maximum display size for the video
+        
+        if (originalInputAspectRatio > 1) {
+          // Original was landscape (wider than tall)
+          videoWidth = maxDisplayDimension;
+          videoHeight = Math.round(maxDisplayDimension / originalInputAspectRatio);
+        } else {
+          // Original was portrait (taller than wide)
+          videoHeight = maxDisplayDimension;
+          videoWidth = Math.round(maxDisplayDimension * originalInputAspectRatio);
         }
+        
+        console.log('🎬 Desqueezed video dimensions:', {
+          originalInput: { width: originalInputWidth, height: originalInputHeight, ratio: originalInputAspectRatio },
+          desqueezed: { width: videoWidth, height: videoHeight, ratio: videoWidth / videoHeight },
+          aiOutput: { width: 1024, height: 1820, ratio: 9/16 }
+        });
         
         // Use the working importVideo method to add video
         if (canvasRef.current?.importVideo) {
