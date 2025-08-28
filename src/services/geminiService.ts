@@ -42,7 +42,7 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     const cleanMaterialBase64 = materialImage ? materialImage.replace(/^data:image\/[a-z]+;base64,/, '') : null;
     
     // Create a concise prompt for fashion sketch to photorealistic render
-    let promptText = `Make this sketch photorealistic with white background from fashion point of view. Enhance fabric fall as per garment requirement. Make sure fabric color, print, scale is accurately same as per sketch. If Material reference attached, replace overall garment fabric as per material reference and scale it as per requirement.`;
+    let promptText = `Make this sketch photorealistic from fashion point of view. Enhance fabric fall as per garment. Make sure fabric color, print, scale is accurately same as per sketch. If Material reference attached, replace overall garment fabric as per material reference and scale it as per requirement. Baackground should be white with natural studio lighting.`;
 
     // Add additional details if provided by the user
     if (additionalDetails && additionalDetails.trim()) {
@@ -53,15 +53,8 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     console.log('[GeminiService] Prompt length:', promptText.length);
     
     // Get the model directly from Gemini SDK
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-image-preview",
-      generationConfig: {
-        temperature: 1,
-        topP: 0.95,
-        // No maxOutputTokens as requested
-        // stopSequences: [], // optional
-      },
-      // safetySettings: [], // optional: keep SDK defaults
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-image-preview" 
     });
 
     // Generate content directly using the SDK
