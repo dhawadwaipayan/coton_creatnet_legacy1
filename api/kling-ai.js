@@ -51,24 +51,44 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing base64Image, prompt, or userId' });
     }
     
+    // Debug: Log the incoming image data format
+    console.log('Received image data:', {
+      type: typeof base64Image,
+      length: base64Image?.length || 0,
+      startsWithData: base64Image?.startsWith('data:') || false,
+      startsWithHttp: base64Image?.startsWith('http') || false,
+      firstChars: base64Image?.substring(0, 50) || 'undefined',
+      lastChars: base64Image?.substring(Math.max(0, (base64Image?.length || 0) - 50)) || 'undefined'
+    });
+    
     // Convert base64 to buffer for Supabase upload
-                // Handle both data URLs and direct URLs
-            let imageBuffer;
-            if (base64Image.startsWith('data:')) {
-              // It's a data URL, extract base64
-              const base64Data = base64Image.split(',')[1];
-              imageBuffer = Buffer.from(base64Data, 'base64');
-            } else if (base64Image.startsWith('http')) {
-              // It's a URL, download the image
-              const imageResponse = await fetch(base64Image);
-              if (!imageResponse.ok) {
-                throw new Error(`Failed to download image: ${imageResponse.status}`);
-              }
-              const imageArrayBuffer = await imageResponse.arrayBuffer();
-              imageBuffer = Buffer.from(imageArrayBuffer);
-            } else {
-              throw new Error('Invalid image format');
-            }
+    // Handle data URLs, HTTP URLs, and raw base64 data
+    let imageBuffer;
+    if (base64Image.startsWith('data:')) {
+      // It's a data URL, extract base64
+      const base64Data = base64Image.split(',')[1];
+      imageBuffer = Buffer.from(base64Data, 'base64');
+      console.log('Processed data URL, buffer size:', imageBuffer.length);
+    } else if (base64Image.startsWith('http')) {
+      // It's a URL, download the image
+      console.log('Downloading image from URL:', base64Image);
+      const imageResponse = await fetch(base64Image);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to download image: ${imageResponse.status}`);
+      }
+      const imageArrayBuffer = await imageResponse.arrayBuffer();
+      imageBuffer = Buffer.from(imageArrayBuffer);
+      console.log('Downloaded image, buffer size:', imageBuffer.length);
+    } else {
+      // Assume it's raw base64 data (without data: prefix)
+      try {
+        imageBuffer = Buffer.from(base64Image, 'base64');
+        console.log('Processed raw base64, buffer size:', imageBuffer.length);
+      } catch (error) {
+        console.error('Failed to process base64 data:', error);
+        throw new Error('Invalid base64 image data');
+      }
+    }
     
     // Upload image to Supabase temporarily to get a public URL
     const tempImageId = `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
