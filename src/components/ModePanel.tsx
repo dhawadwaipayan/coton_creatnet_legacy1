@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SketchSubBar } from './SketchSubBar';
 import { RenderSubBar } from './RenderSubBar';
+import { ColorwaySubBar } from './ColorwaySubBar';
 import { VideoSubBar } from './VideoSubBar';
 import { BrushSubBar } from './BrushSubBar';
 import { FilmReel } from '@phosphor-icons/react';
@@ -50,11 +51,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   userId // Destructure userId
 }) => {
   const [showRenderSubBar, setShowRenderSubBar] = useState(false);
+  const [showColorwaySubBar, setShowColorwaySubBar] = useState(false);
   const [showVideoSubBar, setShowVideoSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
   const [lastInputImage, setLastInputImage] = useState<string | null>(null);
   const [renderMaterial, setRenderMaterial] = useState<string | null>(null); // base64 material for Render AI
+  const [colorwayReference, setColorwayReference] = useState<string | null>(null); // base64 reference for Colorway AI
   const modes = [{
     id: 'sketch',
     icon: 'https://cdn.builder.io/api/v1/image/assets/49361a2b7ce44657a799a73862a168f7/ee2941b19a658fe2d209f852cf910c39252d3c4f?placeholderIfAbsent=true',
@@ -82,19 +85,28 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
+      setShowColorwaySubBar(false);
       setShowVideoSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
     } else if (modeId === 'render') {
       setShowRenderSubBar(true);
+      setShowColorwaySubBar(false);
+      setShowVideoSubBar(false);
+      if (closeSketchBar) closeSketchBar();
+    } else if (modeId === 'colorway') {
+      setShowRenderSubBar(false);
+      setShowColorwaySubBar(true);
       setShowVideoSubBar(false);
       if (closeSketchBar) closeSketchBar();
     } else if (modeId === 'video') {
       setShowRenderSubBar(false);
+      setShowColorwaySubBar(false);
       setShowVideoSubBar(true);
       if (closeSketchBar) closeSketchBar();
     } else {
       if (closeSketchBar) closeSketchBar();
       setShowRenderSubBar(false);
+      setShowColorwaySubBar(false);
       setShowVideoSubBar(false);
     }
     console.log(`Selected mode: ${modeId}`);
@@ -132,6 +144,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setShowRenderSubBar(false);
     }
   }, [selectedMode, showRenderSubBar]);
+
+  // Close colorway sub bar if selectedMode changes to anything other than 'colorway'
+  useEffect(() => {
+    if (selectedMode !== 'colorway' && showColorwaySubBar) {
+      setShowColorwaySubBar(false);
+    }
+  }, [selectedMode, showColorwaySubBar]);
 
   // Close video sub bar if selectedMode changes to anything other than 'video'
   useEffect(() => {
@@ -238,6 +257,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (canvasRef.current && canvasRef.current.clearRenderBox) {
       canvasRef.current.clearRenderBox();
     }
+    if (closeRenderBar) closeRenderBar();
+  };
+
+  const handleColorwayCancel = () => {
+    setShowColorwaySubBar(false);
+    if (setSelectedMode) setSelectedMode(''); // Reset to non-clicked state
     if (closeRenderBar) closeRenderBar();
   };
 
@@ -503,6 +528,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     }
   };
 
+  const handleColorwayGenerate = async (details: string, isPrintMode: boolean) => {
+    console.log('[Colorway AI] Generate clicked with details:', details);
+    console.log('[Colorway AI] Print mode:', isPrintMode);
+    console.log('[Colorway AI] Reference image:', colorwayReference ? 'Present' : 'None');
+    // Add your colorway generation logic here
+  };
+
   const handleVideoGenerate = async (details: string) => {
     setAiStatus('generating');
     setAiError(null);
@@ -641,9 +673,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     setRenderMaterial(base64);
   };
 
+  const handleColorwayReference = (base64: string | null) => {
+    setColorwayReference(base64);
+  };
+
   const handleAddMaterial = () => {
     console.log('Add material clicked');
     // Add your add material logic here
+  };
+
+  const handleAddColorwayReference = () => {
+    console.log('Add colorway reference clicked');
+    // Add your add colorway reference logic here
   };
 
   return (
@@ -661,6 +702,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onAddMaterial={handleAddMaterial}
           onMaterialChange={handleRenderMaterial}
           canGenerate={!!renderBoundingBox} // Only require bounding box, material is optional
+        />
+      )}
+      {showColorwaySubBar && (
+        <ColorwaySubBar 
+          onCancel={handleColorwayCancel}
+          onGenerate={handleColorwayGenerate}
+          onAddReference={handleAddColorwayReference}
+          onReferenceChange={handleColorwayReference}
+          canGenerate={true} // Colorway doesn't require bounding box
         />
       )}
       {showVideoSubBar && (
