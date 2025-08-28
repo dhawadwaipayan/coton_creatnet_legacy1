@@ -795,6 +795,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       
       if (result.success && result.video) {
         console.log('🎬 Video generation successful, removing placeholder:', placeholderId);
+        console.log('🎬 Processing info:', result.processingInfo);
+        console.log('🎬 Final dimensions:', result.video.finalDimensions);
         
         // Remove placeholder image first
         if (canvasRef.current?.removeImage && placeholderId) {
@@ -807,14 +809,33 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           console.log('🎬 placeholderId:', placeholderId);
         }
         
+        // Calculate video dimensions based on original aspect ratio
+        const originalAspectRatio = result.video.originalAspectRatio;
+        let videoWidth = 764;  // Default width
+        let videoHeight = 1200; // Default height
+        
+        // Adjust dimensions to maintain original aspect ratio
+        if (Math.abs(originalAspectRatio - (764/1200)) > 0.1) {
+          if (originalAspectRatio > (764/1200)) {
+            // Original is wider, adjust height
+            videoWidth = 764;
+            videoHeight = Math.round(764 / originalAspectRatio);
+          } else {
+            // Original is taller, adjust width
+            videoHeight = 1200;
+            videoWidth = Math.round(1200 * originalAspectRatio);
+          }
+          console.log('🎬 Adjusted video dimensions to match original aspect ratio:', { videoWidth, videoHeight, originalAspectRatio });
+        }
+        
         // Use the working importVideo method to add video
         if (canvasRef.current?.importVideo) {
           const videoId = canvasRef.current.importVideo(
             result.video.url,  // Supabase video URL
             x,                  // X position beside selected image
             y,                  // Y position from selected image
-            764,                // Correct video width (aspect ratio)
-            1200                // Correct video height (aspect ratio)
+            videoWidth,         // Dynamic width based on original aspect ratio
+            videoHeight         // Dynamic height based on original aspect ratio
           );
           
           console.log('🎬 Video imported successfully with ID:', videoId);
