@@ -29,6 +29,11 @@ export interface GeminiImageResult {
 }
 
 export const generateImage = async (imageData: string, materialImage?: string, additionalDetails?: string): Promise<GeminiImageResult> => {
+  console.log('[GeminiService] generateImage called with additionalDetails:', additionalDetails);
+  console.log('[GeminiService] additionalDetails type:', typeof additionalDetails);
+  console.log('[GeminiService] additionalDetails value:', additionalDetails);
+  console.log('[GeminiService] additionalDetails trimmed:', additionalDetails?.trim());
+  
   try {
     // Clean base64 data (remove data:image/png;base64, prefix if present)
     const cleanBase64 = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -62,6 +67,9 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     if (additionalDetails && additionalDetails.trim()) {
       promptText += `\n\nAdditional User Requirements: ${additionalDetails.trim()}`;
     }
+    
+    console.log('[GeminiService] Final promptText:', promptText);
+    console.log('[GeminiService] Prompt length:', promptText.length);
     
     // Get the model directly from Gemini SDK
     const model = genAI.getGenerativeModel({ 

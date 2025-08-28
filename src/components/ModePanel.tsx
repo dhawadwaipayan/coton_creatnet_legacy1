@@ -242,6 +242,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   };
 
   const handleRenderGenerate = async (details: string, isFastMode: boolean) => {
+    console.log('[ModePanel] handleRenderGenerate called with details:', details);
+    console.log('[ModePanel] details length:', details?.length);
+    console.log('[ModePanel] details trimmed:', details?.trim());
+    console.log('[ModePanel] isFastMode:', isFastMode);
+    
     setAiStatus('generating');
     setAiError(null);
     if (!canvasRef.current) {
@@ -356,6 +361,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         // Use Gemini API for Fastrack mode - following referenced GitHub repo structure
         console.log('[Render AI] Using Gemini API for Fastrack mode');
         console.log('[Render AI] Using concise fashion rendering prompt with material reference support');
+        console.log('[Render AI] About to call generateImage with details:', details);
+        console.log('[Render AI] Details type:', typeof details);
+        console.log('[Render AI] Details value:', details);
         
         const geminiResponse = await generateImage(base64Sketch, base64Material, details);
         result = transformGeminiResponse(geminiResponse, details);

@@ -24,6 +24,9 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
     console.log('[RenderSubBar] Generate clicked with details:', additionalDetails);
     console.log('[RenderSubBar] Generate clicked with fastMode:', isFastMode);
     console.log('[RenderSubBar] Details length:', additionalDetails.length);
+    console.log('[RenderSubBar] Details type:', typeof additionalDetails);
+    console.log('[RenderSubBar] Details trimmed:', additionalDetails.trim());
+    console.log('[RenderSubBar] Calling onGenerate with:', { details: additionalDetails, isFastMode });
     onGenerate(additionalDetails, isFastMode);
   };
 
