@@ -31,26 +31,16 @@ export interface ColorwayImageResult {
 // Color mode: Generate color variations of the garment
 export const generateColorwayColor = async (
   imageData: string, 
-  selectedColor: string, 
-  referenceImage?: string
+  selectedColor: string
 ): Promise<ColorwayImageResult> => {
   console.log('[ColorwayService] generateColorwayColor called with color:', selectedColor);
-  console.log('[ColorwayService] Reference image present:', !!referenceImage);
   
   try {
     // Clean base64 data (remove data:image/png;base64, prefix if present)
     const cleanBase64 = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     
-    // Clean reference image data if provided
-    const cleanReferenceBase64 = referenceImage ? referenceImage.replace(/^data:image\/[a-z]+;base64,/, '') : null;
-    
-    // Base prompt for color mode
-    let promptText = `Transform this fashion sketch into a photorealistic render with the specified color scheme. Apply the color ${selectedColor} to the garment while maintaining the original design, fabric texture, and silhouette. Ensure the color is applied naturally with proper shading and highlights. Keep the white background.`;
-    
-    // Add reference image context if provided
-    if (cleanReferenceBase64) {
-      promptText += ` Use the reference image as a guide for fabric texture and styling details.`;
-    }
+    // Base prompt for color mode - focus on solid color change
+    const promptText = `Change the overall garment color to solid ${selectedColor} color value. Maintain the original design, fabric texture, and silhouette. Apply the color uniformly across the entire garment with proper shading and highlights. Keep the white background.`;
     
     console.log('[ColorwayService] Final promptText for color mode:', promptText);
     console.log('[ColorwayService] Prompt length:', promptText.length);
@@ -60,7 +50,7 @@ export const generateColorwayColor = async (
       model: "gemini-2.5-flash-image-preview" 
     });
 
-    // Prepare content array
+    // Prepare content array - only the sketch image and prompt
     const contentArray = [
       promptText,
       {
@@ -70,16 +60,6 @@ export const generateColorwayColor = async (
         }
       }
     ];
-
-    // Add reference image if provided
-    if (cleanReferenceBase64) {
-      contentArray.push({
-        inlineData: {
-          mimeType: "image/png",
-          data: cleanReferenceBase64
-        }
-      });
-    }
 
     // Generate content directly using the SDK
     const result = await model.generateContent(contentArray);

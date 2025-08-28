@@ -632,7 +632,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       } else {
         // Color mode: Generate color variations
         console.log('[Colorway AI] Using Color mode with color:', details);
-        const colorwayResponse = await generateColorwayColor(base64Sketch, details, colorwayReference || undefined);
+        const colorwayResponse = await generateColorwayColor(base64Sketch, details);
         result = transformColorwayResponse(colorwayResponse, 'color', details);
       }
       
