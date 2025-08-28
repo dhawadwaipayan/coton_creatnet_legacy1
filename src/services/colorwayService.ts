@@ -105,7 +105,7 @@ export const generateColorwayPrint = async (
     const cleanReferenceBase64 = referenceImage.replace(/^data:image\/[a-z]+;base64,/, '');
     
     // Base prompt for print mode
-    const promptText = `Apply the reference print to this garment fabric as all over print. Please reduce the scaling of the print 10x. Make sure print and its color is accurately represented on the garment. Maintain the original garment silhouette and design while accurately transferring the print, texture, and color scheme from the reference. Ensure the print scales appropriately and maintains its visual quality. Keep the white background.`;
+    const promptText = `Apply the reference print to this garment fabric as all over print. Please reduce the scaling of the print 20x. Make sure print and its color is accurately represented on the garment. Maintain the original garment silhouette and design while accurately transferring the print, texture, and color scheme from the reference. Keep the white background.`;
     
     console.log('[ColorwayService] Final promptText for print mode:', promptText);
     console.log('[ColorwayService] Prompt length:', promptText.length);
