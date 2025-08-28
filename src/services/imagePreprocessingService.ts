@@ -20,14 +20,14 @@ export interface PreprocessingResult {
 }
 
 /**
- * Force an image to a specific aspect ratio by creating a canvas
- * with the target dimensions and centering the original image
+ * Force an image to a specific aspect ratio by SQUEEZING/DESQUEEZING
+ * This maintains the full image content without padding or cropping
  */
 export const forceAspectRatio = async (
   imageData: string, 
   targetAspectRatio: number = 9/16
 ): Promise<PreprocessingResult> => {
-  console.log('[ImagePreprocessing] Starting aspect ratio conversion');
+  console.log('[ImagePreprocessing] Starting SQUEEZE aspect ratio conversion');
   console.log('[ImagePreprocessing] Target aspect ratio:', targetAspectRatio);
 
   try {
@@ -92,35 +92,30 @@ export const forceAspectRatio = async (
     canvas.width = targetWidth;
     canvas.height = targetHeight;
 
-    // Fill with white background
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-    // Calculate scaling and positioning
-    const scale = Math.min(
-      targetWidth / originalWidth,
-      targetHeight / originalHeight
-    );
-
-    const scaledWidth = originalWidth * scale;
-    const scaledHeight = originalHeight * scale;
-
-    // Center the image
-    const left = (targetWidth - scaledWidth) / 2;
-    const top = (targetHeight - scaledHeight) / 2;
-
-    console.log('[ImagePreprocessing] Scaling and positioning:', {
-      scale,
-      scaledWidth,
-      scaledHeight,
-      left,
-      top
+    // SQUEEZE APPROACH: Stretch the image to fit target dimensions
+    // This maintains all content but may distort proportions temporarily
+    // The AI will process the squeezed image, then we'll desqueeze the video back
+    
+    // Calculate squeeze factors
+    const squeezeFactorX = targetWidth / originalWidth;
+    const squeezeFactorY = targetHeight / originalHeight;
+    
+    console.log('[ImagePreprocessing] Squeeze factors:', {
+      squeezeFactorX,
+      squeezeFactorY,
+      originalWidth,
+      originalHeight,
+      targetWidth,
+      targetHeight
     });
 
-    // Draw the image centered
+    // Draw the image with SQUEEZE transformation
     ctx.drawImage(
       img,
-      left, top, scaledWidth, scaledHeight
+      0, 0,                    // Source x, y
+      originalWidth, originalHeight,  // Source width, height
+      0, 0,                    // Destination x, y
+      targetWidth, targetHeight      // Destination width, height (SQUEEZED)
     );
 
     // Convert to base64
@@ -134,20 +129,20 @@ export const forceAspectRatio = async (
         aspectRatio: originalAspectRatio
       },
       paddingInfo: {
-        top,
-        left,
-        scale,
+        top: 0,           // No padding in squeeze mode
+        left: 0,          // No padding in squeeze mode
+        scale: 1,         // Scale is 1 since we're squeezing
         targetWidth,
         targetHeight
       }
     };
 
-    console.log('[ImagePreprocessing] Conversion complete:', result);
+    console.log('[ImagePreprocessing] SQUEEZE conversion complete:', result);
     return result;
 
   } catch (error) {
-    console.error('[ImagePreprocessing] Error during conversion:', error);
-    throw new Error(`Image preprocessing failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('[ImagePreprocessing] Error during squeeze conversion:', error);
+    throw new Error(`Image squeeze preprocessing failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

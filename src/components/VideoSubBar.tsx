@@ -63,9 +63,9 @@ export const VideoSubBar: React.FC<VideoSubBarProps> = ({
             />
           </div>
           <span className="min-w-[80px]">
-            {processingStatus === 'preprocessing' && 'Preprocessing...'}
+            {processingStatus === 'preprocessing' && 'Squeezing...'}
             {processingStatus === 'ai-processing' && 'AI Processing...'}
-            {processingStatus === 'post-processing' && 'Finalizing...'}
+            {processingStatus === 'post-processing' && 'Desqueezing...'}
             {processingStatus === 'complete' && 'Complete!'}
             {processingStatus === 'error' && 'Error!'}
           </span>

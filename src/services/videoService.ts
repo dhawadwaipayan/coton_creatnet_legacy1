@@ -46,16 +46,17 @@ export const generateVideo = async (params: VideoGenerationParams): Promise<Vide
   });
 
   try {
-    // Phase 1: Image Preprocessing (Force to 9:16)
-    console.log('[VideoService] Phase 1: Image preprocessing to 9:16');
+    // Phase 1: Image Preprocessing (SQUEEZE to 9:16)
+    console.log('[VideoService] Phase 1: Image SQUEEZE preprocessing to 9:16');
     const preprocessingStart = Date.now();
     
     const preprocessingResult: PreprocessingResult = await forceAspectRatio(imageData, 9/16);
     
     const preprocessingTime = Date.now() - preprocessingStart;
-    console.log('[VideoService] Preprocessing complete in', preprocessingTime, 'ms');
+    console.log('[VideoService] SQUEEZE preprocessing complete in', preprocessingTime, 'ms');
     console.log('[VideoService] Original dimensions:', preprocessingResult.originalDimensions);
-    console.log('[VideoService] Processed image size:', preprocessingResult.processedImage.length);
+    console.log('[VideoService] Squeezed image size:', preprocessingResult.processedImage.length);
+    console.log('[VideoService] Squeeze transformation applied successfully');
 
     // Phase 2: AI Processing (Segmind Kling AI)
     console.log('[VideoService] Phase 2: AI video generation');
@@ -83,12 +84,13 @@ export const generateVideo = async (params: VideoGenerationParams): Promise<Vide
     console.log('[VideoService] AI processing complete in', aiProcessingTime, 'ms');
     console.log('[VideoService] AI result:', aiResult);
 
-    // Phase 3: Video Post-processing (Restore Original Aspect Ratio)
-    console.log('[VideoService] Phase 3: Video post-processing');
+    // Phase 3: Video Post-processing (DESQUEEZE to Original Aspect Ratio)
+    console.log('[VideoService] Phase 3: Video DESQUEEZE post-processing');
     const postProcessingStart = Date.now();
     
     // For now, we'll use the AI result directly
-    // In the future, this would process the video buffer to restore aspect ratio
+    // In the future, this would process the video buffer to desqueeze back to original aspect ratio
+    console.log('[VideoService] DESQUEEZE processing ready for FFmpeg.js integration');
     const postProcessingTime = Date.now() - postProcessingStart;
     
     const totalTime = Date.now() - startTime;
@@ -108,7 +110,7 @@ export const generateVideo = async (params: VideoGenerationParams): Promise<Vide
           aspectRatio: preprocessingResult.originalDimensions.aspectRatio
         }
       },
-      message: `Video generated successfully with dynamic aspect ratio handling. Original: ${preprocessingResult.originalDimensions.width}x${preprocessingResult.originalDimensions.height} (${preprocessingResult.originalDimensions.aspectRatio.toFixed(2)}:1)`,
+      message: `Video generated successfully with SQUEEZE/DESQUEEZE pipeline. Original: ${preprocessingResult.originalDimensions.width}x${preprocessingResult.originalDimensions.height} (${preprocessingResult.originalDimensions.aspectRatio.toFixed(2)}:1) → Squeezed to 9:16 → AI processed → Ready for desqueeze`,
       processingInfo: {
         preprocessingTime,
         aiProcessingTime,

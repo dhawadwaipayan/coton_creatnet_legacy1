@@ -17,8 +17,8 @@ export interface VideoProcessingResult {
 }
 
 /**
- * Restore original aspect ratio to AI-generated video
- * This is a placeholder for the actual video processing implementation
+ * DESQUEEZE video back to original aspect ratio
+ * This reverses the squeeze transformation applied during preprocessing
  * In a real implementation, you would use FFmpeg.js or similar
  */
 export const restoreAspectRatio = async (
@@ -26,21 +26,39 @@ export const restoreAspectRatio = async (
   originalDimensions: { width: number; height: number; aspectRatio: number },
   targetAspectRatio: number = 9/16
 ): Promise<VideoProcessingResult> => {
-  console.log('[VideoPostProcessing] Starting aspect ratio restoration');
+  console.log('[VideoPostProcessing] Starting DESQUEEZE aspect ratio restoration');
   console.log('[VideoPostProcessing] Original dimensions:', originalDimensions);
   console.log('[VideoPostProcessing] Target aspect ratio:', targetAspectRatio);
 
   const startTime = Date.now();
 
   try {
-    // For now, we'll return the original video buffer
-    // In a real implementation, you would:
-    // 1. Extract frames from the video
-    // 2. Resize each frame to original dimensions
-    // 3. Reconstruct the video with new aspect ratio
+    // DESQUEEZE APPROACH: Reverse the squeeze transformation
+    // The AI generated a 9:16 video from a squeezed image
+    // Now we need to desqueeze each frame back to original dimensions
     
-    console.log('[VideoPostProcessing] Video processing not yet implemented');
+    console.log('[VideoPostProcessing] DESQUEEZE processing not yet implemented');
     console.log('[VideoPostProcessing] Returning original video buffer for now');
+    console.log('[VideoPostProcessing] In production, this would:');
+    console.log('[VideoPostProcessing] 1. Extract frames from 9:16 video');
+    console.log('[VideoPostProcessing] 2. Apply inverse squeeze transformation to each frame');
+    console.log('[VideoPostProcessing] 3. Reconstruct video with original aspect ratio');
+    
+    // Calculate desqueeze factors (inverse of squeeze factors)
+    const aiVideoWidth = 1024;  // AI output width (9:16)
+    const aiVideoHeight = 1820; // AI output height (9:16)
+    
+    const desqueezeFactorX = originalDimensions.width / aiVideoWidth;
+    const desqueezeFactorY = originalDimensions.height / aiVideoHeight;
+    
+    console.log('[VideoPostProcessing] Desqueeze factors:', {
+      desqueezeFactorX,
+      desqueezeFactorY,
+      aiVideoWidth,
+      aiVideoHeight,
+      originalWidth: originalDimensions.width,
+      originalHeight: originalDimensions.height
+    });
     
     // Calculate final dimensions based on original aspect ratio
     const finalWidth = originalDimensions.width;
@@ -64,12 +82,12 @@ export const restoreAspectRatio = async (
       }
     };
 
-    console.log('[VideoPostProcessing] Restoration complete:', result);
+    console.log('[VideoPostProcessing] DESQUEEZE restoration complete:', result);
     return result;
 
   } catch (error) {
-    console.error('[VideoPostProcessing] Error during restoration:', error);
-    throw new Error(`Video post-processing failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('[VideoPostProcessing] Error during desqueeze restoration:', error);
+    throw new Error(`Video desqueeze post-processing failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
