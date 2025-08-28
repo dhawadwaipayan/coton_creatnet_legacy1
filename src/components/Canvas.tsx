@@ -221,6 +221,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debounced saving state
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Use refs to always access the latest state in the debounced function
+  const imagesRef = useRef(images);
+  const strokesRef = useRef(strokes);
+  const textsRef = useRef(texts);
+  const videosRef = useRef(videos);
+  
+  // Update refs whenever state changes
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  
+  useEffect(() => {
+    strokesRef.current = strokes;
+  }, [strokes]);
+  
+  useEffect(() => {
+    textsRef.current = texts;
+  }, [texts]);
+  
+  useEffect(() => {
+    videosRef.current = videos;
+  }, [videos]);
 
   // Helper to push current state to undo stack
   const pushToUndoStack = useCallback(() => {
@@ -244,7 +267,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (props.onContentChange && props.boardContent) {
         setIsSaving(true);
         try {
-          await saveBoardContent();
+          // Use refs to always get the latest state, avoiding stale closures
+          await saveBoardContent(imagesRef.current, strokesRef.current, textsRef.current, videosRef.current);
         } catch (error) {
           console.error('Auto-save failed:', error);
         } finally {
@@ -383,11 +407,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }, [renderBox]);
 
   // Manual save function - upload images to Supabase Storage
-  const saveBoardContent = useCallback(async () => {
+  const saveBoardContent = useCallback(async (currentImages = images, currentStrokes = strokes, currentTexts = texts, currentVideos = videos) => {
     console.log('🔄 saveBoardContent called');
     console.log('props.onContentChange exists:', !!props.onContentChange);
     console.log('props.boardContent exists:', !!props.boardContent);
-    console.log('Current videos state:', videos);
+    console.log('Current videos state:', currentVideos);
     
     if (!props.onContentChange || !props.boardContent) {
       console.log('❌ saveBoardContent early return - missing required props');
@@ -397,7 +421,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     try {
       // Upload images to Supabase Storage and get URLs
       const serializedImages = await Promise.all(
-        images.map(async (img) => {
+        currentImages.map(async (img) => {
           if (img.image && !img.error) {
             try {
               // Convert image to blob and upload to storage
@@ -446,7 +470,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         })
       );
 
-      const videoData = videos.map(video => ({
+      const videoData = currentVideos.map(video => ({
         id: video.id,
         src: video.src,
         x: video.x,
@@ -461,15 +485,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         id: props.boardContent.id,
         images: serializedImages,
         videos: videoData,
-        strokes,
-        texts,
+        strokes: currentStrokes,
+        texts: currentTexts,
         viewport: {
           zoom: zoom,
           stagePos: stagePos
         }
       };
       
-      console.log('Saving board content with videos:', videos.length);
+      console.log('Saving board content with videos:', currentVideos.length);
       console.log('Video data being saved:', videoData);
       console.log('Full content being saved:', content);
       
@@ -940,7 +964,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Save board content after adding video
       setTimeout(() => {
         console.log('🎬 Calling saveBoardContent after video import');
-        saveBoardContent();
+        saveBoardContent(imagesRef.current, strokesRef.current, textsRef.current, videosRef.current);
       }, 100);
       
       return id;
