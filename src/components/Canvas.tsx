@@ -969,7 +969,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       return id;
     },
-    replaceImageById: (id: string, newSrc: string, isVideo: boolean = false) => {
+    replaceImageById: (id: string, newSrc: string, isVideo: boolean = false, width?: number, height?: number) => {
       if (isVideo) {
         // Handle video replacement - remove placeholder image and add video
         setImages(prev => {
@@ -1069,8 +1069,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             image: newImg,
             x: oldImg.x,
             y: oldImg.y,
-            width: oldImg.width,
-            height: oldImg.height,
+            width: width || oldImg.width,  // Use provided width or keep old width
+            height: height || oldImg.height, // Use provided height or keep old height
             rotation: oldImg.rotation,
             timestamp: Date.now()
           };

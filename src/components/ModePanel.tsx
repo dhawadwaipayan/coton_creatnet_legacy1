@@ -679,7 +679,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
               }
             }
             
-            canvasRef.current.replaceImageById(placeholderId, imageUrl, finalWidth, finalHeight);
+            canvasRef.current.replaceImageById(placeholderId, imageUrl, false, finalWidth, finalHeight);
           } else if (canvasRef.current.importImage) {
             // Use the same dimensions as the placeholder to maintain aspect ratio
             canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
