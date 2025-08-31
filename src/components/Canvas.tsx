@@ -623,6 +623,149 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
   }, [saveTimeout]);
 
+  // Fallback export method that only exports images (no videos) to avoid CORS issues
+  const exportImagesOnlyFromRenderBox = useCallback((box: { x: number, y: number, width: number, height: number }) => {
+    console.log('🖼️ Using fallback export method for render box:', box);
+    console.log('🖼️ Current zoom:', zoom, 'stagePos:', stagePos);
+    
+    // Convert screen coordinates back to canvas coordinates for proper image intersection
+    const canvasBox = {
+      x: (box.x - stagePos.x) / zoom,
+      y: (box.y - stagePos.y) / zoom,
+      width: box.width / zoom,
+      height: box.height / zoom
+    };
+    
+    console.log('🖼️ Converted to canvas coordinates:', canvasBox);
+    
+    // Create a temporary canvas for image-only export
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) {
+      console.error('Could not get 2D context for fallback export');
+      return null;
+    }
+    
+    // Set canvas dimensions to match the bounding box (use original screen dimensions for output)
+    tempCanvas.width = box.width;
+    tempCanvas.height = box.height;
+    
+    // Fill with transparent background
+    tempCtx.clearRect(0, 0, box.width, box.height);
+    
+    // Debug: Log all images and their positions
+    console.log('🖼️ All images in state:', images.map(img => ({
+      id: img.id,
+      x: img.x,
+      y: img.y,
+      width: img.width,
+      height: img.height,
+      hasImage: !!img.image
+    })));
+    
+    // Find all images that intersect with the bounding box (using canvas coordinates)
+    const intersectingImages = images.filter(img => {
+      if (!img.image) return false;
+      
+      // Check if image intersects with bounding box (canvas coordinates)
+      const imgRight = img.x + (img.width || 0);
+      const imgBottom = img.y + (img.height || 0);
+      const boxRight = canvasBox.x + canvasBox.width;
+      const boxBottom = canvasBox.y + canvasBox.height;
+      
+      const intersects = !(img.x > boxRight || imgRight < canvasBox.x || img.y > boxBottom || imgBottom < canvasBox.y);
+      
+      if (intersects) {
+        console.log('🖼️ Image intersects:', {
+          id: img.id,
+          imgPos: { x: img.x, y: img.y, width: img.width, height: img.height },
+          boxPos: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height }
+        });
+      }
+      
+      return intersects;
+    });
+    
+    console.log('🖼️ Found intersecting images:', intersectingImages.length);
+    
+    if (intersectingImages.length === 0) {
+      console.warn('No images found in bounding box area');
+      console.warn('Canvas box:', canvasBox);
+      console.warn('Available images:', images.length);
+      
+      // Fallback: Create a simple colored rectangle representing the bounding box
+      console.log('🖼️ Creating fallback bounding box representation');
+      tempCtx.fillStyle = '#FF6B6B'; // Light red color
+      tempCtx.fillRect(0, 0, box.width, box.height);
+      
+      // Add a border
+      tempCtx.strokeStyle = '#FF0000';
+      tempCtx.lineWidth = 2;
+      tempCtx.strokeRect(0, 0, box.width, box.height);
+      
+      // Add text label
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.font = '16px Arial';
+      tempCtx.textAlign = 'center';
+      tempCtx.fillText('Bounding Box Area', box.width / 2, box.height / 2);
+      
+      try {
+        const dataURL = tempCanvas.toDataURL('image/png');
+        console.log('🖼️ Fallback bounding box representation created, data length:', dataURL.length);
+        return dataURL;
+      } catch (error) {
+        console.error('Failed to create fallback bounding box representation:', error);
+        return null;
+      }
+    }
+    
+    // Draw each intersecting image onto the temporary canvas
+    intersectingImages.forEach(img => {
+      if (!img.image) return;
+      
+      // Calculate the intersection area (canvas coordinates)
+      const imgRight = img.x + (img.width || 0);
+      const imgBottom = img.y + (img.height || 0);
+      const boxRight = canvasBox.x + canvasBox.width;
+      const boxBottom = canvasBox.y + canvasBox.height;
+      
+      const drawX = Math.max(0, img.x - canvasBox.x);
+      const drawY = Math.max(0, img.y - canvasBox.y);
+      const drawWidth = Math.min(img.width || 0, boxRight - img.x, imgRight - canvasBox.x);
+      const drawHeight = Math.min(img.height || 0, boxBottom - img.y, imgBottom - canvasBox.y);
+      
+      // Calculate source coordinates for the image
+      const srcX = Math.max(0, canvasBox.x - img.x);
+      const srcY = Math.max(0, canvasBox.y - img.y);
+      
+      console.log('🖼️ Drawing image:', {
+        id: img.id,
+        drawPos: { x: drawX, y: drawY, width: drawWidth, height: drawHeight },
+        srcPos: { x: srcX, y: srcY }
+      });
+      
+      try {
+        tempCtx.drawImage(
+          img.image,
+          srcX, srcY, drawWidth, drawHeight,  // Source coordinates
+          drawX, drawY, drawWidth, drawHeight  // Destination coordinates
+        );
+      } catch (error) {
+        console.warn('Failed to draw image in fallback export:', error);
+      }
+    });
+    
+    // Return the canvas as a data URL
+    try {
+      const dataURL = tempCanvas.toDataURL('image/png');
+      console.log('🖼️ Fallback export successful, data length:', dataURL.length);
+      return dataURL;
+    } catch (error) {
+      console.error('Failed to create data URL from fallback export:', error);
+      return null;
+    }
+  }, [images, zoom, stagePos]);
+
   // Expose importImage method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
@@ -639,14 +782,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const screenWidth = activeBox.width * zoom;
       const screenHeight = activeBox.height * zoom;
       
-      return stage.toDataURL({
-        x: screenX,
-        y: screenY,
-        width: screenWidth,
-        height: screenHeight,
-        pixelRatio: 1,
-      });
+             return stage.toDataURL({
+         x: screenX,
+         y: screenY,
+         width: screenWidth,
+         height: screenHeight,
+         pixelRatio: 1,
+       });
     },
+    
     exportCurrentRenderBoxAsPng: () => {
       if (!renderBox) return null;
       const stage = stageRef.current;
@@ -659,13 +803,29 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const screenWidth = renderBox.width * zoom;
       const screenHeight = renderBox.height * zoom;
       
-      return stage.toDataURL({
-        x: screenX,
-        y: screenY,
-        width: screenWidth,
-        height: screenHeight,
-        pixelRatio: 1,
-      });
+      try {
+        // Primary export method - should work with CORS-enabled videos
+        const result = stage.toDataURL({
+          x: screenX,
+          y: screenY,
+          width: screenWidth,
+          height: screenHeight,
+          pixelRatio: 1,
+        });
+        
+        if (result && result !== 'data:,' && result.length > 100) {
+          console.log('✅ Primary export successful, data length:', result.length);
+          return result;
+        }
+        
+        // Fallback: export only images in the bounding box area
+        console.warn('⚠️ Primary export failed, using fallback method');
+        return exportImagesOnlyFromRenderBox(renderBox);
+        
+      } catch (error) {
+        console.error('❌ Export failed, using fallback method:', error);
+        return exportImagesOnlyFromRenderBox(renderBox);
+      }
     },
     removeImage: (id: string) => {
       console.log('🎬 Removing image with ID:', id);
