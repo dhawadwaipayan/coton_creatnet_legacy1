@@ -1,3 +1,8 @@
+// Gemini AI Integration
+// Updated to use AI Proxy for network security
+
+import { callGeminiAI } from './aiProxyService';
+
 interface GeminiImageGenerationParams {
   base64Sketch: string;
   base64Material?: string;
@@ -17,58 +22,18 @@ export const callGeminiImageGeneration = async ({
   promptText
 }: GeminiImageGenerationParams): Promise<GeminiResponse> => {
   try {
-    // Prepare the request payload for Gemini Flash 2.0
-    const requestBody = {
-      model: "gemini-2.0-flash-preview-image-generation",
-      contents: [
-        {
-          parts: [
-            {
-              text: promptText
-            },
-            {
-              inline_data: {
-                mime_type: "image/png",
-                data: base64Sketch.split(',')[1] // Remove data:image/png;base64, prefix
-              }
-            }
-          ]
-        }
-      ],
-      generation_config: {
-        temperature: 0.7,
-        top_p: 0.95,
-        top_k: 64,
-        max_output_tokens: 8192
-      }
-    };
-
-    // Add material image if provided
-    if (base64Material) {
-      requestBody.contents[0].parts.push({
-        inline_data: {
-          mime_type: "image/png",
-          data: base64Material.split(',')[1] // Remove data:image/png;base64, prefix
-        }
-      });
-    }
-
-    const response = await fetch('/api/gemini-ai', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    console.log('[Gemini AI] Making API call via AI Proxy:', {
+      hasSketch: !!base64Sketch,
+      hasMaterial: !!base64Material,
+      hasPrompt: !!promptText
     });
 
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
-    }
-
-    const result = await response.json();
+    // Call Gemini AI through the proxy
+    const proxyResponse = await callGeminiAI(base64Sketch, promptText, false);
+    const result = proxyResponse.result;
     
     // Transform Gemini response to match OpenAI format
-    return {
+    const transformedResponse = {
       output: [
         {
           type: "image_generation_call",
@@ -76,8 +41,16 @@ export const callGeminiImageGeneration = async ({
         }
       ]
     };
+
+    console.log('[Gemini AI] Response received via AI Proxy:', {
+      hasOutput: Array.isArray(transformedResponse.output),
+      outputLength: transformedResponse.output?.length
+    });
+
+    return transformedResponse;
+    
   } catch (error) {
-    console.error('Gemini AI Error:', error);
+    console.error('[Gemini AI] AI Proxy call failed:', error);
     throw error;
   }
 }; 

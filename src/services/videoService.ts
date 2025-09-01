@@ -1,8 +1,10 @@
 // Video AI service for fashion video generation using Segmind Kling AI
 // This service implements the dynamic aspect ratio pipeline
+// Updated to use AI Proxy for network security
 
 import { forceAspectRatio, type PreprocessingResult } from './imagePreprocessingService';
 import { restoreAspectRatio, type VideoProcessingResult } from './videoPostProcessingService';
+import { callKlingAI } from '../lib/aiProxyService';
 
 export interface VideoResult {
   success: boolean;
@@ -58,27 +60,13 @@ export const generateVideo = async (params: VideoGenerationParams): Promise<Vide
     console.log('[VideoService] Squeezed image size:', preprocessingResult.processedImage.length);
     console.log('[VideoService] Squeeze transformation applied successfully');
 
-    // Phase 2: AI Processing (Segmind Kling AI)
-    console.log('[VideoService] Phase 2: AI video generation');
+    // Phase 2: AI Processing (Segmind Kling AI via AI Proxy)
+    console.log('[VideoService] Phase 2: AI video generation via AI Proxy');
     const aiStart = Date.now();
     
-    // Call the backend API endpoint with processed 9:16 image
-    const response = await fetch('/api/kling-ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        base64Image: preprocessingResult.processedImage, 
-        prompt: prompt,
-        userId: userId
-      }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `API error: ${response.status}`);
-    }
-    
-    const aiResult = await response.json();
+    // Call Kling AI through the proxy
+    const proxyResponse = await callKlingAI(preprocessingResult.processedImage, prompt, userId);
+    const aiResult = proxyResponse.result;
     const aiProcessingTime = Date.now() - aiStart;
     
     console.log('[VideoService] AI processing complete in', aiProcessingTime, 'ms');

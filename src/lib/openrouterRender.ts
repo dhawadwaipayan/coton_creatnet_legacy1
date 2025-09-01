@@ -1,7 +1,10 @@
 /**
  * OpenRouter Render AI Integration
  * Handles image analysis and rendering using OpenRouter API
+ * Updated to use AI Proxy for network security
  */
+
+import { callOpenRouterAI } from './aiProxyService';
 
 export interface OpenRouterRenderParams {
   base64Sketch: string;
@@ -26,38 +29,22 @@ export interface OpenRouterRenderResponse {
 }
 
 /**
- * Call OpenRouter API for image rendering
+ * Call OpenRouter API for image rendering via AI Proxy
  */
 export async function callOpenRouterRender(params: OpenRouterRenderParams): Promise<OpenRouterRenderResponse> {
   const { base64Sketch, promptText, isFastMode = false } = params;
 
   try {
-    console.log('[OpenRouter Render] Making API call with params:', {
+    console.log('[OpenRouter Render] Making API call via AI Proxy with params:', {
       hasSketch: !!base64Sketch,
       hasPrompt: !!promptText,
       isFastMode
     });
 
-    const response = await fetch('/api/openrouter-render', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        base64Sketch,
-        promptText,
-        isFastMode
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const result = await response.json();
+    const proxyResponse = await callOpenRouterAI(base64Sketch, promptText || '', isFastMode);
+    const result = proxyResponse.result;
     
-    console.log('[OpenRouter Render] API response received:', {
+    console.log('[OpenRouter Render] API response received via AI Proxy:', {
       success: result.success,
       mode: result.mode,
       hasOutput: Array.isArray(result.output),
@@ -67,8 +54,8 @@ export async function callOpenRouterRender(params: OpenRouterRenderParams): Prom
     return result;
 
   } catch (error) {
-    console.error('[OpenRouter Render] API call failed:', error);
-    throw new Error(`OpenRouter Render API failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('[OpenRouter Render] AI Proxy call failed:', error);
+    throw new Error(`OpenRouter Render API failed via proxy: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
