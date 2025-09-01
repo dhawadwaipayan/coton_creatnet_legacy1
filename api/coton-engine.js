@@ -275,7 +275,14 @@ async function handleGeminiAI(action, data) {
   // Get base prompt from environment variable for security
   const basePrompt = process.env.RENDER_FASTRACK_KEY;
   
+  console.log('[Coton Engine] Environment variable check:');
+  console.log('[Coton Engine] RENDER_FASTRACK_KEY exists:', !!process.env.RENDER_FASTRACK_KEY);
+  console.log('[Coton Engine] RENDER_FASTRACK_KEY length:', process.env.RENDER_FASTRACK_KEY?.length || 0);
+  console.log('[Coton Engine] Received promptText:', promptText);
+  console.log('[Coton Engine] Is placeholder?', promptText === "RENDER_FASTRACK_PROMPT");
+  
   if (!basePrompt) {
+    console.error('[Coton Engine] ERROR: RENDER_FASTRACK_KEY environment variable is not configured');
     throw new Error('RENDER_FASTRACK_KEY environment variable is not configured');
   }
 
@@ -285,6 +292,9 @@ async function handleGeminiAI(action, data) {
   // Log if using environment variable
   if (promptText === "RENDER_FASTRACK_PROMPT") {
     console.log('[Coton Engine] Using RENDER_FASTRACK_KEY environment variable for base prompt');
+    console.log('[Coton Engine] Final prompt length:', finalPromptText.length);
+  } else {
+    console.log('[Coton Engine] Using provided prompt text');
   }
   
   // If additionalDetails is provided, append it (like original service)
