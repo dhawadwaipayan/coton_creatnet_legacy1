@@ -628,15 +628,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     console.log('🖼️ Using fallback export method for render box:', box);
     console.log('🖼️ Current zoom:', zoom, 'stagePos:', stagePos);
     
-    // Convert screen coordinates back to canvas coordinates for proper image intersection
-    const canvasBox = {
-      x: (box.x - stagePos.x) / zoom,
-      y: (box.y - stagePos.y) / zoom,
-      width: box.width / zoom,
-      height: box.height / zoom
-    };
+    // box is already in canvas coordinates, so use it directly
+    const canvasBox = box;
     
-    console.log('🖼️ Converted to canvas coordinates:', canvasBox);
+    console.log('🖼️ Using canvas coordinates directly:', canvasBox);
     
     // Create a temporary canvas for image-only export
     const tempCanvas = document.createElement('canvas');
@@ -646,12 +641,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return null;
     }
     
-    // Set canvas dimensions to match the bounding box (use original screen dimensions for output)
-    tempCanvas.width = box.width;
-    tempCanvas.height = box.height;
+    // Set canvas dimensions to match the bounding box (use screen dimensions for output)
+    const screenWidth = box.width * zoom;
+    const screenHeight = box.height * zoom;
+    tempCanvas.width = screenWidth;
+    tempCanvas.height = screenHeight;
     
     // Fill with transparent background
-    tempCtx.clearRect(0, 0, box.width, box.height);
+    tempCtx.clearRect(0, 0, screenWidth, screenHeight);
     
     // Debug: Log all images and their positions
     console.log('🖼️ All images in state:', images.map(img => ({
@@ -696,18 +693,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Fallback: Create a simple colored rectangle representing the bounding box
       console.log('🖼️ Creating fallback bounding box representation');
       tempCtx.fillStyle = '#FF6B6B'; // Light red color
-      tempCtx.fillRect(0, 0, box.width, box.height);
+      tempCtx.fillRect(0, 0, screenWidth, screenHeight);
       
       // Add a border
       tempCtx.strokeStyle = '#FF0000';
       tempCtx.lineWidth = 2;
-      tempCtx.strokeRect(0, 0, box.width, box.height);
+      tempCtx.strokeRect(0, 0, screenWidth, screenHeight);
       
       // Add text label
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.font = '16px Arial';
       tempCtx.textAlign = 'center';
-      tempCtx.fillText('Bounding Box Area', box.width / 2, box.height / 2);
+      tempCtx.fillText('Bounding Box Area', screenWidth / 2, screenHeight / 2);
       
       try {
         const dataURL = tempCanvas.toDataURL('image/png');
@@ -729,14 +726,24 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const boxRight = canvasBox.x + canvasBox.width;
       const boxBottom = canvasBox.y + canvasBox.height;
       
-      const drawX = Math.max(0, img.x - canvasBox.x);
-      const drawY = Math.max(0, img.y - canvasBox.y);
-      const drawWidth = Math.min(img.width || 0, boxRight - img.x, imgRight - canvasBox.x);
-      const drawHeight = Math.min(img.height || 0, boxBottom - img.y, imgBottom - canvasBox.y);
+      // Calculate intersection in canvas coordinates
+      const intersectX = Math.max(canvasBox.x, img.x);
+      const intersectY = Math.max(canvasBox.y, img.y);
+      const intersectRight = Math.min(boxRight, imgRight);
+      const intersectBottom = Math.min(boxBottom, imgBottom);
       
-      // Calculate source coordinates for the image
-      const srcX = Math.max(0, canvasBox.x - img.x);
-      const srcY = Math.max(0, canvasBox.y - img.y);
+      const intersectWidth = Math.max(0, intersectRight - intersectX);
+      const intersectHeight = Math.max(0, intersectBottom - intersectY);
+      
+      // Convert to screen coordinates for drawing
+      const drawX = (intersectX - canvasBox.x) * zoom;
+      const drawY = (intersectY - canvasBox.y) * zoom;
+      const drawWidth = intersectWidth * zoom;
+      const drawHeight = intersectHeight * zoom;
+      
+      // Calculate source coordinates for the image (in canvas coordinates)
+      const srcX = intersectX - img.x;
+      const srcY = intersectY - img.y;
       
       console.log('🖼️ Drawing image:', {
         id: img.id,
@@ -796,12 +803,17 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       if (!stage) return null;
       
-      // Convert canvas coordinates to screen coordinates for export
-      // Canvas coordinates need to be scaled by zoom and offset by stagePos
+      // renderBox is already in canvas coordinates, so use it directly
+      console.log('🎯 Exporting render box (canvas coordinates):', renderBox);
+      console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
+      
+      // Convert canvas coordinates to screen coordinates for stage.toDataURL
       const screenX = renderBox.x * zoom + stagePos.x;
       const screenY = renderBox.y * zoom + stagePos.y;
       const screenWidth = renderBox.width * zoom;
       const screenHeight = renderBox.height * zoom;
+      
+      console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
       
       try {
         // Primary export method - should work with CORS-enabled videos
