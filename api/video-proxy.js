@@ -1,10 +1,7 @@
-// Coton Engine - Unified service router for all external API calls
-// This provides a centralized endpoint for service routing
+// Video Proxy - Dedicated proxy for video operations
+// Handles video_fastrack requests
 
 import { createClient } from '@supabase/supabase-js';
-import { handleRenderFastrack, handleRenderAccurate } from './handlers/renderHandler.js';
-import { handleEditFastrack } from './handlers/editHandler.js';
-import { handleColorwayColor, handleColorwayPrint } from './handlers/colorwayHandler.js';
 import { handleVideoFastrack } from './handlers/videoHandler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
@@ -37,37 +34,21 @@ export default async function handler(req, res) {
     }
 
     // Add request logging for debugging
-    console.log(`[Coton Engine] Routing request: ${service}.${action}`, {
+    console.log(`[Video Proxy] Routing request: ${service}.${action}`, {
       timestamp,
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
 
-    // Route to appropriate AI service
+    // Route to appropriate video handler
     let result;
     switch (service) {
-      // New simplified routing
-      case 'render_fastrack':
-        result = await handleRenderFastrack(action, data);
-        break;
-      case 'render_accurate':
-        result = await handleRenderAccurate(action, data);
-        break;
-      case 'edit_fastrack':
-        result = await handleEditFastrack(action, data);
-        break;
-      case 'colorway_color':
-        result = await handleColorwayColor(action, data);
-        break;
-      case 'colorway_print':
-        result = await handleColorwayPrint(action, data);
-        break;
       case 'video_fastrack':
         result = await handleVideoFastrack(action, data);
         break;
       default:
         return res.status(400).json({ 
-          error: `Unknown service: ${service}` 
+          error: `Unknown video service: ${service}` 
         });
     }
 
@@ -81,7 +62,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error(`[Coton Engine] Error:`, error);
+    console.error(`[Video Proxy] Error:`, error);
     
     return res.status(500).json({
       success: false,

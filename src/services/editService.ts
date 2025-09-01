@@ -34,7 +34,7 @@ export async function callEditService(request: EditRequest): Promise<EditRespons
   });
 
   try {
-    const response = await fetch('/api/coton-engine', {
+    const response = await fetch('/api/edit-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -37,7 +37,7 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
   });
 
   try {
-    const response = await fetch('/api/coton-engine', {
+    const response = await fetch('/api/render-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
