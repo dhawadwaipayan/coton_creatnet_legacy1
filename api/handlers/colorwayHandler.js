@@ -21,10 +21,9 @@ export async function handleColorwayColor(action, data) {
     throw new Error('COLORWAY_COLOR_KEY environment variable is not configured');
   }
   
-  // Use only the environment variable base prompt (no user details)
-  const finalPrompt = basePrompt;
+  const finalPrompt = `${basePrompt} ${selectedColor}`;
   
-  console.log('[Colorway Handler] Using only COLORWAY_COLOR_KEY prompt, length:', finalPrompt.length);
+  console.log('[Colorway Handler] Final prompt length:', finalPrompt.length);
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');

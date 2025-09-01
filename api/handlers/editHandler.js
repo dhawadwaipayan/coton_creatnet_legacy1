@@ -21,10 +21,14 @@ export async function handleEditFastrack(action, data) {
     throw new Error('EDIT_FASTRACK_KEY environment variable is not configured');
   }
   
-  // Use only the environment variable base prompt (no user details)
-  const finalPromptText = basePrompt;
+  // Use environment variable base prompt and append user details if provided
+  let finalPromptText = basePrompt;
   
-  console.log('[Edit Handler] Using only EDIT_FASTRACK_KEY prompt, length:', finalPromptText.length);
+  if (additionalDetails && additionalDetails.trim()) {
+    finalPromptText += ` ${additionalDetails.trim()}`;
+  }
+  
+  console.log('[Edit Handler] Final prompt length:', finalPromptText.length);
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');

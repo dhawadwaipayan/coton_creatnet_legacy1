@@ -69,7 +69,7 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
       outputLength: result.output?.length || 0
     });
 
-    return result;
+    return result.result;
   } catch (error) {
     console.error(`[Render Service] Error in ${mode}:`, error);
     throw error;

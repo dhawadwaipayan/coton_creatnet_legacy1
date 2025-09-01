@@ -64,7 +64,7 @@ export async function callEditService(request: EditRequest): Promise<EditRespons
       outputLength: result.output?.length || 0
     });
 
-    return result;
+    return result.result;
   } catch (error) {
     console.error('[Edit Service] Error in edit fastrack:', error);
     throw error;
