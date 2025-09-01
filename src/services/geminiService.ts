@@ -38,27 +38,8 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     // Clean material image data if provided
     const cleanMaterialBase64 = materialImage ? materialImage.replace(/^data:image\/[a-z]+;base64,/, '') : null;
     
-    // Structured JSON-style base prompt for fashion sketch to photorealistic render
-    let promptText = `{
-  "task": "fashion_sketch_to_realistic_render",
-  "input": {
-    "sketch_image": "base64Sketch",
-    "material_reference": "base64Material || null",
-    "reference_style": "high-resolution fashion photography",
-    "model_preferences": {
-      "pose": "neutral runway stance, arms relaxed",
-      "height": "tall",
-      "body_type": "slim but natural proportions",
-      "skin": "natural texture with soft shading"
-    },
-    "garment_rendering": {
-      "fabric_mode": "use material_reference if provided, else follow sketch fabric accurately (color, drape, texture, scale)",
-      "lighting": "studio lighting, soft shadows",
-      "background": "solid white",
-      "focus": "maintain garment accuracy while producing photorealistic output"
-    }
-  }
-}`;
+    // Base prompt will be handled server-side for security
+    let promptText = "RENDER_FASTRACK_PROMPT";
 
     // Add additional details if provided by the user
     if (additionalDetails && additionalDetails.trim()) {
@@ -87,7 +68,7 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     console.log('[GeminiService] Image generated successfully via Coton Engine:', {
       width: dimensions.width,
       height: dimensions.height,
-      aspectRatio: dimensions.aspectRatio
+      aspectRatio: dimensions.width / dimensions.height
     });
     
     return {
