@@ -1,5 +1,5 @@
-// AI Proxy Service - Client-side service for making AI API calls through the unified proxy
-// This hides individual AI service calls from the network tab
+// Coton Engine Service - Client-side service for making API calls through the unified engine
+// This provides centralized routing for all external service calls
 
 interface AIProxyRequest {
   service: string;
@@ -35,13 +35,13 @@ async function makeAIProxyRequest(request: AIProxyRequest): Promise<AIProxyRespo
     nonce: generateNonce()
   };
 
-  console.log(`[AI Proxy Service] Making request: ${service}.${action}`, {
+  console.log(`[Coton Engine Service] Making request: ${service}.${action}`, {
     nonce: proxyRequest.nonce?.substring(0, 8) + '...',
     dataKeys: Object.keys(data)
   });
 
   try {
-    const response = await fetch('/api/ai-proxy', {
+    const response = await fetch('/api/coton-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,10 +57,10 @@ async function makeAIProxyRequest(request: AIProxyRequest): Promise<AIProxyRespo
     const result: AIProxyResponse = await response.json();
     
     if (!result.success) {
-      throw new Error(result.error || 'AI proxy request failed');
+      throw new Error(result.error || 'Coton engine request failed');
     }
 
-    console.log(`[AI Proxy Service] Request successful: ${service}.${action}`, {
+    console.log(`[Coton Engine Service] Request successful: ${service}.${action}`, {
       nonce: proxyRequest.nonce?.substring(0, 8) + '...',
       resultKeys: result.result ? Object.keys(result.result) : 'no result'
     });
@@ -68,7 +68,7 @@ async function makeAIProxyRequest(request: AIProxyRequest): Promise<AIProxyRespo
     return result;
 
   } catch (error) {
-    console.error(`[AI Proxy Service] Request failed: ${service}.${action}`, error);
+    console.error(`[Coton Engine Service] Request failed: ${service}.${action}`, error);
     throw error;
   }
 }
@@ -145,6 +145,6 @@ export async function callAIService(service: string, action: string, data: any):
   });
 }
 
-// Export the main proxy request function for advanced usage
+// Export the main engine request function for advanced usage
 export { makeAIProxyRequest };
 export type { AIProxyRequest, AIProxyResponse };
