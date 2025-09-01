@@ -536,18 +536,24 @@ async function handleKlingAI(action, data) {
   
   const imageUrl = tempImageUrlData.publicUrl;
 
-  // Prepare the request payload for Segmind Kling AI
-  const basePrompt = "Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift.";
+  // Get base prompt from environment variable for security
+  const basePrompt = process.env.VIDEO_FST_KEY;
+  
+  if (!basePrompt) {
+    throw new Error('VIDEO_FST_KEY environment variable is not configured');
+  }
+  
   const finalPrompt = promptText && promptText.trim() 
     ? `${basePrompt} ${promptText.trim()}` 
     : basePrompt;
     
-  console.log('[Coton Engine] Prompt construction:', {
+  console.log('[Coton Engine] Video prompt construction:', {
     receivedPromptText: promptText,
     promptTextType: typeof promptText,
     promptTextLength: promptText?.length || 0,
     promptTextTrimmed: promptText?.trim() || '',
-    basePrompt: basePrompt,
+    usingEnvVar: true,
+    basePromptLength: basePrompt.length,
     finalPrompt: finalPrompt
   });
     
