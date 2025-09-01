@@ -522,7 +522,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      const aiProvider = isFastMode ? 'Together.ai Flux Kontext Dev' : 'OpenAI';
+      const aiProvider = isFastMode ? 'Gemini 2.5 Flash' : 'OpenAI';
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);

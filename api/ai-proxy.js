@@ -31,6 +31,15 @@ export default async function handler(req, res) {
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
+    
+    // Enhanced debugging for render fastrack mode
+    if (service === 'gemini') {
+      console.log('[AI Proxy] Gemini service called - render fastrack mode');
+      console.log('[AI Proxy] Gemini API Key available:', !!process.env.GEMINI_API_KEY);
+    } else if (service === 'flux') {
+      console.log('[AI Proxy] Flux service called - should NOT be called for render fastrack');
+      console.log('[AI Proxy] Together API Key available:', !!process.env.TOGETHER_API_KEY);
+    }
 
     // Route to appropriate AI service
     let result;
@@ -240,8 +249,10 @@ async function handleGeminiAI(action, data) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('Gemini API key not configured');
+    console.error('[AI Proxy] GEMINI_API_KEY environment variable is missing');
+    throw new Error('Gemini API key not configured - check GEMINI_API_KEY environment variable');
   }
+  console.log('[AI Proxy] Gemini API key found, proceeding with API call');
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
