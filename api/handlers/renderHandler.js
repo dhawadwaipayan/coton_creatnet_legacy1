@@ -35,32 +35,23 @@ export async function handleRenderFastrack(action, data) {
     model: "gemini-2.5-flash-image-preview" 
   });
 
-  // Generate content with image generation config
-  const result = await model.generateContent({
-    contents: [{
-      role: "user",
-      parts: [
-        { text: finalPromptText },
-        {
-          inlineData: {
-            mimeType: "image/png",
-            data: cleanBase64
-          }
-        },
-        // Add material image if provided
-        ...(cleanMaterialBase64 ? [{
-          inlineData: {
-            mimeType: "image/png",
-            data: cleanMaterialBase64
-          }
-        }] : [])
-      ]
-    }],
-    generationConfig: {
-      responseMimeType: "image/png",
-      responseModalities: ["IMAGE", "TEXT"]
-    }
-  });
+  // Generate content (following old geminiService.ts logic)
+  const result = await model.generateContent([
+    finalPromptText,
+    {
+      inlineData: {
+        mimeType: "image/png",
+        data: cleanBase64
+      }
+    },
+    // Add material image if provided
+    ...(cleanMaterialBase64 ? [{
+      inlineData: {
+        mimeType: "image/png",
+        data: cleanMaterialBase64
+      }
+    }] : [])
+  ]);
 
   const response = await result.response;
   
