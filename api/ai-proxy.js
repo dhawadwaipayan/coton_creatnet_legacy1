@@ -327,7 +327,7 @@ async function handleFluxAI(action, data) {
 
   const apiKey = process.env.TOGETHER_API_KEY;
   if (!apiKey) {
-    throw new Error('Together API key not configured');
+    throw new Error('Together API key not configured for Flux AI');
   }
 
   // Upload sketch to Supabase and get public URL
