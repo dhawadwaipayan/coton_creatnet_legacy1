@@ -783,13 +783,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       // Call the new video service
       console.log('[Video AI] Calling video service with:', {
         imageDataLength: base64Image.length,
-        prompt: details || 'Generate a fashion video from this image',
+        prompt: details || '',
         userId
       });
       
       const result = await generateVideo({
         imageData: base64Image,
-        prompt: details || 'Generate a fashion video from this image',
+        prompt: details || '',
         userId
       });
       
