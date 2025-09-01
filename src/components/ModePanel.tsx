@@ -9,9 +9,10 @@ import { FilmReel } from '@phosphor-icons/react';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
-import { generateImage, transformGeminiResponse } from '../services/geminiService';
-import { generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
-import { generateVideo } from '../services/videoService';
+import { renderFastrack, renderAccurate } from '../services/renderService';
+import { editFastrack } from '../services/editService';
+import { colorwayColor, colorwayPrint } from '../services/colorwayService';
+import { videoFastrack } from '../services/videoService';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
 
