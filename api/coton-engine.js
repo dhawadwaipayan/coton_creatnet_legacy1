@@ -586,7 +586,7 @@ async function handleKlingAI(action, data) {
   const videoId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   const filePath = `${userId}/videos/${videoId}.mp4`;
   
-  const { data, error } = await supabase.storage
+  const { data: uploadData, error } = await supabase.storage
     .from('board-videos')
     .upload(filePath, videoBuffer, {
       contentType: 'video/mp4',
