@@ -218,9 +218,9 @@ async function handleVideoAI(action, data) {
     throw new Error('Missing required fields for video AI');
   }
 
-  const apiKey = process.env.KLING_API_KEY;
+  const apiKey = process.env.SEGMIND_API_KEY;
   if (!apiKey) {
-    throw new Error('Kling API key not configured');
+    throw new Error('Segmind API key not configured');
   }
 
   const response = await fetch('https://api.kling.ai/v1/images/generations', {
@@ -471,9 +471,9 @@ async function handleKlingAI(action, data) {
     throw new Error('Missing required fields for Kling AI');
   }
 
-  const apiKey = process.env.KLING_API_KEY;
+  const apiKey = process.env.SEGMIND_API_KEY;
   if (!apiKey) {
-    throw new Error('Kling API key not configured');
+    throw new Error('Segmind API key not configured');
   }
 
   const response = await fetch('https://api.kling.ai/v1/videos/generations', {
