@@ -30,39 +30,8 @@ export async function handleRenderFastrack(action, data) {
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');
   const cleanMaterialBase64 = base64Material ? base64Material.replace(/^data:image\/[a-z]+;base64,/, '') : null;
 
-  // Auto-download what's being sent to AI (bounding box image)
-  let downloadUrl = null;
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `render-input-${timestamp}.png`;
-    
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(cleanBase64, 'base64');
-    
-    // Upload to Supabase temp storage for auto-download
-    const tempPath = `temp-downloads/${filename}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('temp-images')
-      .upload(tempPath, imageBuffer, {
-        contentType: 'image/png',
-        upsert: false
-      });
-
-    if (!uploadError) {
-      // Get public URL for download
-      const { data: urlData } = supabase.storage
-        .from('temp-images')
-        .getPublicUrl(tempPath);
-      
-      downloadUrl = urlData.publicUrl;
-      console.log('[Render Handler] Auto-download URL for bounding box image:', downloadUrl);
-      console.log('[Render Handler] Filename:', filename);
-    } else {
-      console.warn('[Render Handler] Failed to upload for auto-download:', uploadError.message);
-    }
-  } catch (downloadError) {
-    console.warn('[Render Handler] Auto-download setup failed:', downloadError.message);
-  }
+  // Return base64 data for direct download (no Supabase needed)
+  const downloadData = `data:image/png;base64,${cleanBase64}`;
 
   // Get the model
   const model = genAI.getGenerativeModel({ 
@@ -115,7 +84,7 @@ export async function handleRenderFastrack(action, data) {
       height: 1536,
       aspectRatio: 1024 / 1536
     },
-    downloadUrl: downloadUrl // Auto-download URL for bounding box image
+    downloadData: downloadData // Base64 data for direct download
   };
 }
 
