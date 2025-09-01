@@ -68,8 +68,8 @@ export const generateImage = async (imageData: string, materialImage?: string, a
     console.log('[GeminiService] Final promptText:', promptText);
     console.log('[GeminiService] Prompt length:', promptText.length);
     
-    // Call Gemini AI through the AI proxy
-    const proxyResponse = await callGeminiAI(cleanBase64, promptText, false);
+    // Call Gemini AI through the AI proxy (passing material image and additional details)
+    const proxyResponse = await callGeminiAI(cleanBase64, promptText, false, cleanMaterialBase64, additionalDetails);
     const result = proxyResponse.result;
     
     // Extract the generated image data from the proxy response

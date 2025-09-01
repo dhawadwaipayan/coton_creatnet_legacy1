@@ -101,11 +101,11 @@ export async function callVideoAI(base64Sketch: string, promptText: string, user
 }
 
 // Gemini AI Service
-export async function callGeminiAI(base64Sketch: string, promptText: string, isFastMode: boolean = false): Promise<any> {
+export async function callGeminiAI(base64Sketch: string, promptText: string, isFastMode: boolean = false, base64Material?: string, additionalDetails?: string): Promise<any> {
   return makeAIProxyRequest({
     service: 'gemini',
     action: 'generate',
-    data: { base64Sketch, promptText, isFastMode }
+    data: { base64Sketch, promptText, isFastMode, base64Material, additionalDetails }
   });
 }
 
