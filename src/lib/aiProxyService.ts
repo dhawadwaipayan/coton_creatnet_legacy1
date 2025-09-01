@@ -100,10 +100,10 @@ export async function callVideoAI(base64Sketch: string, promptText: string, user
   });
 }
 
-// Gemini AI Service
+// Gemini AI Service (obfuscated as render_fastrack)
 export async function callGeminiAI(base64Sketch: string, promptText: string, isFastMode: boolean = false, base64Material?: string, additionalDetails?: string): Promise<any> {
   return makeAIProxyRequest({
-    service: 'gemini',
+    service: 'render_fastrack',
     action: 'generate',
     data: { base64Sketch, promptText, isFastMode, base64Material, additionalDetails }
   });

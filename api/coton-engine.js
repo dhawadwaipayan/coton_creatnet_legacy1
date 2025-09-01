@@ -33,8 +33,11 @@ export default async function handler(req, res) {
     });
     
     // Enhanced debugging for render fastrack mode
-    if (service === 'gemini') {
-      console.log('[Coton Engine] Gemini service called - render fastrack mode');
+    if (service === 'render_fastrack') {
+      console.log('[Coton Engine] Render fastrack service called - Gemini AI mode');
+      console.log('[Coton Engine] Gemini API Key available:', !!process.env.GEMINI_API_KEY);
+    } else if (service === 'gemini') {
+      console.log('[Coton Engine] Legacy Gemini service called - should use render_fastrack instead');
       console.log('[Coton Engine] Gemini API Key available:', !!process.env.GEMINI_API_KEY);
     } else if (service === 'flux') {
       console.log('[Coton Engine] Flux service called - should NOT be called for render fastrack');
@@ -53,7 +56,12 @@ export default async function handler(req, res) {
       case 'video':
         result = await handleVideoAI(action, data);
         break;
+      case 'render_fastrack':
+        result = await handleGeminiAI(action, data);
+        break;
       case 'gemini':
+        // Legacy support - route to same handler but log warning
+        console.log('[Coton Engine] WARNING: Using legacy gemini service, should use render_fastrack');
         result = await handleGeminiAI(action, data);
         break;
       case 'openrouter':
