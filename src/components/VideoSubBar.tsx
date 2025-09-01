@@ -41,7 +41,7 @@ export const VideoSubBar: React.FC<VideoSubBarProps> = ({
       </div>
 
       {/* Speed indicator - locked to fastrack */}
-      <div className="flex items-center gap-1 px-2 py-1 text-[#E1FF00] shrink-0">
+      <div className="flex items-center gap-1 px-2 py-1 text-neutral-400 shrink-0">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[16px] h-[16px]">
           <path d="M9.5 1L6.5 8H10L6.5 15L9.5 8H6L9.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
