@@ -61,7 +61,8 @@ export default async function handler(req, res) {
         result = await handleRenderAI(action, data);
         break;
       case 'video':
-        result = await handleVideoAI(action, data);
+        // Redirect video to kling handler (they're the same service)
+        result = await handleKlingAI(action, data);
         break;
       case 'render_fastrack':
         result = await handleGeminiAI(action, data);
