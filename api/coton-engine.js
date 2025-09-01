@@ -265,26 +265,11 @@ async function handleGeminiAI(action, data) {
   const cleanMaterialBase64 = base64Material ? base64Material.replace(/^data:image\/[a-z]+;base64,/, '') : null;
 
   // Get base prompt from environment variable for security
-  const basePrompt = process.env.RENDER_FASTRACK_KEY || `{
-  "task": "fashion_sketch_to_realistic_render",
-  "input": {
-    "sketch_image": "base64Sketch",
-    "material_reference": "base64Material || null",
-    "reference_style": "high-resolution fashion photography",
-    "model_preferences": {
-      "pose": "neutral runway stance, arms relaxed",
-      "height": "tall",
-      "body_type": "slim but natural proportions",
-      "skin": "natural texture with soft shading"
-    },
-    "garment_rendering": {
-      "fabric_mode": "use material_reference if provided, else follow sketch fabric accurately (color, drape, texture, scale)",
-      "lighting": "studio lighting, soft shadows",
-      "background": "solid white",
-      "focus": "maintain garment accuracy while producing photorealistic output"
-    }
+  const basePrompt = process.env.RENDER_FASTRACK_KEY;
+  
+  if (!basePrompt) {
+    throw new Error('RENDER_FASTRACK_KEY environment variable is not configured');
   }
-}`;
 
   // Replace placeholder with actual prompt or use provided prompt
   let finalPromptText = promptText === "RENDER_FASTRACK_PROMPT" ? basePrompt : promptText;
