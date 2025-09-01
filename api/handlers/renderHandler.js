@@ -14,17 +14,32 @@ export async function handleRenderFastrack(action, data) {
     throw new Error('Missing base64Sketch for render fastrack');
   }
 
-  // Get base prompt from environment variable
+  // Get base prompt from environment variable for security
   const basePrompt = process.env.RENDER_FASTRACK_KEY;
   
+  console.log('[Render Handler] Environment variable check:');
+  console.log('[Render Handler] RENDER_FASTRACK_KEY exists:', !!process.env.RENDER_FASTRACK_KEY);
+  console.log('[Render Handler] RENDER_FASTRACK_KEY length:', process.env.RENDER_FASTRACK_KEY?.length || 0);
+  console.log('[Render Handler] Received promptText:', additionalDetails);
+  console.log('[Render Handler] Is placeholder?', additionalDetails === "RENDER_FASTRACK_PROMPT");
+  
   if (!basePrompt) {
+    console.error('[Render Handler] ERROR: RENDER_FASTRACK_KEY environment variable is not configured');
     throw new Error('RENDER_FASTRACK_KEY environment variable is not configured');
   }
+
+  // Replace placeholder with actual prompt or use provided prompt
+  let finalPromptText = additionalDetails === "RENDER_FASTRACK_PROMPT" ? basePrompt : additionalDetails;
   
-  // Use only the environment variable base prompt (no user details)
-  const finalPromptText = basePrompt;
-  
-  console.log('[Render Handler] Using only RENDER_FASTRACK_KEY prompt, length:', finalPromptText.length);
+  // Log if using environment variable
+  if (additionalDetails === "RENDER_FASTRACK_PROMPT") {
+    console.log('[Render Handler] Using RENDER_FASTRACK_KEY environment variable for base prompt');
+    console.log('[Render Handler] Base prompt preview:', basePrompt?.substring(0, 100) + '...');
+    console.log('[Render Handler] Final prompt length:', finalPromptText.length);
+    console.log('[Render Handler] Final prompt preview:', finalPromptText?.substring(0, 100) + '...');
+  } else {
+    console.log('[Render Handler] Using provided prompt text');
+  }
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -71,15 +86,11 @@ export async function handleRenderFastrack(action, data) {
     success: true,
     mode: "Render Fastrack",
     model_used: "render-ai-v2",
-    enhanced_prompt: additionalDetails && additionalDetails.trim() 
-      ? `Fashion sketch to realistic render. Additional requirements: ${additionalDetails.trim()}`
-      : "Fashion sketch to realistic render",
+    enhanced_prompt: "Fashion sketch to realistic render",
     output: [{
       type: "image_generation_call",
       result: imageData,
-      enhanced_description: additionalDetails && additionalDetails.trim()
-        ? `Professional fashion render generated. Custom requirements: ${additionalDetails.trim()}`
-        : "Professional fashion render generated"
+      enhanced_description: "Professional fashion render generated"
     }],
     message: "Fashion render complete",
     imageDimensions: {

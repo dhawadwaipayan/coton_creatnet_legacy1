@@ -392,7 +392,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         console.log('[Render AI] Details type:', typeof details);
         console.log('[Render AI] Details value:', details);
         
-        const geminiResponse = await renderFastrack(base64Sketch, base64Material, details);
+        const geminiResponse = await renderFastrack(base64Sketch, base64Material, "RENDER_FASTRACK_PROMPT");
         result = geminiResponse;
         
         console.log('[Render AI] Gemini API full response:', result);
