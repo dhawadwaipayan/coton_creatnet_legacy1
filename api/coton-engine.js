@@ -556,6 +556,9 @@ async function handleKlingAI(action, data) {
     basePromptLength: basePrompt.length,
     finalPrompt: finalPrompt
   });
+  
+  // For verification, log the exact prompt sent to Segmind (server logs only)
+  console.log('[Coton Engine] Segmind prompt (length):', finalPrompt.length);
     
   const segmindPayload = {
     "image": imageUrl,
@@ -647,6 +650,11 @@ async function handleKlingAI(action, data) {
       url: urlData.publicUrl,
       size: videoBuffer.length
     },
-    segmindResponse: segmindResult
+    segmindResponse: segmindResult,
+    debug: {
+      promptPreview: finalPrompt.substring(0, 80),
+      promptLength: finalPrompt.length,
+      usedEnvVar: true
+    }
   };
 }
