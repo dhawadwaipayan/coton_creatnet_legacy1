@@ -1,6 +1,13 @@
 // Coton Engine - Unified service router for all external API calls
 // This provides a centralized endpoint for service routing
 
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -463,7 +470,7 @@ async function handleFluxAI(action, data) {
   return await response.json();
 }
 
-// Kling AI Handler
+// Kling AI Handler (Segmind API)
 async function handleKlingAI(action, data) {
   const { base64Sketch, promptText, userId } = data;
   
@@ -476,26 +483,142 @@ async function handleKlingAI(action, data) {
     throw new Error('Segmind API key not configured');
   }
 
-  const response = await fetch('https://api.kling.ai/v1/videos/generations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt: promptText,
-      model: 'kling-v1',
-      width: 1024,
-      height: 1024,
-      duration: 5,
-      image_url: base64Sketch
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Kling API error: ${response.status} ${response.statusText} - ${errorText}`);
+  // Convert base64 to buffer for Supabase upload
+  let imageBuffer;
+  if (base64Sketch.startsWith('data:')) {
+    // It's a data URL, extract base64
+    const base64Data = base64Sketch.split(',')[1];
+    imageBuffer = Buffer.from(base64Data, 'base64');
+  } else if (base64Sketch.startsWith('http')) {
+    // It's a URL, download the image
+    const imageResponse = await fetch(base64Sketch);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.status}`);
+    }
+    const imageArrayBuffer = await imageResponse.arrayBuffer();
+    imageBuffer = Buffer.from(imageArrayBuffer);
+  } else {
+    // Assume it's raw base64 data (without data: prefix)
+    try {
+      imageBuffer = Buffer.from(base64Sketch, 'base64');
+    } catch (error) {
+      throw new Error('Invalid base64 image data');
+    }
   }
 
-  return await response.json();
+  // Upload image to Supabase temporarily to get a public URL
+  const tempImageId = `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const tempImagePath = `${userId}/temp/${tempImageId}.png`;
+  
+  const { data: tempImageData, error: tempImageError } = await supabase.storage
+    .from('board-images')
+    .upload(tempImagePath, imageBuffer, {
+      contentType: 'image/png',
+      upsert: true
+    });
+  
+  if (tempImageError) {
+    throw tempImageError;
+  }
+  
+  // Get the public URL for the temporary image
+  const { data: tempImageUrlData } = supabase.storage
+    .from('board-images')
+    .getPublicUrl(tempImagePath);
+  
+  const imageUrl = tempImageUrlData.publicUrl;
+
+  // Prepare the request payload for Segmind Kling AI
+  const segmindPayload = {
+    "image": imageUrl,
+    "prompt": `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${promptText}`,
+    "negative_prompt": "No jittery motion, avoid rapid scene changes, no blur, no distortion.",
+    "cfg_scale": 0.7,
+    "mode": "std",
+    "aspect_ratio": "9:16",
+    "duration": 5
+  };
+
+  // Call Segmind Kling AI API
+  const segmindResponse = await fetch('https://api.segmind.com/v1/kling-2.1', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.SEGMIND_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(segmindPayload)
+  });
+
+  // Check if response is JSON or binary video
+  const contentType = segmindResponse.headers.get('content-type');
+  let videoBuffer;
+  let segmindResult = null;
+
+  if (contentType && contentType.includes('application/json')) {
+    // JSON response with video URL
+    segmindResult = await segmindResponse.json();
+    
+    // Get the generated video URL from Segmind response
+    let videoUrl = null;
+    if (segmindResult && segmindResult.video_url) {
+      videoUrl = segmindResult.video_url;
+    } else if (segmindResult && segmindResult.output && segmindResult.output.video_url) {
+      videoUrl = segmindResult.output.video_url;
+    } else {
+      throw new Error('No video URL found in Segmind response');
+    }
+    
+    // Download the video from Segmind
+    const videoResponse = await fetch(videoUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Failed to download video from Segmind: ${videoResponse.status} ${videoResponse.statusText}`);
+    }
+    
+    const videoArrayBuffer = await videoResponse.arrayBuffer();
+    videoBuffer = Buffer.from(videoArrayBuffer);
+  } else {
+    // Direct binary video response
+    const videoArrayBuffer = await segmindResponse.arrayBuffer();
+    videoBuffer = Buffer.from(videoArrayBuffer);
+  }
+
+  // Upload video to Supabase storage
+  const videoId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  const filePath = `${userId}/videos/${videoId}.mp4`;
+  
+  const { data, error } = await supabase.storage
+    .from('board-videos')
+    .upload(filePath, videoBuffer, {
+      contentType: 'video/mp4',
+      upsert: true
+    });
+  
+  if (error) {
+    throw error;
+  }
+  
+  // Get the public URL
+  const { data: urlData } = supabase.storage
+    .from('board-videos')
+    .getPublicUrl(filePath);
+
+  // Clean up temporary image
+  try {
+    await supabase.storage
+      .from('board-images')
+      .remove([tempImagePath]);
+  } catch (cleanupError) {
+    console.warn('Failed to cleanup temporary image:', cleanupError);
+  }
+
+  // Return success response with video data
+  return {
+    success: true,
+    video: {
+      id: videoId,
+      url: urlData.publicUrl,
+      size: videoBuffer.length
+    },
+    segmindResponse: segmindResult
+  };
 }
