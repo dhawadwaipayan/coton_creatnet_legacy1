@@ -403,8 +403,33 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           hasEnhancedPrompt: !!result.enhanced_prompt,
           hasOutput: Array.isArray(result.output),
           outputLength: result.output?.length,
-          imageDimensions: result.imageDimensions
+          imageDimensions: result.imageDimensions,
+          downloadUrl: result.downloadUrl
         });
+
+        // Auto-download the bounding box image that was sent to AI
+        if (result.downloadUrl) {
+          try {
+            console.log('[Render AI] Auto-downloading bounding box image:', result.downloadUrl);
+            
+            // Create a temporary link element for download
+            const link = document.createElement('a');
+            link.href = result.downloadUrl;
+            link.download = `render-input-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+            link.target = '_blank';
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            console.log('[Render AI] Auto-download triggered successfully');
+          } catch (downloadError) {
+            console.warn('[Render AI] Auto-download failed:', downloadError);
+          }
+        } else {
+          console.warn('[Render AI] No downloadUrl in response - auto-download skipped');
+        }
         
         // Debug aspect ratio information
         if (result.imageDimensions) {
