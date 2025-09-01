@@ -22,14 +22,10 @@ export async function handleVideoFastrack(action, data) {
     throw new Error('VIDEO_FST_KEY environment variable is not configured');
   }
   
-  // Use environment variable base prompt and append user details if provided
-  let finalPrompt = basePrompt;
+  // Use only the environment variable base prompt (no user details)
+  const finalPrompt = basePrompt;
   
-  if (additionalDetails && additionalDetails.trim()) {
-    finalPrompt += ` ${additionalDetails.trim()}`;
-  }
-  
-  console.log('[Video Handler] Final prompt length:', finalPrompt.length);
+  console.log('[Video Handler] Using only VIDEO_FST_KEY prompt, length:', finalPrompt.length);
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');

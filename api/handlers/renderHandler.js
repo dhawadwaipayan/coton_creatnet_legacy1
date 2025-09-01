@@ -21,14 +21,10 @@ export async function handleRenderFastrack(action, data) {
     throw new Error('RENDER_FASTRACK_KEY environment variable is not configured');
   }
   
-  // Use environment variable base prompt and append user details if provided
-  let finalPromptText = basePrompt;
+  // Use only the environment variable base prompt (no user details)
+  const finalPromptText = basePrompt;
   
-  if (additionalDetails && additionalDetails.trim()) {
-    finalPromptText += `\n\nAdditional User Requirements: ${additionalDetails.trim()}`;
-  }
-  
-  console.log('[Render Handler] Final prompt length:', finalPromptText.length);
+  console.log('[Render Handler] Using only RENDER_FASTRACK_KEY prompt, length:', finalPromptText.length);
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');
