@@ -472,7 +472,14 @@ async function handleFluxAI(action, data) {
 
 // Kling AI Handler (Segmind API)
 async function handleKlingAI(action, data) {
+  console.log('[Coton Engine] handleKlingAI called with:', { action, dataKeys: Object.keys(data) });
   const { base64Sketch, promptText, userId } = data;
+  
+  console.log('[Coton Engine] Kling AI parameters:', {
+    hasBase64Sketch: !!base64Sketch,
+    promptText: promptText,
+    hasUserId: !!userId
+  });
   
   if (!base64Sketch || !promptText || !userId) {
     throw new Error('Missing required fields for Kling AI');
