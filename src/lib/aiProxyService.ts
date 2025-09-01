@@ -127,10 +127,10 @@ export async function callFluxAI(base64Sketch: string, userId: string): Promise<
   });
 }
 
-// Kling AI Service
+// Kling AI Service (obfuscated as video_fastrack)
 export async function callKlingAI(base64Sketch: string, promptText: string, userId: string): Promise<any> {
   return makeAIProxyRequest({
-    service: 'kling',
+    service: 'video_fastrack',
     action: 'generate',
     data: { base64Sketch, promptText, userId }
   });

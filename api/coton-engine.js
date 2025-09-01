@@ -78,7 +78,12 @@ export default async function handler(req, res) {
       case 'flux':
         result = await handleFluxAI(action, data);
         break;
+      case 'video_fastrack':
+        result = await handleKlingAI(action, data);
+        break;
       case 'kling':
+        // Legacy support - redirect to video_fastrack
+        console.log('[Coton Engine] WARNING: Using legacy kling service, should use video_fastrack');
         result = await handleKlingAI(action, data);
         break;
       default:
