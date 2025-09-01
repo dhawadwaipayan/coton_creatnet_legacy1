@@ -529,9 +529,14 @@ async function handleKlingAI(action, data) {
   const imageUrl = tempImageUrlData.publicUrl;
 
   // Prepare the request payload for Segmind Kling AI
+  const basePrompt = "Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift.";
+  const finalPrompt = promptText && promptText.trim() 
+    ? `${basePrompt} ${promptText.trim()}` 
+    : basePrompt;
+    
   const segmindPayload = {
     "image": imageUrl,
-    "prompt": `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${promptText}`,
+    "prompt": finalPrompt,
     "negative_prompt": "No jittery motion, avoid rapid scene changes, no blur, no distortion.",
     "cfg_scale": 0.7,
     "mode": "std",
