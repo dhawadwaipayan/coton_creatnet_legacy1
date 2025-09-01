@@ -260,37 +260,19 @@ async function handleGeminiAI(action, data) {
   
   // Use the correct model for image generation
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash-exp' 
+    model: 'gemini-2.5-flash-image-preview' 
   });
 
-  // Prepare the content parts
-  const parts = [
-    { text: promptText },
+  // Generate content directly using the SDK with array format (like original)
+  const result = await model.generateContent([
+    promptText,
     {
       inlineData: {
         mimeType: "image/png",
         data: base64Sketch.split(',')[1] || base64Sketch
       }
     }
-  ];
-
-  // Generate content with image generation capabilities
-  const result = await model.generateContent(
-    {
-      contents: [{ parts }],
-      generationConfig: {
-        temperature: 0.4,
-        topK: 32,
-        topP: 1,
-        maxOutputTokens: 4096,
-      }
-    },
-    undefined, // No safety settings
-    {
-      response_mime_type: "image/png",
-      response_modalities: ["IMAGE", "TEXT"]
-    }
-  );
+  ]);
 
   const response = await result.response;
   
