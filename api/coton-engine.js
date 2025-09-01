@@ -481,7 +481,8 @@ async function handleKlingAI(action, data) {
     hasUserId: !!userId
   });
   
-  if (!base64Sketch || !promptText || !userId) {
+  // Allow empty promptText – server will supply base prompt when missing
+  if (!base64Sketch || !userId) {
     throw new Error('Missing required fields for Kling AI');
   }
 
