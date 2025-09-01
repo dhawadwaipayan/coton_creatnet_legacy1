@@ -542,6 +542,15 @@ async function handleKlingAI(action, data) {
     ? `${basePrompt} ${promptText.trim()}` 
     : basePrompt;
     
+  console.log('[Coton Engine] Prompt construction:', {
+    receivedPromptText: promptText,
+    promptTextType: typeof promptText,
+    promptTextLength: promptText?.length || 0,
+    promptTextTrimmed: promptText?.trim() || '',
+    basePrompt: basePrompt,
+    finalPrompt: finalPrompt
+  });
+    
   const segmindPayload = {
     "image": imageUrl,
     "prompt": finalPrompt,
