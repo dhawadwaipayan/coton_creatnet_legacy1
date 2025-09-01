@@ -1,14 +1,12 @@
-// Colorway Service - Handles both color and print modes
-// Separate service for colorway operations
+// Edit Service - Handles edit operations (fastrack only)
+// Separate service for edit operations
 
-interface ColorwayRequest {
-  mode: 'color' | 'print';
+interface EditRequest {
   base64Sketch: string;
-  selectedColor?: string;
-  referenceImage?: string;
+  additionalDetails?: string;
 }
 
-interface ColorwayResponse {
+interface EditResponse {
   success: boolean;
   mode: string;
   model_used: string;
@@ -26,14 +24,13 @@ interface ColorwayResponse {
   };
 }
 
-export async function callColorwayService(request: ColorwayRequest): Promise<ColorwayResponse> {
-  const { mode, base64Sketch, selectedColor, referenceImage } = request;
+export async function callEditService(request: EditRequest): Promise<EditResponse> {
+  const { base64Sketch, additionalDetails } = request;
   
-  console.log(`[Colorway Service] Calling ${mode} mode with:`, {
+  console.log('[Edit Service] Calling edit fastrack with:', {
     hasBase64Sketch: !!base64Sketch,
     base64SketchLength: base64Sketch?.length || 0,
-    hasSelectedColor: !!selectedColor,
-    hasReferenceImage: !!referenceImage
+    hasAdditionalDetails: !!additionalDetails
   });
 
   try {
@@ -43,12 +40,11 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        service: `colorway_${mode}`,
+        service: 'edit_fastrack',
         action: 'generate',
         data: {
           base64Sketch,
-          selectedColor,
-          referenceImage
+          additionalDetails
         },
         timestamp: Date.now(),
         nonce: Math.random().toString(36).substring(2, 15)
@@ -62,7 +58,7 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
 
     const result = await response.json();
     
-    console.log(`[Colorway Service] ${mode} response:`, {
+    console.log('[Edit Service] edit fastrack response:', {
       success: result.success,
       hasOutput: !!result.output,
       outputLength: result.output?.length || 0
@@ -70,14 +66,11 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
 
     return result;
   } catch (error) {
-    console.error(`[Colorway Service] Error in ${mode}:`, error);
+    console.error('[Edit Service] Error in edit fastrack:', error);
     throw error;
   }
 }
 
-// Convenience functions
-export const colorwayColor = (base64Sketch: string, selectedColor: string) =>
-  callColorwayService({ mode: 'color', base64Sketch, selectedColor });
-
-export const colorwayPrint = (base64Sketch: string, referenceImage: string) =>
-  callColorwayService({ mode: 'print', base64Sketch, referenceImage });
+// Convenience function
+export const editFastrack = (base64Sketch: string, additionalDetails?: string) =>
+  callEditService({ base64Sketch, additionalDetails });

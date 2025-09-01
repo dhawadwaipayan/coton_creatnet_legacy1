@@ -2,6 +2,10 @@
 // This provides a centralized endpoint for service routing
 
 import { createClient } from '@supabase/supabase-js';
+import { handleRenderFastrack, handleRenderAccurate } from './handlers/renderHandler.js';
+import { handleEditFastrack } from './handlers/editHandler.js';
+import { handleColorwayColor, handleColorwayPrint } from './handlers/colorwayHandler.js';
+import { handleVideoFastrack } from './handlers/videoHandler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -54,6 +58,27 @@ export default async function handler(req, res) {
     // Route to appropriate AI service
     let result;
     switch (service) {
+      // New simplified routing
+      case 'render_fastrack':
+        result = await handleRenderFastrack(action, data);
+        break;
+      case 'render_accurate':
+        result = await handleRenderAccurate(action, data);
+        break;
+      case 'edit_fastrack':
+        result = await handleEditFastrack(action, data);
+        break;
+      case 'colorway_color':
+        result = await handleColorwayColor(action, data);
+        break;
+      case 'colorway_print':
+        result = await handleColorwayPrint(action, data);
+        break;
+      case 'video_fastrack':
+        result = await handleVideoFastrack(action, data);
+        break;
+      
+      // Legacy support (will be removed)
       case 'sketch':
         result = await handleSketchAI(action, data);
         break;
@@ -61,14 +86,9 @@ export default async function handler(req, res) {
         result = await handleRenderAI(action, data);
         break;
       case 'video':
-        // Redirect video to kling handler (they're the same service)
         result = await handleKlingAI(action, data);
         break;
-      case 'render_fastrack':
-        result = await handleGeminiAI(action, data);
-        break;
       case 'gemini':
-        // Legacy support - route to same handler but log warning
         console.log('[Coton Engine] WARNING: Using legacy gemini service, should use render_fastrack');
         result = await handleGeminiAI(action, data);
         break;
@@ -78,11 +98,7 @@ export default async function handler(req, res) {
       case 'flux':
         result = await handleFluxAI(action, data);
         break;
-      case 'video_fastrack':
-        result = await handleKlingAI(action, data);
-        break;
       case 'kling':
-        // Legacy support - redirect to video_fastrack
         console.log('[Coton Engine] WARNING: Using legacy kling service, should use video_fastrack');
         result = await handleKlingAI(action, data);
         break;
