@@ -305,7 +305,9 @@ async function handleGeminiAI(action, data) {
   // Log if using environment variable
   if (promptText === "RENDER_FASTRACK_PROMPT") {
     console.log('[Coton Engine] Using RENDER_FASTRACK_KEY environment variable for base prompt');
+    console.log('[Coton Engine] Base prompt preview:', basePrompt?.substring(0, 100) + '...');
     console.log('[Coton Engine] Final prompt length:', finalPromptText.length);
+    console.log('[Coton Engine] Final prompt preview:', finalPromptText?.substring(0, 100) + '...');
   } else {
     console.log('[Coton Engine] Using provided prompt text');
   }
