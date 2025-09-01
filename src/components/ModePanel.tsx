@@ -9,7 +9,7 @@ import { FilmReel } from '@phosphor-icons/react';
 import { callOpenAIGptImage } from '@/lib/openaiSketch';
 import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
-import { renderFastrack, renderAccurate } from '../services/renderService';
+import { renderFastrack } from '../services/renderService';
 import { editFastrack } from '../services/editService';
 import { colorwayColor, colorwayPrint } from '../services/colorwayService';
 import { videoFastrack } from '../services/videoService';
@@ -269,11 +269,11 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (closeRenderBar) closeRenderBar();
   };
 
-  const handleRenderGenerate = async (details: string, isFastMode: boolean) => {
+  const handleRenderGenerate = async (details: string) => {
     console.log('[ModePanel] handleRenderGenerate called with details:', details);
     console.log('[ModePanel] details length:', details?.length);
     console.log('[ModePanel] details trimmed:', details?.trim());
-    console.log('[ModePanel] isFastMode:', isFastMode);
+    console.log('[ModePanel] Using Fastrack mode (locked)');
     
     setAiStatus('generating');
     setAiError(null);
@@ -385,10 +385,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       let result;
       let base64 = null;
       
-      if (isFastMode) {
-        // Use Gemini API for Fastrack mode - following referenced GitHub repo structure
-        console.log('[Render AI] Using Gemini API for Fastrack mode');
-        console.log('[Render AI] Using concise fashion rendering prompt with material reference support');
+      // Always use Fastrack mode (locked)
+      console.log('[Render AI] Using Gemini API for Fastrack mode');
+      console.log('[Render AI] Using concise fashion rendering prompt with material reference support');
         console.log('[Render AI] About to call generateImage with details:', details);
         console.log('[Render AI] Details type:', typeof details);
         console.log('[Render AI] Details value:', details);
@@ -430,17 +429,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         if (result.enhanced_prompt) {
           console.log('[Render AI] Enhanced prompt used:', result.enhanced_prompt);
         }
-      } else {
-        // Use OpenAI for Accurate mode
-        console.log('[Render AI] Using OpenAI for Accurate mode');
-        result = await callOpenAIGptImage({
-          base64Sketch,
-          base64Material: base64Material,
-          promptText,
-          endpoint: '/api/render-ai'
-        });
-        console.log('[Render AI] OpenAI API full response:', result);
-      }
+      // Accurate mode removed - only Fastrack mode available
       
       // Both AI providers now return the same structure: { output: [{ type: 'image_generation_call', result: base64 }] }
       if (result && Array.isArray(result.output)) {
@@ -453,7 +442,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
       
       if (!base64) {
-        const aiProvider = isFastMode ? 'Gemini 2.0 Flash' : 'OpenAI';
+        const aiProvider = 'Gemini 2.5 Flash';
         setAiStatus('error');
         setAiError(`No image returned from ${aiProvider}.`);
         setTimeout(() => setAiStatus('idle'), 4000);
@@ -523,7 +512,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      const aiProvider = isFastMode ? 'Gemini 2.5 Flash' : 'OpenAI';
+      const aiProvider = 'Gemini 2.5 Flash';
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
