@@ -70,7 +70,7 @@ export async function handleVideoFastrack(action, data) {
   // Prepare Segmind API request
   const segmindRequest = {
     prompt: `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${finalPrompt}`,
-    image_url: urlData.publicUrl,
+    image: urlData.publicUrl,  // Changed from image_url to image
     duration: 5,
     aspect_ratio: "9:16",
     style: "realistic"
@@ -78,7 +78,7 @@ export async function handleVideoFastrack(action, data) {
 
   console.log('[Video Handler] Segmind API request:', {
     prompt: segmindRequest.prompt.substring(0, 100) + '...',
-    image_url: segmindRequest.image_url,
+    image: segmindRequest.image,
     duration: segmindRequest.duration,
     aspect_ratio: segmindRequest.aspect_ratio,
     style: segmindRequest.style
