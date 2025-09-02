@@ -8,7 +8,7 @@ export const SketchSubBar: React.FC<SketchSubBarProps> = ({
   onGenerate
 }) => {
   const [additionalDetails, setAdditionalDetails] = useState('');
-  const [isFastMode, setIsFastMode] = useState(false);
+  const [isFastMode] = useState(true); // Locked to Fastrack mode
   
   const handleGenerate = () => {
     onGenerate(additionalDetails);
@@ -17,9 +17,6 @@ export const SketchSubBar: React.FC<SketchSubBarProps> = ({
     setAdditionalDetails('');
     onCancel();
   };
-  const handleSpeedToggle = () => {
-    setIsFastMode(!isFastMode);
-  };
   
   return <div className="w-[600px] h-[45px] bg-[#1a1a1a] border border-[#373737] rounded-xl flex items-center gap-2 mb-2.5 mx-0 py-[24px] px-[8px]">
       {/* Additional details input */}
@@ -27,13 +24,13 @@ export const SketchSubBar: React.FC<SketchSubBarProps> = ({
         <input type="text" placeholder="Additional details" value={additionalDetails} onChange={e => setAdditionalDetails(e.target.value)} className="w-full bg-transparent text-[#666666] placeholder-[#666666] border-none outline-none text-sm font-gilroy font-medium" />
       </div>
 
-      {/* Speed Toggle button */}
-      <button onClick={handleSpeedToggle} className="flex items-center gap-1 px-2 py-1 text-neutral-400 hover:text-[#E1FF00] transition-colors shrink-0">
+      {/* Fastrack Mode Indicator (locked) */}
+      <div className="flex items-center gap-1 px-2 py-1 text-neutral-400 shrink-0">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[16px] h-[16px]">
           <path d="M9.5 1L6.5 8H10L6.5 15L9.5 8H6L9.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span className="text-sm ml-0.5">{isFastMode ? 'Fastrack' : 'Accurate'}</span>
-      </button>
+        <span className="text-sm ml-0.5">Fastrack</span>
+      </div>
 
       {/* Cancel button */}
       <button onClick={handleCancel} className="flex items-center gap-1 px-2 py-1 text-neutral-400 hover:text-[#E1FF00] transition-colors shrink-0">

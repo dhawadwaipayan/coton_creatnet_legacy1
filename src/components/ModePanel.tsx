@@ -213,13 +213,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode('select');
     // No overlay/status logic
-    // Prepare input for OpenAI
-    const promptText = `Generate an Image by redoing the flat sketch in the same style. The generated flat sketch should have only black lines. Consider if any annotations are given on the image to update those changes on the newly generated flat sketch. ${details}`.trim();
+    // Use edit service with additional details
     try {
-      const result = await callOpenAIGptImage({
-        base64Sketch,
-        promptText
-      });
+      const result = await editFastrack(base64Sketch, details);
       let base64 = null;
       if (result && Array.isArray(result.output)) {
         const imageOutput = result.output.find(
@@ -237,11 +233,35 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Remove the placeholder and add the real image in the same spot, maintaining aspect ratio
+      // Replace the placeholder with the real image, using bounding box aspect ratio
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-        canvasRef.current.replaceImageById(placeholderId, imageUrl);
+        // Use bounding box dimensions to maintain the correct aspect ratio
+        let finalWidth = sketchBox ? sketchBox.width : placeholderWidth;
+        let finalHeight = sketchBox ? sketchBox.height : placeholderHeight;
+        
+        console.log('[Edit AI] Using bounding box dimensions:', {
+          boundingBox: sketchBox ? { width: sketchBox.width, height: sketchBox.height, ratio: sketchBox.width / sketchBox.height } : 'none',
+          finalDimensions: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight }
+        });
+        
+        // First remove the placeholder
+        if (canvasRef.current.removeImage && placeholderId) {
+          canvasRef.current.removeImage(placeholderId);
+          console.log('[Edit AI] Placeholder removed');
+        }
+        
+        // Now add the real image with bounding box dimensions
+        if (canvasRef.current.importImage) {
+          const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
+          console.log('[Edit AI] Real image imported with bounding box dimensions:', { 
+            finalWidth, 
+            finalHeight, 
+            newImageId,
+            aspectRatio: finalWidth / finalHeight 
+          });
+        }
       } else if (canvasRef.current.importImage) {
-        // Use the same dimensions as the placeholder to maintain aspect ratio
+        // Fallback: Use the same dimensions as the placeholder to maintain aspect ratio
         canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
