@@ -784,13 +784,33 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const screenWidth = activeBox.width * zoom;
       const screenHeight = activeBox.height * zoom;
       
-      return stage.toDataURL({
-        x: screenX,
-        y: screenY,
-        width: screenWidth,
-        height: screenHeight,
-        pixelRatio: 1,
-      });
+      console.log('🎯 Exporting bounding box (canvas coordinates):', activeBox);
+      console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
+      console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
+      
+      try {
+        // Primary export method - should work with CORS-enabled videos
+        const result = stage.toDataURL({
+          x: screenX,
+          y: screenY,
+          width: screenWidth,
+          height: screenHeight,
+          pixelRatio: 1,
+        });
+        
+        if (result && result !== 'data:,' && result.length > 100) {
+          console.log('✅ Primary export successful, data length:', result.length);
+          return result;
+        }
+        
+        // Fallback: export only images in the bounding box area (skip videos to avoid CORS)
+        console.warn('⚠️ Primary export failed, using fallback method (images only)');
+        return exportImagesOnlyFromRenderBox(activeBox);
+        
+      } catch (error) {
+        console.error('❌ Export failed, using fallback method (images only):', error);
+        return exportImagesOnlyFromRenderBox(activeBox);
+      }
     },
     
     exportCurrentRenderBoxAsPng: () => {
