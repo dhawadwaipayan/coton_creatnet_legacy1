@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function handleRenderFastrack(action, data) {
   console.log('[Render Handler] handleRenderFastrack called with:', { action, dataKeys: Object.keys(data) });
-  const { base64Sketch, base64Material } = data;
+  const { base64Sketch, base64Material, additionalDetails } = data;
   
   if (!base64Sketch) {
     throw new Error('Missing base64Sketch for render fastrack');
@@ -21,10 +21,16 @@ export async function handleRenderFastrack(action, data) {
     throw new Error('RENDER_FASTRACK_KEY environment variable is not configured');
   }
 
-  // Use only the base prompt from environment variable
-  const finalPromptText = basePrompt;
+  // Use base prompt and append additional details if provided
+  let finalPromptText = basePrompt;
   
-  console.log('[Render Handler] Using RENDER_FASTRACK_KEY prompt, length:', finalPromptText.length);
+  if (additionalDetails && additionalDetails.trim()) {
+    finalPromptText += ` ${additionalDetails.trim()}`;
+    console.log('[Render Handler] Using RENDER_FASTRACK_KEY + additional details, total length:', finalPromptText.length);
+    console.log('[Render Handler] Additional details:', additionalDetails.trim());
+  } else {
+    console.log('[Render Handler] Using RENDER_FASTRACK_KEY only, length:', finalPromptText.length);
+  }
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');

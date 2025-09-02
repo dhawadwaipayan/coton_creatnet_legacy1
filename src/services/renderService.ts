@@ -5,6 +5,7 @@ interface RenderRequest {
   mode: 'fastrack' | 'accurate';
   base64Sketch: string;
   base64Material?: string;
+  additionalDetails?: string;
 }
 
 interface RenderResponse {
@@ -26,12 +27,14 @@ interface RenderResponse {
 }
 
 export async function callRenderService(request: RenderRequest): Promise<RenderResponse> {
-  const { mode, base64Sketch, base64Material } = request;
+  const { mode, base64Sketch, base64Material, additionalDetails } = request;
   
   console.log(`[Render Service] Calling ${mode} mode with:`, {
     hasBase64Sketch: !!base64Sketch,
     base64SketchLength: base64Sketch?.length || 0,
-    hasBase64Material: !!base64Material
+    hasBase64Material: !!base64Material,
+    hasAdditionalDetails: !!additionalDetails,
+    additionalDetailsLength: additionalDetails?.length || 0
   });
 
   try {
@@ -46,6 +49,7 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
         data: {
           base64Sketch,
           base64Material,
+          additionalDetails,
           isFastMode: mode === 'fastrack'
         },
         timestamp: Date.now(),
@@ -74,8 +78,8 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
 }
 
 // Convenience functions
-export const renderFastrack = (base64Sketch: string, base64Material?: string) =>
-  callRenderService({ mode: 'fastrack', base64Sketch, base64Material });
+export const renderFastrack = (base64Sketch: string, base64Material?: string, additionalDetails?: string) =>
+  callRenderService({ mode: 'fastrack', base64Sketch, base64Material, additionalDetails });
 
-export const renderAccurate = (base64Sketch: string, base64Material?: string) =>
-  callRenderService({ mode: 'accurate', base64Sketch, base64Material });
+export const renderAccurate = (base64Sketch: string, base64Material?: string, additionalDetails?: string) =>
+  callRenderService({ mode: 'accurate', base64Sketch, base64Material, additionalDetails });
