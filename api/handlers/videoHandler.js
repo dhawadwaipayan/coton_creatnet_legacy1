@@ -99,7 +99,12 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Segmind API error: ${segmindResponse.status} ${errorText}`);
   }
 
-  const segmindResult = await segmindResponse.json();
+  // Segmind API returns video file directly, not JSON
+  const videoBuffer = await segmindResponse.arrayBuffer();
+  console.log('[Video Handler] Received video from Segmind API:', {
+    size: videoBuffer.byteLength,
+    contentType: segmindResponse.headers.get('content-type')
+  });
 
   // Upload video to Supabase
   const videoId = `video_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -108,7 +113,7 @@ export async function handleVideoFastrack(action, data) {
   // Upload video to board-videos bucket (your existing bucket)
   const { data: videoUploadData, error: videoUploadError } = await supabase.storage
     .from('board-videos')
-    .upload(videoPath, segmindResult.video, {
+    .upload(videoPath, Buffer.from(videoBuffer), {
       contentType: 'video/mp4',
       upsert: false
     });
@@ -150,7 +155,7 @@ export async function handleVideoFastrack(action, data) {
     video: {
       id: videoId,
       url: videoUrlData.publicUrl,
-      size: segmindResult.video.length
+      size: videoBuffer.byteLength
     }
   };
 }
