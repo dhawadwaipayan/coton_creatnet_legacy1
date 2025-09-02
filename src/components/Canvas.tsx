@@ -665,7 +665,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     
     // Find all images that intersect with the bounding box (using canvas coordinates)
     const intersectingImages = images.filter(img => {
-      if (!img.image) return false;
+      if (!img.image) {
+        console.log('🖼️ Image has no image element:', img.id);
+        return false;
+      }
       
       // Check if image intersects with bounding box (canvas coordinates)
       const imgRight = img.x + (img.width || 0);
@@ -675,13 +678,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       const intersects = !(img.x > boxRight || imgRight < canvasBox.x || img.y > boxBottom || imgBottom < canvasBox.y);
       
-      if (intersects) {
-        console.log('🖼️ Image intersects:', {
-          id: img.id,
-          imgPos: { x: img.x, y: img.y, width: img.width, height: img.height },
-          boxPos: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height }
-        });
-      }
+      console.log('🖼️ Checking image intersection:', {
+        id: img.id,
+        imgPos: { x: img.x, y: img.y, width: img.width, height: img.height },
+        boxPos: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height },
+        imgRight,
+        imgBottom,
+        boxRight,
+        boxBottom,
+        intersects
+      });
       
       return intersects;
     });
@@ -744,16 +750,28 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         }
       }
       
-      // No images or videos in bounding box - create empty transparent area
-      console.log('🖼️ No content found in bounding box area - creating transparent export');
-      tempCtx.clearRect(0, 0, box.width, box.height);
+      // No images or videos in bounding box - create white background
+      console.log('🖼️ No content found in bounding box area - creating white background export');
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.fillRect(0, 0, box.width, box.height);
+      
+      // Add a border to make it visible
+      tempCtx.strokeStyle = '#CCCCCC';
+      tempCtx.lineWidth = 1;
+      tempCtx.strokeRect(0, 0, box.width, box.height);
+      
+      // Add text to indicate empty area
+      tempCtx.fillStyle = '#666666';
+      tempCtx.font = '14px Arial';
+      tempCtx.textAlign = 'center';
+      tempCtx.fillText('No images in this area', box.width / 2, box.height / 2);
       
       try {
         const dataURL = tempCanvas.toDataURL('image/png');
-        console.log('🖼️ Transparent export created, data length:', dataURL.length);
+        console.log('🖼️ White background export created, data length:', dataURL.length);
         return dataURL;
       } catch (error) {
-        console.error('Failed to create transparent export:', error);
+        console.error('Failed to create white background export:', error);
         return null;
       }
     }
