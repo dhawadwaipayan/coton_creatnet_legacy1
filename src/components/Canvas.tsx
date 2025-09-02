@@ -692,29 +692,68 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       console.warn('No images found in bounding box area');
       console.warn('Canvas box:', canvasBox);
       console.warn('Available images:', images.length);
+      console.warn('Available videos:', videos.length);
       
-      // Fallback: Create a simple colored rectangle representing the bounding box
-      console.log('🖼️ Creating fallback bounding box representation');
-      tempCtx.fillStyle = '#FF6B6B'; // Light red color
-      tempCtx.fillRect(0, 0, box.width, box.height);
+      // Check if there are videos in the bounding box area
+      const intersectingVideos = videos.filter(video => {
+        const videoRight = video.x + video.width;
+        const videoBottom = video.y + video.height;
+        const boxRight = canvasBox.x + canvasBox.width;
+        const boxBottom = canvasBox.y + canvasBox.height;
+        
+        const intersects = !(video.x > boxRight || videoRight < canvasBox.x || video.y > boxBottom || videoBottom < canvasBox.y);
+        
+        if (intersects) {
+          console.log('🎬 Video intersects with bounding box:', {
+            id: video.id,
+            videoPos: { x: video.x, y: video.y, width: video.width, height: video.height },
+            boxPos: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height }
+          });
+        }
+        
+        return intersects;
+      });
       
-      // Add a border
-      tempCtx.strokeStyle = '#FF0000';
-      tempCtx.lineWidth = 2;
-      tempCtx.strokeRect(0, 0, box.width, box.height);
+      if (intersectingVideos.length > 0) {
+        console.warn('⚠️ Bounding box contains videos but no images - cannot export due to CORS restrictions');
+        console.warn('Please move the bounding box to an area with images only, or remove videos from the bounding box area');
+        
+        // Create a warning representation instead of a placeholder
+        tempCtx.fillStyle = '#FFE066'; // Light yellow for warning
+        tempCtx.fillRect(0, 0, box.width, box.height);
+        
+        // Add a border
+        tempCtx.strokeStyle = '#FFA500';
+        tempCtx.lineWidth = 2;
+        tempCtx.strokeRect(0, 0, box.width, box.height);
+        
+        // Add warning text
+        tempCtx.fillStyle = '#000000';
+        tempCtx.font = '14px Arial';
+        tempCtx.textAlign = 'center';
+        tempCtx.fillText('Cannot export videos', box.width / 2, box.height / 2 - 10);
+        tempCtx.fillText('(CORS restriction)', box.width / 2, box.height / 2 + 10);
+        
+        try {
+          const dataURL = tempCanvas.toDataURL('image/png');
+          console.log('🖼️ Warning representation created for video area, data length:', dataURL.length);
+          return dataURL;
+        } catch (error) {
+          console.error('Failed to create warning representation:', error);
+          return null;
+        }
+      }
       
-      // Add text label
-      tempCtx.fillStyle = '#FFFFFF';
-      tempCtx.font = '16px Arial';
-      tempCtx.textAlign = 'center';
-      tempCtx.fillText('Bounding Box Area', box.width / 2, box.height / 2);
+      // No images or videos in bounding box - create empty transparent area
+      console.log('🖼️ No content found in bounding box area - creating transparent export');
+      tempCtx.clearRect(0, 0, box.width, box.height);
       
       try {
         const dataURL = tempCanvas.toDataURL('image/png');
-        console.log('🖼️ Fallback bounding box representation created, data length:', dataURL.length);
+        console.log('🖼️ Transparent export created, data length:', dataURL.length);
         return dataURL;
       } catch (error) {
-        console.error('Failed to create fallback bounding box representation:', error);
+        console.error('Failed to create transparent export:', error);
         return null;
       }
     }
