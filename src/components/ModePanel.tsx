@@ -493,43 +493,34 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Replace the placeholder with the real image, maintaining proper aspect ratio
+      // Replace the placeholder with the real image, maintaining AI's natural aspect ratio
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-        // If we have image dimensions from Gemini, use them to calculate proper scaling
+        // Use AI's natural dimensions - don't force aspect ratio adjustment
         let finalWidth = placeholderWidth;
         let finalHeight = placeholderHeight;
         
         if (result.imageDimensions) {
           const { width: geminiWidth, height: geminiHeight, aspectRatio: geminiAspectRatio } = result.imageDimensions;
           
-          // Calculate new dimensions maintaining the placeholder's display size but with correct aspect ratio
-          if (Math.abs(geminiAspectRatio - (placeholderWidth / placeholderHeight)) > 0.1) {
-            // Aspect ratios are significantly different, recalculate dimensions
-            if (geminiAspectRatio > (placeholderWidth / placeholderHeight)) {
-              // Gemini image is wider, adjust height
-              finalWidth = placeholderWidth;
-              finalHeight = Math.round(placeholderWidth / geminiAspectRatio);
-            } else {
-              // Gemini image is taller, adjust width
-              finalHeight = placeholderHeight;
-              finalWidth = Math.round(placeholderHeight * geminiAspectRatio);
-            }
-            
-            console.log('[Render AI] Aspect ratio adjusted:', {
-              original: { width: placeholderWidth, height: placeholderHeight, ratio: placeholderWidth / placeholderHeight },
-              gemini: { width: geminiWidth, height: geminiHeight, ratio: geminiAspectRatio },
-              adjusted: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight }
-            });
-          }
+          // Use AI's natural aspect ratio - scale to reasonable size but maintain proportions
+          const scaleFactor = Math.min(placeholderWidth / geminiWidth, placeholderHeight / geminiHeight);
+          finalWidth = Math.round(geminiWidth * scaleFactor);
+          finalHeight = Math.round(geminiHeight * scaleFactor);
+          
+          console.log('[Render AI] Using AI natural aspect ratio:', {
+            aiDimensions: { width: geminiWidth, height: geminiHeight, ratio: geminiAspectRatio },
+            scaledDimensions: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight },
+            scaleFactor: scaleFactor
+          });
         }
         
         // First remove the placeholder
         if (canvasRef.current.removeImage && placeholderId) {
           canvasRef.current.removeImage(placeholderId);
-          console.log('[Render AI] Placeholder removed for aspect ratio adjustment');
+          console.log('[Render AI] Placeholder removed');
         }
         
-        // Now add the real image with correct dimensions
+        // Now add the real image with AI's natural aspect ratio
         if (canvasRef.current.importImage) {
           const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
           console.log('[Render AI] Real image imported with adjusted dimensions:', { 
