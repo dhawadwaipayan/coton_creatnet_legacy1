@@ -84,3 +84,20 @@ export const colorwayColor = (base64Sketch: string, selectedColor: string, addit
 
 export const colorwayPrint = (base64Sketch: string, referenceImage: string, additionalDetails?: string) =>
   callColorwayService({ mode: 'print', base64Sketch, referenceImage, additionalDetails });
+
+// Alternative function names that match user's changes
+export const generateColorwayColor = colorwayColor;
+export const generateColorwayPrint = colorwayPrint;
+
+// Transform function to match expected format
+export function transformColorwayResponse(response: ColorwayResponse, mode: 'color' | 'print', details?: string) {
+  return {
+    success: response.success,
+    mode: response.mode,
+    model_used: response.model_used,
+    enhanced_prompt: response.enhanced_prompt,
+    output: response.output,
+    message: response.message,
+    imageDimensions: response.imageDimensions
+  };
+}

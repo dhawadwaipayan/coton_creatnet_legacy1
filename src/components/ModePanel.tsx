@@ -11,7 +11,7 @@ import { callGeminiImageGeneration } from '@/lib/geminiAI';
 import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
 import { renderFastrack } from '../services/renderService';
 import { editFastrack } from '../services/editService';
-import { colorwayColor, colorwayPrint } from '../services/colorwayService';
+import { colorwayColor, colorwayPrint, generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
 import { videoFastrack } from '../services/videoService';
 // Removed: import { Image as FabricImage } from 'fabric';
 // Removed: import * as fabric from 'fabric';
