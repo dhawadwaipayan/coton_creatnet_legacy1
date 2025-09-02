@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function handleRenderFastrack(action, data) {
   console.log('[Render Handler] handleRenderFastrack called with:', { action, dataKeys: Object.keys(data) });
-  const { base64Sketch, base64Material } = data;
+  const { base64Sketch, base64Material, renderBox } = data;
   
   if (!base64Sketch) {
     throw new Error('Missing base64Sketch for render fastrack');
@@ -69,6 +69,20 @@ export async function handleRenderFastrack(action, data) {
 
   const imageData = generatedImage.inlineData.data;
 
+  // Calculate aspect ratio from the input bounding box
+  const inputAspectRatio = renderBox.width / renderBox.height;
+  
+  // Use a standard width and calculate height to maintain aspect ratio
+  const standardWidth = 1024;
+  const calculatedHeight = Math.round(standardWidth / inputAspectRatio);
+  
+  console.log('[Render Handler] Aspect ratio calculation:', {
+    inputBox: { width: renderBox.width, height: renderBox.height },
+    inputAspectRatio: inputAspectRatio,
+    outputDimensions: { width: standardWidth, height: calculatedHeight },
+    outputAspectRatio: standardWidth / calculatedHeight
+  });
+
   // Return in format expected by client
   return {
     success: true,
@@ -80,9 +94,9 @@ export async function handleRenderFastrack(action, data) {
     }],
     message: "Fashion render complete",
     imageDimensions: {
-      width: 1024,
-      height: 1536,
-      aspectRatio: 1024 / 1536
+      width: standardWidth,
+      height: calculatedHeight,
+      aspectRatio: standardWidth / calculatedHeight
     },
     downloadData: downloadData // Base64 data for direct download
   };

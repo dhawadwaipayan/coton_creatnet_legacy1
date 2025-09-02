@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function handleEditFastrack(action, data) {
   console.log('[Edit Handler] handleEditFastrack called with:', { action, dataKeys: Object.keys(data) });
-  const { base64Sketch, additionalDetails } = data;
+  const { base64Sketch, additionalDetails, renderBox } = data;
   
   if (!base64Sketch) {
     throw new Error('Missing base64Sketch for edit fastrack');
@@ -62,6 +62,20 @@ export async function handleEditFastrack(action, data) {
 
   const imageData = generatedImage.inlineData.data;
 
+  // Calculate aspect ratio from the input bounding box
+  const inputAspectRatio = renderBox ? (renderBox.width / renderBox.height) : (1024 / 1536);
+  
+  // Use a standard width and calculate height to maintain aspect ratio
+  const standardWidth = 1024;
+  const calculatedHeight = Math.round(standardWidth / inputAspectRatio);
+  
+  console.log('[Edit Handler] Aspect ratio calculation:', {
+    inputBox: renderBox ? { width: renderBox.width, height: renderBox.height } : 'default',
+    inputAspectRatio: inputAspectRatio,
+    outputDimensions: { width: standardWidth, height: calculatedHeight },
+    outputAspectRatio: standardWidth / calculatedHeight
+  });
+
   // Return in format expected by client
   return {
     success: true,
@@ -79,9 +93,9 @@ export async function handleEditFastrack(action, data) {
     }],
     message: "Edit complete",
     imageDimensions: {
-      width: 1024,
-      height: 1536,
-      aspectRatio: 1024 / 1536
+      width: standardWidth,
+      height: calculatedHeight,
+      aspectRatio: standardWidth / calculatedHeight
     }
   };
 }
