@@ -365,60 +365,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (closeSketchBar) closeSketchBar();
     if (setSelectedMode) setSelectedMode('select');
     // No overlay/status logic
-    // Prepare input for AI generation with JSON prompt structure
-    const jsonPrompt: any = {
-      "task": "fashion_sketch_to_realistic_render",
-      "input": {
-        "sketch_image": base64Sketch,
-        "annotations": "Annotations written directly on the sketch specifying garment details or visual directions (drawn marks on the garment). TREAT AS BINDING CONSTRAINTS. Do not render any text, arrows, labels, or overlay graphics. Remove all on-canvas annotation marks and clean leftover text artifacts; keep only the garment itself for final render.",
-        "additional_details": "Optional free-text or structured notes for further specifics (e.g., asymmetric hem, puff sleeves, layered panels, lace trims).",
-        "material_reference": base64Material || null,
-        "reference_style": "high-resolution fashion photography",
-        "model_preferences": {
-          "height": "tall",
-          "pose": "neutral runway stance, arms relaxed by sides",
-          "body_type": "slim but natural proportions",
-          "skin": "natural texture with soft shading",
-          "hands": "anatomically correct, relaxed by sides"
-        },
-        "garment_rendering": {
-          "fabric_mode": "material_reference_or_sketch",
-          "fabric_logic": {
-            "if_material_reference": "Map the material's weave, texture, and color smoothly onto the garment WITHOUT compression, gathering, smocking, or shirring unless explicitly annotated. Preserve scale (no stretch) and align pattern directions per zones.",
-            "if_no_material_reference": "Faithfully reproduce the sketch's intended fabric and color. Preserve pattern scaling (checks, stripes, prints) and fabric effect without adding gathers/pleats/smocking unless explicitly annotated."
-          },
-          "fabric_application": {
-            "zones": "EXACT from sketch; do not reinterpret. Respect boundaries for bodice, sleeves, skirt, waistband, trims, and hem. Do NOT invent construction details.",
-            "pattern_behavior": "Maintain stripe/print continuity and straightness; avoid compression or wave artifacts. Keep vertical stripes vertical and evenly spaced across the bodice and skirt unless annotated otherwise.",
-            "seam_alignment": "Align pattern across seams and at CF/CB where applicable; no distortion at high-curvature areas."
-          },
-          "texture": "Show accurate textile weave, subtle sheen, and depth. Use the reference material's microtexture as-is with correct scale and no over-sharpening.",
-          "drape": "Apply fabric FLAT to match the sketch silhouette. NO added folds, gathers, shirring, or smocking unless explicitly annotated.",
-          "outlines": "HARD CONSTRAINT. Preserve neckline, sleeve, waist, side seams, and hem lines pixel-accurate to the sketch with zero geometry changes.",
-          "lighting": "Studio lighting with soft shadows and subtle specular highlights on folds (only if annotated).",
-          "details": "Preserve all annotated and additional features (pleats, trims, buttons, seams, lace, embroidery). Depth/shadow only where those features exist; do not hallucinate extra construction."
-        }
-      },
-      "output": {
-        "format": "photorealistic full-body render",
-        "background": "plain white or light grey seamless studio backdrop",
-        "camera": {
-          "angle": "front view",
-          "framing": "full height, centered"
-        },
-        "consistency": {
-          "style": "uniform rendering style across garments in the project",
-          "accuracy": "STRICT: match sketch silhouette and zone boundaries exactly; follow annotations over model priors; when uncertain, default to flat, plain construction with no gathers."
-        }
-      }
-    };
-    
-    // Add any additional details from user input
-    if (details && details.trim()) {
-      jsonPrompt.input.additional_details = details.trim();
-    }
-    
-    const promptText = JSON.stringify(jsonPrompt, null, 2);
+    // Keep only minimal details string for backend; remove unused JSON prompt
+    const cleanDetails = details?.trim() || '';
     
     try {
       let result;
@@ -431,7 +379,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         console.log('[Render AI] Details type:', typeof details);
         console.log('[Render AI] Details value:', details);
         
-        const geminiResponse = await renderFastrack(base64Sketch, base64Material, details);
+        const geminiResponse = await renderFastrack(base64Sketch, base64Material, cleanDetails);
         result = geminiResponse;
         
         console.log('[Render AI] Gemini API full response:', result);
