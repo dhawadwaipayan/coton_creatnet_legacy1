@@ -56,6 +56,34 @@ export async function handleVideoFastrack(action, data) {
     .from('board-images')
     .getPublicUrl(tempImagePath);
 
+  console.log('[Video Handler] Image upload result:', {
+    uploadData: uploadData?.path,
+    urlData: urlData?.publicUrl,
+    tempImagePath
+  });
+
+  // Validate that we have a valid image URL
+  if (!urlData?.publicUrl) {
+    throw new Error('Failed to get public URL for uploaded image');
+  }
+
+  // Prepare Segmind API request
+  const segmindRequest = {
+    prompt: `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${finalPrompt}`,
+    image_url: urlData.publicUrl,
+    duration: 5,
+    aspect_ratio: "9:16",
+    style: "realistic"
+  };
+
+  console.log('[Video Handler] Segmind API request:', {
+    prompt: segmindRequest.prompt.substring(0, 100) + '...',
+    image_url: segmindRequest.image_url,
+    duration: segmindRequest.duration,
+    aspect_ratio: segmindRequest.aspect_ratio,
+    style: segmindRequest.style
+  });
+
   // Call Segmind Kling API
   const segmindResponse = await fetch('https://api.segmind.com/v1/kling-2.1', {
     method: 'POST',
@@ -63,13 +91,7 @@ export async function handleVideoFastrack(action, data) {
       'x-api-key': process.env.SEGMIND_API_KEY,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      prompt: `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${finalPrompt}`,
-      image_url: urlData.publicUrl,
-      duration: 5,
-      aspect_ratio: "9:16",
-      style: "realistic"
-    })
+    body: JSON.stringify(segmindRequest)
   });
 
   if (!segmindResponse.ok) {
