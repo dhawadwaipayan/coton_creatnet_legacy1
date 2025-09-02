@@ -729,20 +729,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const boxRight = canvasBox.x + canvasBox.width;
       const boxBottom = canvasBox.y + canvasBox.height;
       
-      // Calculate intersection in canvas coordinates
-      const intersectX = Math.max(canvasBox.x, img.x);
-      const intersectY = Math.max(canvasBox.y, img.y);
-      const intersectRight = Math.min(boxRight, imgRight);
-      const intersectBottom = Math.min(boxBottom, imgBottom);
-      
-      const intersectWidth = Math.max(0, intersectRight - intersectX);
-      const intersectHeight = Math.max(0, intersectBottom - intersectY);
-      
       // Calculate the intersection area (canvas coordinates)
-      const imgRight = img.x + (img.width || 0);
-      const imgBottom = img.y + (img.height || 0);
-      const boxRight = canvasBox.x + canvasBox.width;
-      const boxBottom = canvasBox.y + canvasBox.height;
       
       const drawX = Math.max(0, img.x - canvasBox.x);
       const drawY = Math.max(0, img.y - canvasBox.y);
