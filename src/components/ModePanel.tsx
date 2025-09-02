@@ -6,9 +6,7 @@ import { VideoSubBar } from './VideoSubBar';
 import { BrushSubBar } from './BrushSubBar';
 import { FilmReel } from '@phosphor-icons/react';
 // Removed CanvasHandle import; use any for canvasRef
-import { callOpenAIGptImage } from '@/lib/openaiSketch';
-import { callGeminiImageGeneration } from '@/lib/geminiAI';
-import { callOpenRouterRender, extractBase64FromOpenRouterResponse } from '@/lib/openrouterRender';
+// Removed unused provider-specific imports
 import { renderFastrack } from '../services/renderService';
 import { editFastrack } from '../services/editService';
 import { colorwayColor, colorwayPrint, generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
@@ -227,9 +225,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
       if (!base64) {
         setAiStatus('error');
-        setAiError('No image returned from OpenAI.');
+        setAiError('No image returned.');
         setTimeout(() => setAiStatus('idle'), 4000);
-        alert('No image returned from OpenAI.');
+        alert('No image returned.');
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
@@ -270,7 +268,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
-      alert('[Sketch AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      alert('Sketch Error: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -373,21 +371,15 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       let base64 = null;
       
       // Always use Fastrack mode (locked)
-      console.log('[Render AI] Using Gemini API for Fastrack mode');
-      console.log('[Render AI] Using concise fashion rendering prompt with material reference support');
-        console.log('[Render AI] About to call renderFastrack with details:', details);
-        console.log('[Render AI] Details type:', typeof details);
-        console.log('[Render AI] Details value:', details);
+      // Minimal logs without provider/model names
+        console.log('[Render] Calling render service');
         
         const geminiResponse = await renderFastrack(base64Sketch, base64Material, cleanDetails);
         result = geminiResponse;
         
-        console.log('[Render AI] Gemini API full response:', result);
-        console.log('[Render AI] Response structure:', {
+        console.log('[Render] Response structure:', {
           success: result.success,
           mode: result.mode,
-          modelUsed: result.model_used,
-          hasEnhancedPrompt: !!result.enhanced_prompt,
           hasOutput: Array.isArray(result.output),
           outputLength: result.output?.length,
           imageDimensions: result.imageDimensions,
@@ -453,11 +445,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
       
       if (!base64) {
-        const aiProvider = 'Gemini 2.5 Flash';
         setAiStatus('error');
-        setAiError(`No image returned from ${aiProvider}.`);
+        setAiError('No image returned.');
         setTimeout(() => setAiStatus('idle'), 4000);
-        alert(`No image returned from ${aiProvider}.`);
+        alert('No image returned.');
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
@@ -467,7 +458,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         let finalWidth = renderBox ? renderBox.width : placeholderWidth;
         let finalHeight = renderBox ? renderBox.height : placeholderHeight;
         
-        console.log('[Render AI] Using bounding box dimensions:', {
+        console.log('[Render] Using bounding box dimensions:', {
           boundingBox: renderBox ? { width: renderBox.width, height: renderBox.height, ratio: renderBox.width / renderBox.height } : 'none',
           finalDimensions: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight }
         });
@@ -475,13 +466,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         // First remove the placeholder
         if (canvasRef.current.removeImage && placeholderId) {
           canvasRef.current.removeImage(placeholderId);
-          console.log('[Render AI] Placeholder removed');
+          console.log('[Render] Placeholder removed');
         }
         
         // Now add the real image with bounding box dimensions
         if (canvasRef.current.importImage) {
           const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
-          console.log('[Render AI] Real image imported with adjusted dimensions:', { 
+          console.log('[Render] Real image imported with adjusted dimensions:', { 
             finalWidth, 
             finalHeight, 
             newImageId,
@@ -495,7 +486,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         } else {
           // Fallback to replaceImageById if importImage is not available
           canvasRef.current.replaceImageById(placeholderId, imageUrl);
-          console.log('[Render AI] Image replaced using fallback method');
+          console.log('[Render] Image replaced using fallback method');
         }
       } else if (canvasRef.current.importImage) {
         // Fallback: Use the same dimensions as the placeholder
@@ -504,11 +495,10 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      const aiProvider = 'Gemini 2.5 Flash';
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
-      alert(`[Render AI] ${aiProvider} Error: ` + (err instanceof Error ? err.message : String(err)));
+      alert('Render Error: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -605,18 +595,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           return;
         }
         
-        console.log('[Colorway AI] Using Print mode with reference image');
+        console.log('[Colorway] Using Print mode with reference image');
         const colorwayResponse = await generateColorwayPrint(base64Sketch, colorwayReference);
         result = transformColorwayResponse(colorwayResponse, 'print');
         
       } else {
         // Color mode: Generate color variations
-        console.log('[Colorway AI] Using Color mode with color:', details);
+        console.log('[Colorway] Using Color mode');
         const colorwayResponse = await generateColorwayColor(base64Sketch, details);
         result = transformColorwayResponse(colorwayResponse, 'color', details);
       }
       
-      console.log('[Colorway AI] Full response:', result);
+      console.log('[Colorway] Response received');
       
       // Extract the generated image data
       if (result && Array.isArray(result.output)) {
@@ -629,14 +619,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           
           // Replace the placeholder with the real image, adjusting to actual AI-generated aspect ratio
           if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-            // Use actual dimensions from Gemini AI to calculate proper scaling
+            // Use actual dimensions from the service to calculate proper scaling
             let finalWidth = placeholderWidth;
             let finalHeight = placeholderHeight;
             
             if (result.imageDimensions) {
               const { width: colorwayWidth, height: colorwayHeight, aspectRatio: colorwayAspectRatio } = result.imageDimensions;
               
-              console.log('[Colorway AI] Received image dimensions from Gemini:', {
+              console.log('[Colorway] Received image dimensions:', {
                 width: colorwayWidth,
                 height: colorwayHeight,
                 aspectRatio: colorwayAspectRatio,
@@ -656,9 +646,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
                   finalWidth = Math.round(placeholderHeight * colorwayAspectRatio);
                 }
                 
-                console.log('[Colorway AI] Adjusted dimensions:', { finalWidth, finalHeight, colorwayAspectRatio });
+                console.log('[Colorway] Adjusted dimensions:', { finalWidth, finalHeight, colorwayAspectRatio });
               } else {
-                console.log('[Colorway AI] Using placeholder dimensions (aspect ratios are similar)');
+                console.log('[Colorway] Using placeholder dimensions (aspect ratios are similar)');
               }
             }
             
@@ -677,7 +667,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
       setTimeout(() => setAiStatus('idle'), 4000);
-      alert(`[Colorway AI] Error: ${err instanceof Error ? err.message : String(err)}`);
+      alert(`Colorway Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -763,11 +753,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     
     try {
       // Call the new video service
-      console.log('[Video AI] Calling video service with:', {
-        imageDataLength: base64Image.length,
-        prompt: details || '',
-        userId
-      });
+      console.log('[Video] Calling video service');
       
       const result = await videoFastrack(base64Image, userId, details || '');
       
@@ -852,8 +838,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     } catch (err) {
       setAiStatus('error');
       setAiError(err instanceof Error ? err.message : String(err));
-      console.error('[Video AI] Error:', err);
-      alert('[Video AI] Error: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Video] Error:', err);
+      alert('Video Error: ' + (err instanceof Error ? err.message : String(err)));
       
       // Remove placeholder on error
       if (canvasRef.current?.removeImage && placeholderId) {
