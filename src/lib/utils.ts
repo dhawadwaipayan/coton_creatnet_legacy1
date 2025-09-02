@@ -390,6 +390,218 @@ export async function deleteBoard(id: string) {
   return true;
 }
 
+// Group Management Functions
+export async function getGroups(adminUserId: string) {
+  try {
+    const response = await fetch(`/api/groups?adminUserId=${adminUserId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to get groups');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error getting groups:', error);
+    throw error;
+  }
+}
+
+export async function createGroup(adminUserId: string, groupData: {
+  name: string;
+  description?: string;
+  imageLimit: number;
+  videoLimit: number;
+}) {
+  try {
+    const response = await fetch('/api/groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        adminUserId,
+        ...groupData
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create group');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error creating group:', error);
+    throw error;
+  }
+}
+
+export async function updateGroup(adminUserId: string, groupId: string, groupData: {
+  name?: string;
+  description?: string;
+  imageLimit?: number;
+  videoLimit?: number;
+}) {
+  try {
+    const response = await fetch(`/api/groups?groupId=${groupId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        adminUserId,
+        ...groupData
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to update group');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error updating group:', error);
+    throw error;
+  }
+}
+
+export async function deleteGroup(adminUserId: string, groupId: string) {
+  try {
+    const response = await fetch(`/api/groups?groupId=${groupId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        adminUserId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to delete group');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error deleting group:', error);
+    throw error;
+  }
+}
+
+export async function getGroupMembers(adminUserId: string, groupId: string) {
+  try {
+    const response = await fetch(`/api/group-members?groupId=${groupId}&adminUserId=${adminUserId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to get group members');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error getting group members:', error);
+    throw error;
+  }
+}
+
+export async function addUserToGroup(adminUserId: string, groupId: string, userId: string) {
+  try {
+    const response = await fetch('/api/group-members', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        adminUserId,
+        groupId,
+        userId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to add user to group');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error adding user to group:', error);
+    throw error;
+  }
+}
+
+export async function removeUserFromGroup(adminUserId: string, groupId: string, userId: string) {
+  try {
+    const response = await fetch(`/api/group-members?groupId=${groupId}&userId=${userId}&adminUserId=${adminUserId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to remove user from group');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error removing user from group:', error);
+    throw error;
+  }
+}
+
+export async function trackGeneration(userId: string, generationType: 'image' | 'video', metadata?: any) {
+  try {
+    const response = await fetch('/api/track-generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        generationType,
+        metadata
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 429) {
+        // Limit exceeded
+        return { data: errorData.data, error: errorData.error };
+      }
+      throw new Error(errorData.error || 'Failed to track generation');
+    }
+
+    const result = await response.json();
+    return { data: result.data, error: null };
+  } catch (error) {
+    console.error('Error tracking generation:', error);
+    throw error;
+  }
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
