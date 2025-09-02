@@ -821,11 +821,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         userId
       });
       
-      const result = await generateVideo({
-        imageData: base64Image,
-        prompt: details || '',
-        userId
-      });
+      const result = await videoFastrack(base64Image, userId, details || '');
       
       if (result.success && result.video) {
         console.log('🎬 Video generation successful, removing placeholder:', placeholderId);
