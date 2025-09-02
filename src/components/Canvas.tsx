@@ -628,10 +628,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     console.log('🖼️ Using fallback export method for render box:', box);
     console.log('🖼️ Current zoom:', zoom, 'stagePos:', stagePos);
     
-    // box is already in canvas coordinates, so use it directly
-    const canvasBox = box;
+    // Convert screen coordinates back to canvas coordinates for proper image intersection
+    const canvasBox = {
+      x: (box.x - stagePos.x) / zoom,
+      y: (box.y - stagePos.y) / zoom,
+      width: box.width / zoom,
+      height: box.height / zoom
+    };
     
-    console.log('🖼️ Using canvas coordinates directly:', canvasBox);
+    console.log('🖼️ Converted to canvas coordinates:', canvasBox);
     
     // Create a temporary canvas for image-only export
     const tempCanvas = document.createElement('canvas');
@@ -641,7 +646,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return null;
     }
     
-    // Set canvas dimensions to match the bounding box (use original dimensions)
+    // Set canvas dimensions to match the bounding box (use original screen dimensions for output)
     tempCanvas.width = box.width;
     tempCanvas.height = box.height;
     
@@ -733,15 +738,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const intersectWidth = Math.max(0, intersectRight - intersectX);
       const intersectHeight = Math.max(0, intersectBottom - intersectY);
       
-      // Calculate drawing coordinates relative to the bounding box
-      const drawX = intersectX - canvasBox.x;
-      const drawY = intersectY - canvasBox.y;
-      const drawWidth = intersectWidth;
-      const drawHeight = intersectHeight;
+      // Calculate the intersection area (canvas coordinates)
+      const imgRight = img.x + (img.width || 0);
+      const imgBottom = img.y + (img.height || 0);
+      const boxRight = canvasBox.x + canvasBox.width;
+      const boxBottom = canvasBox.y + canvasBox.height;
       
-      // Calculate source coordinates for the image (in canvas coordinates)
-      const srcX = intersectX - img.x;
-      const srcY = intersectY - img.y;
+      const drawX = Math.max(0, img.x - canvasBox.x);
+      const drawY = Math.max(0, img.y - canvasBox.y);
+      const drawWidth = Math.min(img.width || 0, boxRight - img.x, imgRight - canvasBox.x);
+      const drawHeight = Math.min(img.height || 0, boxBottom - img.y, imgBottom - canvasBox.y);
+      
+      // Calculate source coordinates for the image
+      const srcX = Math.max(0, canvasBox.x - img.x);
+      const srcY = Math.max(0, canvasBox.y - img.y);
       
       console.log('🖼️ Drawing image:', {
         id: img.id,
@@ -780,13 +790,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       if (!stage) return null;
       
-      // Use canvas coordinates directly for stage.toDataURL
-      // stage.toDataURL expects coordinates relative to the stage (canvas coordinates)
+      // Convert canvas coordinates to screen coordinates for export
+      // Canvas coordinates need to be scaled by zoom and offset by stagePos
+      const screenX = activeBox.x * zoom + stagePos.x;
+      const screenY = activeBox.y * zoom + stagePos.y;
+      const screenWidth = activeBox.width * zoom;
+      const screenHeight = activeBox.height * zoom;
+      
       return stage.toDataURL({
-        x: activeBox.x,
-        y: activeBox.y,
-        width: activeBox.width,
-        height: activeBox.height,
+        x: screenX,
+        y: screenY,
+        width: screenWidth,
+        height: screenHeight,
         pixelRatio: 1,
       });
     },
@@ -796,21 +811,24 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const stage = stageRef.current;
       if (!stage) return null;
       
-      // renderBox is already in canvas coordinates, use them directly for stage.toDataURL
+      // Convert canvas coordinates to screen coordinates for export
+      // Canvas coordinates need to be scaled by zoom and offset by stagePos
+      const screenX = renderBox.x * zoom + stagePos.x;
+      const screenY = renderBox.y * zoom + stagePos.y;
+      const screenWidth = renderBox.width * zoom;
+      const screenHeight = renderBox.height * zoom;
+      
       console.log('🎯 Exporting render box (canvas coordinates):', renderBox);
       console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
-      
-      // stage.toDataURL expects coordinates relative to the stage (canvas coordinates)
-      // No need to convert to screen coordinates
-      console.log('🎯 Using canvas coordinates directly for stage.toDataURL');
+      console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
       
       try {
-        // Primary export method - use canvas coordinates directly
+        // Primary export method - should work with CORS-enabled videos
         const result = stage.toDataURL({
-          x: renderBox.x,
-          y: renderBox.y,
-          width: renderBox.width,
-          height: renderBox.height,
+          x: screenX,
+          y: screenY,
+          width: screenWidth,
+          height: screenHeight,
           pixelRatio: 1,
         });
         
