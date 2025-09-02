@@ -939,6 +939,21 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       pushToUndoStackWithSave();
       const img = new window.Image();
+      // Avoid tainted canvas: set CORS mode for cross-origin images
+      try {
+        const isDataUrl = /^data:/i.test(src);
+        const isSameOrigin = (() => {
+          try {
+            const u = new URL(src, window.location.href);
+            return u.origin === window.location.origin;
+          } catch {
+            return true; // data URLs or invalid URLs
+          }
+        })();
+        if (!isDataUrl && !isSameOrigin) {
+          img.crossOrigin = 'anonymous';
+        }
+      } catch {}
       img.src = src;
       const id = Date.now().toString();
       
@@ -1099,6 +1114,21 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           if (idx === -1) return prev;
           const oldImg = prev[idx];
           const newImg = new window.Image();
+          // Avoid tainted canvas when replacing images
+          try {
+            const isDataUrl = /^data:/i.test(newSrc);
+            const isSameOrigin = (() => {
+              try {
+                const u = new URL(newSrc, window.location.href);
+                return u.origin === window.location.origin;
+              } catch {
+                return true;
+              }
+            })();
+            if (!isDataUrl && !isSameOrigin) {
+              newImg.crossOrigin = 'anonymous';
+            }
+          } catch {}
           newImg.src = newSrc;
           const newImageObj = {
             id,
