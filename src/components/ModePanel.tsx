@@ -493,26 +493,16 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         return;
       }
       const imageUrl = `data:image/png;base64,${base64}`;
-      // Replace the placeholder with the real image, maintaining AI's natural aspect ratio
+      // Replace the placeholder with the real image, using AI's original dimensions
       if (canvasRef.current && placeholderId && canvasRef.current.replaceImageById) {
-        // Use AI's natural dimensions - don't force aspect ratio adjustment
-        let finalWidth = placeholderWidth;
-        let finalHeight = placeholderHeight;
+        // Use AI's actual dimensions directly - no scaling, no adjustment
+        let finalWidth = result.imageDimensions?.width || 1024;
+        let finalHeight = result.imageDimensions?.height || 1536;
         
-        if (result.imageDimensions) {
-          const { width: geminiWidth, height: geminiHeight, aspectRatio: geminiAspectRatio } = result.imageDimensions;
-          
-          // Use AI's natural aspect ratio - scale to reasonable size but maintain proportions
-          const scaleFactor = Math.min(placeholderWidth / geminiWidth, placeholderHeight / geminiHeight);
-          finalWidth = Math.round(geminiWidth * scaleFactor);
-          finalHeight = Math.round(geminiHeight * scaleFactor);
-          
-          console.log('[Render AI] Using AI natural aspect ratio:', {
-            aiDimensions: { width: geminiWidth, height: geminiHeight, ratio: geminiAspectRatio },
-            scaledDimensions: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight },
-            scaleFactor: scaleFactor
-          });
-        }
+        console.log('[Render AI] Using AI original dimensions:', {
+          aiDimensions: { width: finalWidth, height: finalHeight, ratio: finalWidth / finalHeight },
+          placeholderDimensions: { width: placeholderWidth, height: placeholderHeight }
+        });
         
         // First remove the placeholder
         if (canvasRef.current.removeImage && placeholderId) {
@@ -520,7 +510,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           console.log('[Render AI] Placeholder removed');
         }
         
-        // Now add the real image with AI's natural aspect ratio
+        // Now add the real image with AI's original dimensions
         if (canvasRef.current.importImage) {
           const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
           console.log('[Render AI] Real image imported with adjusted dimensions:', { 
