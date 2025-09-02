@@ -800,6 +800,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
     }
     
+    // Compute scale from canvas-space to output (screen) space
+    const scaleX = box.width / canvasBox.width;
+    const scaleY = box.height / canvasBox.height;
+    
     // Draw each intersecting image onto the temporary canvas
     intersectingImages.forEach(img => {
       if (!img.image) return;
@@ -830,8 +834,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       try {
         tempCtx.drawImage(
           img.image,
-          srcX, srcY, drawWidth, drawHeight,  // Source coordinates
-          drawX, drawY, drawWidth, drawHeight  // Destination coordinates
+          srcX, srcY, drawWidth, drawHeight,  // Source (canvas units)
+          Math.round(drawX * scaleX), Math.round(drawY * scaleY), Math.round(drawWidth * scaleX), Math.round(drawHeight * scaleY) // Dest (screen/output units)
         );
       } catch (error) {
         console.warn('Failed to draw image in fallback export:', error);
