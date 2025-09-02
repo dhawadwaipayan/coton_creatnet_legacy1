@@ -849,7 +849,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // If videos are present, use fallback method directly to avoid CORS issues
       if (videos.length > 0) {
         console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox(activeBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
       }
       
       try {
@@ -869,11 +869,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         
         // Fallback: export only images in the bounding box area (skip videos to avoid CORS)
         console.warn('⚠️ Primary export failed, using fallback method (images only)');
-        return exportImagesOnlyFromRenderBox(activeBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
         
       } catch (error) {
         console.error('❌ Export failed, using fallback method (images only):', error);
-        return exportImagesOnlyFromRenderBox(activeBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
       }
     },
     
@@ -897,7 +897,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // If videos are present, use fallback method directly to avoid CORS issues
       if (videos.length > 0) {
         console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox(renderBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
       }
       
       try {
@@ -917,11 +917,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         
         // Fallback: export only images in the bounding box area
         console.warn('⚠️ Primary export failed, using fallback method');
-        return exportImagesOnlyFromRenderBox(renderBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
         
       } catch (error) {
         console.error('❌ Export failed, using fallback method:', error);
-        return exportImagesOnlyFromRenderBox(renderBox);
+        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
       }
     },
     removeImage: (id: string) => {
