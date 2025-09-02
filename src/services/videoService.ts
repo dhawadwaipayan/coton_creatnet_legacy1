@@ -1,6 +1,9 @@
 // Video Service - Handles video operations (fastrack only)
 // Separate service for video operations
 
+import { forceAspectRatio, PreprocessingResult } from './imagePreprocessingService';
+import { restoreAspectRatio, VideoProcessingResult } from './videoPostProcessingService';
+
 interface VideoRequest {
   base64Sketch: string;
   additionalDetails?: string;
@@ -16,8 +19,15 @@ interface VideoResponse {
     id: string;
     url: string;
     size: number;
+    finalDimensions?: {
+      width: number;
+      height: number;
+      aspectRatio: number;
+    };
   };
   message: string;
+  preprocessingInfo?: PreprocessingResult;
+  postProcessingInfo?: VideoProcessingResult;
 }
 
 export async function callVideoService(request: VideoRequest): Promise<VideoResponse> {
@@ -31,6 +41,18 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
   });
 
   try {
+    // STEP 1: SQUEEZE - Preprocess image to 9:16 aspect ratio
+    console.log('[Video Service] Starting image preprocessing (squeeze)');
+    const preprocessingResult = await forceAspectRatio(base64Sketch, 9/16);
+    
+    console.log('[Video Service] Preprocessing complete:', {
+      originalAspectRatio: preprocessingResult.originalDimensions.aspectRatio,
+      targetAspectRatio: 9/16,
+      squeezed: preprocessingResult.originalDimensions.aspectRatio !== (9/16)
+    });
+
+    // Use the squeezed image for API call
+    const squeezedImage = preprocessingResult.processedImage;
     const response = await fetch('/api/video-engine', {
       method: 'POST',
       headers: {
@@ -40,7 +62,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
         service: 'video_fastrack',
         action: 'generate',
         data: {
-          base64Sketch,
+          base64Sketch: squeezedImage, // Use squeezed image instead of original
           additionalDetails,
           userId
         },
@@ -62,7 +84,64 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
       error: result.error
     });
 
-    return result.result;
+    if (!result.success || !result.result?.video) {
+      return result.result;
+    }
+
+    // STEP 2: DESQUEEZE - Post-process video to restore original aspect ratio
+    console.log('[Video Service] Starting video post-processing (desqueeze)');
+    
+    try {
+      // Fetch the video from the URL
+      const videoResponse = await fetch(result.result.video.url);
+      const videoBuffer = await videoResponse.arrayBuffer();
+      
+      // Desqueeze the video back to original aspect ratio
+      const postProcessingResult = await restoreAspectRatio(
+        Buffer.from(videoBuffer),
+        preprocessingResult.originalDimensions,
+        9/16
+      );
+      
+      console.log('[Video Service] Post-processing complete:', {
+        originalDimensions: preprocessingResult.originalDimensions,
+        finalDimensions: postProcessingResult.finalDimensions,
+        desqueezed: preprocessingResult.originalDimensions.aspectRatio !== (9/16)
+      });
+
+      // Create a new video URL from the desqueezed video
+      // In a real implementation, you would upload this to your storage
+      const desqueezedVideoBlob = new Blob([postProcessingResult.processedVideo], { type: 'video/mp4' });
+      const desqueezedVideoUrl = URL.createObjectURL(desqueezedVideoBlob);
+
+      // Return response with preprocessing and post-processing info
+      const responseWithProcessing = {
+        ...result.result,
+        video: {
+          ...result.result.video,
+          url: desqueezedVideoUrl, // Use desqueezed video URL
+          finalDimensions: postProcessingResult.finalDimensions
+        },
+        preprocessingInfo: preprocessingResult,
+        postProcessingInfo: postProcessingResult
+      };
+
+      console.log('[Video Service] Complete processing pipeline finished');
+      return responseWithProcessing;
+
+    } catch (desqueezeError) {
+      console.warn('[Video Service] Desqueeze failed, returning original video:', desqueezeError);
+      
+      // If desqueeze fails, return original video with preprocessing info
+      return {
+        ...result.result,
+        video: {
+          ...result.result.video,
+          finalDimensions: preprocessingResult.originalDimensions
+        },
+        preprocessingInfo: preprocessingResult
+      };
+    }
   } catch (error) {
     console.error(`[Video Service] Error in fastrack:`, error);
     throw error;
