@@ -39,39 +39,22 @@ export async function handleVideoFastrack(action, data) {
   const imageId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   const tempImagePath = `temp-images/${imageId}.png`;
 
-  // Try to upload to temp-images bucket, fallback to public bucket if it doesn't exist
-  let uploadData, uploadError;
-  try {
-    const result = await supabase.storage
-      .from('temp-images')
-      .upload(tempImagePath, imageBuffer, {
-        contentType: 'image/png',
-        upsert: false
-      });
-    uploadData = result.data;
-    uploadError = result.error;
-  } catch (bucketError) {
-    console.warn('temp-images bucket not found, trying public bucket:', bucketError.message);
-    // Fallback to public bucket
-    const result = await supabase.storage
-      .from('public')
-      .upload(`temp-images/${imageId}.png`, imageBuffer, {
-        contentType: 'image/png',
-        upsert: false
-      });
-    uploadData = result.data;
-    uploadError = result.error;
-  }
+  // Upload to board-images bucket (your existing bucket)
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('board-images')
+    .upload(tempImagePath, imageBuffer, {
+      contentType: 'image/png',
+      upsert: false
+    });
 
   if (uploadError) {
     throw new Error(`Failed to upload image to Supabase: ${uploadError.message}`);
   }
 
-  // Get public URL (use the same bucket that was used for upload)
-  const bucketName = uploadData?.path?.includes('temp-images') ? 'temp-images' : 'public';
+  // Get public URL from board-images bucket
   const { data: urlData } = supabase.storage
-    .from(bucketName)
-    .getPublicUrl(bucketName === 'public' ? `temp-images/${imageId}.png` : tempImagePath);
+    .from('board-images')
+    .getPublicUrl(tempImagePath);
 
   // Call Segmind Kling API
   const segmindResponse = await fetch('https://api.segmind.com/v1/kling-2.1', {
@@ -100,52 +83,28 @@ export async function handleVideoFastrack(action, data) {
   const videoId = `video_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   const videoPath = `board-videos/${videoId}.mp4`;
 
-  // Try to upload to board-videos bucket, fallback to public bucket if it doesn't exist
-  let videoUploadData, videoUploadError;
-  try {
-    const result = await supabase.storage
-      .from('board-videos')
-      .upload(videoPath, segmindResult.video, {
-        contentType: 'video/mp4',
-        upsert: false
-      });
-    videoUploadData = result.data;
-    videoUploadError = result.error;
-  } catch (bucketError) {
-    console.warn('board-videos bucket not found, trying public bucket:', bucketError.message);
-    // Fallback to public bucket
-    const result = await supabase.storage
-      .from('public')
-      .upload(`board-videos/${videoId}.mp4`, segmindResult.video, {
-        contentType: 'video/mp4',
-        upsert: false
-      });
-    videoUploadData = result.data;
-    videoUploadError = result.error;
-  }
+  // Upload video to board-videos bucket (your existing bucket)
+  const { data: videoUploadData, error: videoUploadError } = await supabase.storage
+    .from('board-videos')
+    .upload(videoPath, segmindResult.video, {
+      contentType: 'video/mp4',
+      upsert: false
+    });
 
   if (videoUploadError) {
     throw new Error(`Failed to upload video to Supabase: ${videoUploadError.message}`);
   }
 
-  // Get video public URL (use the same bucket that was used for upload)
-  const videoBucketName = videoUploadData?.path?.includes('board-videos') ? 'board-videos' : 'public';
+  // Get video public URL from board-videos bucket
   const { data: videoUrlData } = supabase.storage
-    .from(videoBucketName)
-    .getPublicUrl(videoBucketName === 'public' ? `board-videos/${videoId}.mp4` : videoPath);
+    .from('board-videos')
+    .getPublicUrl(videoPath);
 
-  // Cleanup temp image
+  // Cleanup temp image from board-images bucket
   try {
-    // Try to remove from temp-images bucket first, then public bucket
-    try {
-      await supabase.storage
-        .from('temp-images')
-        .remove([tempImagePath]);
-    } catch (tempError) {
-      await supabase.storage
-        .from('public')
-        .remove([`temp-images/${imageId}.png`]);
-    }
+    await supabase.storage
+      .from('board-images')
+      .remove([tempImagePath]);
   } catch (cleanupError) {
     console.warn('Failed to cleanup temporary image:', cleanupError);
   }
