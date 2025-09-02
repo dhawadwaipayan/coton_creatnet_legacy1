@@ -826,9 +826,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       console.log('🎯 Exporting bounding box (canvas coordinates):', activeBox);
       console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
       console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
+      console.log('🎯 Videos present on canvas:', videos.length);
+      
+      // If videos are present, temporarily hide them to avoid CORS issues
+      const videoNodes: any[] = [];
+      if (videos.length > 0) {
+        console.log('🎬 Temporarily hiding videos to avoid CORS issues during export');
+        videos.forEach(video => {
+          const videoNode = stage.findOne(`#${video.id}`);
+          if (videoNode) {
+            videoNode.hide();
+            videoNodes.push(videoNode);
+          }
+        });
+        // Force a redraw to hide the videos
+        stage.batchDraw();
+      }
       
       try {
-        // Primary export method - should work with CORS-enabled videos
+        // Primary export method - should work now that videos are hidden
         const result = stage.toDataURL({
           x: screenX,
           y: screenY,
@@ -849,6 +865,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       } catch (error) {
         console.error('❌ Export failed, using fallback method (images only):', error);
         return exportImagesOnlyFromRenderBox(activeBox);
+      } finally {
+        // Always restore videos after export attempt
+        if (videoNodes.length > 0) {
+          console.log('🎬 Restoring videos after export');
+          videoNodes.forEach(videoNode => {
+            videoNode.show();
+          });
+          stage.batchDraw();
+        }
       }
     },
     
@@ -867,9 +892,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       console.log('🎯 Exporting render box (canvas coordinates):', renderBox);
       console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
       console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
+      console.log('🎯 Videos present on canvas:', videos.length);
+      
+      // If videos are present, temporarily hide them to avoid CORS issues
+      const videoNodes: any[] = [];
+      if (videos.length > 0) {
+        console.log('🎬 Temporarily hiding videos to avoid CORS issues during export');
+        videos.forEach(video => {
+          const videoNode = stage.findOne(`#${video.id}`);
+          if (videoNode) {
+            videoNode.hide();
+            videoNodes.push(videoNode);
+          }
+        });
+        // Force a redraw to hide the videos
+        stage.batchDraw();
+      }
       
       try {
-        // Primary export method - should work with CORS-enabled videos
+        // Primary export method - should work now that videos are hidden
         const result = stage.toDataURL({
           x: screenX,
           y: screenY,
@@ -890,6 +931,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       } catch (error) {
         console.error('❌ Export failed, using fallback method:', error);
         return exportImagesOnlyFromRenderBox(renderBox);
+      } finally {
+        // Always restore videos after export attempt
+        if (videoNodes.length > 0) {
+          console.log('🎬 Restoring videos after export');
+          videoNodes.forEach(videoNode => {
+            videoNode.show();
+          });
+          stage.batchDraw();
+        }
       }
     },
     removeImage: (id: string) => {
