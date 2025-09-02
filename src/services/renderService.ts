@@ -5,7 +5,6 @@ interface RenderRequest {
   mode: 'fastrack' | 'accurate';
   base64Sketch: string;
   base64Material?: string;
-  renderBox?: { x: number, y: number, width: number, height: number };
 }
 
 interface RenderResponse {
@@ -47,8 +46,7 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
         data: {
           base64Sketch,
           base64Material,
-          isFastMode: mode === 'fastrack',
-          renderBox: request.renderBox
+          isFastMode: mode === 'fastrack'
         },
         timestamp: Date.now(),
         nonce: Math.random().toString(36).substring(2, 15)
@@ -76,8 +74,8 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
 }
 
 // Convenience functions
-export const renderFastrack = (base64Sketch: string, base64Material?: string, renderBox?: { x: number, y: number, width: number, height: number }) =>
-  callRenderService({ mode: 'fastrack', base64Sketch, base64Material, renderBox });
+export const renderFastrack = (base64Sketch: string, base64Material?: string) =>
+  callRenderService({ mode: 'fastrack', base64Sketch, base64Material });
 
-export const renderAccurate = (base64Sketch: string, base64Material?: string, renderBox?: { x: number, y: number, width: number, height: number }) =>
-  callRenderService({ mode: 'accurate', base64Sketch, base64Material, renderBox });
+export const renderAccurate = (base64Sketch: string, base64Material?: string) =>
+  callRenderService({ mode: 'accurate', base64Sketch, base64Material });
