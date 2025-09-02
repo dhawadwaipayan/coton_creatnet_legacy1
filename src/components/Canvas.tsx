@@ -628,13 +628,37 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     console.log('🖼️ Using fallback export method for render box:', box);
     console.log('🖼️ Current zoom:', zoom, 'stagePos:', stagePos);
     
-    // Convert screen coordinates back to canvas coordinates for proper image intersection
-    const canvasBox = {
-      x: (box.x - stagePos.x) / zoom,
-      y: (box.y - stagePos.y) / zoom,
-      width: box.width / zoom,
-      height: box.height / zoom
-    };
+    // Convert screen coordinates back to canvas coordinates using Konva transform
+    const stage = stageRef.current;
+    let canvasBox = { x: 0, y: 0, width: 0, height: 0 } as { x: number; y: number; width: number; height: number };
+    if (stage && typeof stage.getAbsoluteTransform === 'function') {
+      try {
+        const inv = stage.getAbsoluteTransform().copy().invert();
+        const topLeft = inv.point({ x: box.x, y: box.y });
+        const bottomRight = inv.point({ x: box.x + box.width, y: box.y + box.height });
+        canvasBox = {
+          x: topLeft.x,
+          y: topLeft.y,
+          width: bottomRight.x - topLeft.x,
+          height: bottomRight.y - topLeft.y
+        };
+      } catch (e) {
+        console.warn('⚠️ Transform conversion failed, falling back to manual math');
+        canvasBox = {
+          x: (box.x - stagePos.x) / zoom,
+          y: (box.y - stagePos.y) / zoom,
+          width: box.width / zoom,
+          height: box.height / zoom
+        };
+      }
+    } else {
+      canvasBox = {
+        x: (box.x - stagePos.x) / zoom,
+        y: (box.y - stagePos.y) / zoom,
+        width: box.width / zoom,
+        height: box.height / zoom
+      };
+    }
     
     console.log('🖼️ Converted to canvas coordinates:', canvasBox);
     
