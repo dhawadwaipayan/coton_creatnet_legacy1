@@ -288,6 +288,25 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('idle');
       return;
     }
+    
+    // Auto-download the bounding box area to verify it's capturing the right area
+    try {
+      console.log('[Render AI] Auto-downloading bounding box area for verification');
+      
+      // Create a temporary link element for download
+      const link = document.createElement('a');
+      link.href = base64Sketch;
+      link.download = `bounding-box-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('[Render AI] Bounding box area downloaded for verification');
+    } catch (downloadError) {
+      console.warn('[Render AI] Bounding box download failed:', downloadError);
+    }
     // Handle material - only use what user uploaded
     const base64Material = renderMaterial;
     // Place a placeholder beside the bounding box maintaining aspect ratio
