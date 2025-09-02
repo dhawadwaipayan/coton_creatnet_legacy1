@@ -39,7 +39,7 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
   });
 
   try {
-    const response = await fetch('/api/colorway-proxy', {
+    const response = await fetch('/api/colorway-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

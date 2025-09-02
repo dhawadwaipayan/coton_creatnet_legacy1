@@ -31,7 +31,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
   });
 
   try {
-    const response = await fetch('/api/video-proxy', {
+    const response = await fetch('/api/video-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

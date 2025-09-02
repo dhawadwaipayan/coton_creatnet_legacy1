@@ -38,7 +38,7 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
   });
 
   try {
-    const response = await fetch('/api/render-proxy', {
+    const response = await fetch('/api/render-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

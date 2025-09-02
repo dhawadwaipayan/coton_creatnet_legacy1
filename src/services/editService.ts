@@ -34,7 +34,7 @@ export async function callEditService(request: EditRequest): Promise<EditRespons
   });
 
   try {
-    const response = await fetch('/api/edit-proxy', {
+    const response = await fetch('/api/edit-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
