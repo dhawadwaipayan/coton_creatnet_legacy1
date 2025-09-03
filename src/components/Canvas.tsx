@@ -206,7 +206,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Add texts state
   const [texts, setTexts] = useState<Array<{ id: string, text: string, x: number, y: number, color: string, fontSize: number, rotation: number, timestamp: number }>>([]);
-  // Add state for editing text
+  // Add state for native canvas text editing
   const [editingText, setEditingText] = useState<null | {
     id: string;
     value: string;
@@ -215,7 +215,405 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     color: string;
     fontSize: number;
     rotation: number;
+    cursorPosition: number;
+    selectionStart: number;
+    selectionEnd: number;
   }>(null);
+  
+  // Add state for caret animation
+  const [caretVisible, setCaretVisible] = useState(true);
+  
+  // Caret animation effect
+  useEffect(() => {
+    if (!editingText) return;
+    
+    const interval = setInterval(() => {
+      setCaretVisible(prev => !prev);
+    }, 500); // Blink every 500ms
+    
+    return () => clearInterval(interval);
+  }, [editingText]);
+  
+  // Native canvas keyboard handling
+  useEffect(() => {
+    if (!editingText) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const currentText = editingText.value;
+      const cursorPos = editingText.cursorPosition;
+      
+      // Handle Ctrl+A (Select All)
+      if (e.ctrlKey && e.key === 'a') {
+        e.preventDefault();
+        setEditingText(prev => prev ? { 
+          ...prev, 
+          selectionStart: 0, 
+          selectionEnd: currentText.length,
+          cursorPosition: currentText.length 
+        } : null);
+        return;
+      }
+      
+      // Handle Ctrl+X (Cut) - same as delete selected
+      if (e.ctrlKey && e.key === 'x') {
+        e.preventDefault();
+        if (editingText.selectionStart !== editingText.selectionEnd) {
+          const newText = currentText.slice(0, editingText.selectionStart) + currentText.slice(editingText.selectionEnd);
+          setEditingText(prev => prev ? { 
+            ...prev, 
+            value: newText, 
+            cursorPosition: editingText.selectionStart,
+            selectionStart: editingText.selectionStart,
+            selectionEnd: editingText.selectionStart
+          } : null);
+          setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+        }
+        return;
+      }
+      
+      // Handle Ctrl+C (Copy) - for future clipboard support
+      if (e.ctrlKey && e.key === 'c') {
+        e.preventDefault();
+        // Future: copy selected text to clipboard
+        return;
+      }
+      
+      // Handle Ctrl+V (Paste) - for future clipboard support
+      if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault();
+        // Future: paste from clipboard
+        return;
+      }
+      
+      // Only prevent default for text editing keys, not navigation
+      const isTextEditingKey = ['Backspace', 'Delete', 'Enter'].includes(e.key) || 
+                               (e.key.length === 1 && !e.ctrlKey && !e.metaKey);
+      
+      if (isTextEditingKey) {
+        e.preventDefault();
+      }
+      
+      switch (e.key) {
+        case 'Backspace':
+          if (editingText.selectionStart !== editingText.selectionEnd) {
+            // Delete selected text
+            const newText = currentText.slice(0, editingText.selectionStart) + currentText.slice(editingText.selectionEnd);
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              value: newText, 
+              cursorPosition: editingText.selectionStart,
+              selectionStart: editingText.selectionStart,
+              selectionEnd: editingText.selectionStart
+            } : null);
+            setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          } else if (cursorPos > 0) {
+            const newText = currentText.slice(0, cursorPos - 1) + currentText.slice(cursorPos);
+            const newCursorPos = cursorPos - 1;
+            setEditingText(prev => prev ? { ...prev, value: newText, cursorPosition: newCursorPos } : null);
+            setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          }
+          // Don't exit editing when text is empty - let user continue typing
+          break;
+          
+        case 'Delete':
+          if (editingText.selectionStart !== editingText.selectionEnd) {
+            // Delete selected text
+            const newText = currentText.slice(0, editingText.selectionStart) + currentText.slice(editingText.selectionEnd);
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              value: newText, 
+              cursorPosition: editingText.selectionStart,
+              selectionStart: editingText.selectionStart,
+              selectionEnd: editingText.selectionStart
+            } : null);
+            setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          } else if (cursorPos < currentText.length) {
+            const newText = currentText.slice(0, cursorPos) + currentText.slice(cursorPos + 1);
+            setEditingText(prev => prev ? { ...prev, value: newText } : null);
+            setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          }
+          break;
+          
+        case 'ArrowLeft':
+          if (e.shiftKey) {
+            // Extend selection
+            const newPos = Math.max(0, cursorPos - 1);
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: newPos,
+              selectionStart: Math.min(prev.selectionStart, newPos),
+              selectionEnd: Math.max(prev.selectionEnd, newPos)
+            } : null);
+          } else {
+            // Move cursor and clear selection
+            if (cursorPos > 0) {
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: cursorPos - 1,
+                selectionStart: cursorPos - 1,
+                selectionEnd: cursorPos - 1
+              } : null);
+            }
+          }
+          break;
+          
+        case 'ArrowRight':
+          if (e.shiftKey) {
+            // Extend selection
+            const newPos = Math.min(currentText.length, cursorPos + 1);
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: newPos,
+              selectionStart: Math.min(prev.selectionStart, newPos),
+              selectionEnd: Math.max(prev.selectionEnd, newPos)
+            } : null);
+          } else {
+            // Move cursor and clear selection
+            if (cursorPos < currentText.length) {
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: cursorPos + 1,
+                selectionStart: cursorPos + 1,
+                selectionEnd: cursorPos + 1
+              } : null);
+            }
+          }
+          break;
+          
+        case 'ArrowUp':
+          if (e.shiftKey) {
+            // Extend selection up (simplified - move to previous line start)
+            const textLines = currentText.split('\n');
+            let currentLine = 0;
+            let currentChar = cursorPos;
+            
+            // Find current line
+            for (let i = 0; i < textLines.length; i++) {
+              if (currentChar <= textLines[i].length) {
+                currentLine = i;
+                break;
+              }
+              currentChar -= textLines[i].length + 1;
+            }
+            
+            if (currentLine > 0) {
+              // Move to previous line at same character position
+              let newPos = 0;
+              for (let i = 0; i < currentLine - 1; i++) {
+                newPos += textLines[i].length + 1;
+              }
+              newPos += Math.min(currentChar, textLines[currentLine - 1].length);
+              
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: newPos,
+                selectionStart: Math.min(prev.selectionStart, newPos),
+                selectionEnd: Math.max(prev.selectionEnd, newPos)
+              } : null);
+            }
+          } else {
+            // Move cursor up (simplified - move to previous line start)
+            const textLines = currentText.split('\n');
+            let currentLine = 0;
+            let currentChar = cursorPos;
+            
+            // Find current line
+            for (let i = 0; i < textLines.length; i++) {
+              if (currentChar <= textLines[i].length) {
+                currentLine = i;
+                break;
+              }
+              currentChar -= textLines[i].length + 1;
+            }
+            
+            if (currentLine > 0) {
+              // Move to previous line at same character position
+              let newPos = 0;
+              for (let i = 0; i < currentLine - 1; i++) {
+                newPos += textLines[i].length + 1;
+              }
+              newPos += Math.min(currentChar, textLines[currentLine - 1].length);
+              
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: newPos,
+                selectionStart: newPos,
+                selectionEnd: newPos
+              } : null);
+            }
+          }
+          break;
+          
+        case 'ArrowDown':
+          if (e.shiftKey) {
+            // Extend selection down (simplified - move to next line start)
+            const textLines = currentText.split('\n');
+            let currentLine = 0;
+            let currentChar = cursorPos;
+            
+            // Find current line
+            for (let i = 0; i < textLines.length; i++) {
+              if (currentChar <= textLines[i].length) {
+                currentLine = i;
+                break;
+              }
+              currentChar -= textLines[i].length + 1;
+            }
+            
+            if (currentLine < textLines.length - 1) {
+              // Move to next line at same character position
+              let newPos = 0;
+              for (let i = 0; i < currentLine + 1; i++) {
+                newPos += textLines[i].length + 1;
+              }
+              newPos += Math.min(currentChar, textLines[currentLine + 1].length);
+              
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: newPos,
+                selectionStart: Math.min(prev.selectionStart, newPos),
+                selectionEnd: Math.max(prev.selectionEnd, newPos)
+              } : null);
+            }
+          } else {
+            // Move cursor down (simplified - move to next line start)
+            const textLines = currentText.split('\n');
+            let currentLine = 0;
+            let currentChar = cursorPos;
+            
+            // Find current line
+            for (let i = 0; i < textLines.length; i++) {
+              if (currentChar <= textLines[i].length) {
+                currentLine = i;
+                break;
+              }
+              currentChar -= textLines[i].length + 1;
+            }
+            
+            if (currentLine < textLines.length - 1) {
+              // Move to next line at same character position
+              let newPos = 0;
+              for (let i = 0; i < currentLine + 1; i++) {
+                newPos += textLines[i].length + 1;
+              }
+              newPos += Math.min(currentChar, textLines[currentLine + 1].length);
+              
+              setEditingText(prev => prev ? { 
+                ...prev, 
+                cursorPosition: newPos,
+                selectionStart: newPos,
+                selectionEnd: newPos
+              } : null);
+            }
+          }
+          break;
+          
+        case 'Home':
+          if (e.shiftKey) {
+            // Select to beginning
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: 0,
+              selectionStart: 0,
+              selectionEnd: Math.max(prev.selectionEnd, 0)
+            } : null);
+          } else {
+            // Move to beginning and clear selection
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: 0,
+              selectionStart: 0,
+              selectionEnd: 0
+            } : null);
+          }
+          break;
+          
+        case 'End':
+          if (e.shiftKey) {
+            // Select to end
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: currentText.length,
+              selectionStart: Math.min(prev.selectionStart, currentText.length),
+              selectionEnd: currentText.length
+            } : null);
+          } else {
+            // Move to end and clear selection
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              cursorPosition: currentText.length,
+              selectionStart: currentText.length,
+              selectionEnd: currentText.length
+            } : null);
+          }
+          break;
+          
+        case 'Enter': {
+          const newText = currentText.slice(0, cursorPos) + '\n' + currentText.slice(cursorPos);
+          const newCursorPos = cursorPos + 1;
+          setEditingText(prev => prev ? { 
+            ...prev, 
+            value: newText, 
+            cursorPosition: newCursorPos,
+            selectionStart: newCursorPos,
+            selectionEnd: newCursorPos
+          } : null);
+          setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          break;
+        }
+          
+        case 'Escape':
+          e.preventDefault();
+          // Only finish editing if text has content
+          if (currentText.trim() !== '') {
+            setEditingText(null);
+            if (props.onTextAdded) props.onTextAdded();
+          }
+          break;
+          
+        case 'Tab':
+          e.preventDefault();
+          // Finish editing on Tab
+          setEditingText(null);
+          if (props.onTextAdded) props.onTextAdded();
+          break;
+          
+        default:
+          // Handle regular character input
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+            let newText;
+            let newCursorPos;
+            
+            if (editingText.selectionStart !== editingText.selectionEnd) {
+              // Replace selected text
+              newText = currentText.slice(0, editingText.selectionStart) + e.key + currentText.slice(editingText.selectionEnd);
+              newCursorPos = editingText.selectionStart + 1;
+            } else {
+              // Insert at cursor
+              newText = currentText.slice(0, cursorPos) + e.key + currentText.slice(cursorPos);
+              newCursorPos = cursorPos + 1;
+            }
+            
+            setEditingText(prev => prev ? { 
+              ...prev, 
+              value: newText, 
+              cursorPosition: newCursorPos,
+              selectionStart: newCursorPos,
+              selectionEnd: newCursorPos
+            } : null);
+            setTexts(prev => prev.map(t => t.id === editingText.id ? { ...t, text: newText } : t));
+          }
+          break;
+      }
+    };
+    
+    // Add keyboard event listener
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editingText, props.onTextAdded]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Undo/Redo stacks
@@ -1826,132 +2224,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
 
   // Add text tool logic
-  const handleStageClick = (e: any) => {
-    if (props.selectedTool === 'text') {
-      // Don't create text if we're currently editing
-      if (editingText) return;
-      
-      const stage = stageRef.current;
-      const pointer = stage.getPointerPosition();
-      if (!pointer) return;
-      
-      // Convert screen coordinates to canvas coordinates
-      const canvasPos = screenToCanvas(pointer.x, pointer.y);
-      
-      const id = Date.now().toString();
-      pushToUndoStackWithSave();
-      setTexts(prev => [
-        ...prev,
-        {
-          id,
-          text: 'Add text',
-          x: canvasPos.x,
-          y: canvasPos.y,
-          color: props.textColor || '#FF0000',
-          fontSize: 32,
-          rotation: 0,
-          timestamp: Date.now()
-        }
-      ]);
-      
-      // Immediately enter edit mode for the new text
-      setEditingText({
-        id,
-        value: 'Add text',
-        x: canvasPos.x,
-        y: canvasPos.y,
-        color: props.textColor || '#FF0000',
-        fontSize: 32,
-        rotation: 0,
-      });
-      
-      // Select the new text
-      setSelectedIds([{ id, type: 'text' }]);
-      
-      // Immediately show the editing interface for new text
-      setTimeout(() => {
-        const stage = stageRef.current;
-        if (!stage) return;
-        
-        // Calculate the exact position where the text appears on screen
-        const stageRect = stage.container().getBoundingClientRect();
-        const textX = stageRect.left + (canvasPos.x * zoom + stagePos.x);
-        const textY = stageRect.top + (canvasPos.y * zoom + stagePos.y);
-        
-        // Create a simple input element positioned exactly over the text
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = 'Add text';
-        input.style.position = 'fixed';
-        input.style.left = textX + 'px';
-        input.style.top = textY + 'px';
-        input.style.fontSize = '32px';
-        input.style.color = props.textColor || '#FF0000';
-        input.style.background = 'rgba(255,255,255,0.95)';
-        input.style.border = '2px solid rgba(225,255,0,0.8)';
-        input.style.borderRadius = '4px';
-        input.style.padding = '4px 8px';
-        input.style.outline = 'none';
-        input.style.fontFamily = 'Arial, sans-serif';
-        input.style.fontWeight = 'normal';
-        input.style.fontStyle = 'normal';
-        input.style.zIndex = '1000';
-        input.style.minWidth = '120px';
-        input.style.maxWidth = '600px';
-        
-        // Add to body
-        document.body.appendChild(input);
-        
-        // Focus and select all text
-        input.focus();
-        input.select();
-        
-        // Handle input changes in real-time
-        const handleInput = () => {
-          const newValue = input.value;
-          setEditingText(prev => prev ? { ...prev, value: newValue } : null);
-        };
-        
-        // Handle completion (Enter key or blur)
-        const handleComplete = () => {
-          const newValue = input.value;
-          
-          if (newValue.trim() !== '') {
-            // Save the changes
-            pushToUndoStackWithSave();
-            setTexts(prev => prev.map(t => t.id === id ? { ...t, text: newValue } : t));
-            
-            // Switch to select tool after editing
-            if (props.onTextAdded) props.onTextAdded();
-          }
-          
-          // Clean up
-          cleanupSimpleTextEditing(input);
-        };
-        
-        // Handle keyboard events
-        const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleComplete();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            cleanupSimpleTextEditing(input);
-          }
-        };
-        
-        // Add event listeners
-        input.addEventListener('input', handleInput);
-        input.addEventListener('blur', handleComplete);
-        input.addEventListener('keydown', handleKeyDown);
-      }, 100); // Small delay to ensure state is updated
-      
-      return;
-    }
-    if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
-      setSelectedIds([]);
-    }
-  };
 
   // Selection helpers
   const isSelected = (id: string, type: 'image' | 'stroke' | 'text' | 'video') => selectedIds.some(sel => sel.id === id && sel.type === type);
@@ -2221,14 +2493,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Debug: log the timestamps
   console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
 
-  // Simple and reliable text editing with proper positioning
+  // Helper function to measure text width more accurately
+  const measureTextWidth = (text: string, fontSize: number, fontFamily: string) => {
+    // Create a temporary canvas to measure text
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return text.length * fontSize * 0.6; // Fallback
+    
+    context.font = `${fontSize}px ${fontFamily}`;
+    return context.measureText(text).width;
+  };
+  
+  // Native canvas text editing - NO HTML overlays!
   const handleTextDblClick = (txt: any) => {
     if (editingText) return; // Only one at a time
     
     // Clear any existing selection
     setSelectedIds([]);
     
-    // Set editing state
+    // Set editing state with cursor position at the end
     setEditingText({
       id: txt.id,
       value: txt.text,
@@ -2237,98 +2520,92 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       color: txt.color,
       fontSize: txt.fontSize,
       rotation: txt.rotation || 0,
+      cursorPosition: txt.text.length, // Start at end of text
+      selectionStart: 0,
+      selectionEnd: txt.text.length,
     });
     
-    // Get the stage for positioning
-    const stage = stageRef.current;
-    if (!stage) return;
-    
-    // Calculate the exact position where the text appears on screen
-    const stageRect = stage.container().getBoundingClientRect();
-    const textX = stageRect.left + (txt.x * zoom + stagePos.x);
-    const textY = stageRect.top + (txt.y * zoom + stagePos.y);
-    
-    // Create a simple input element positioned exactly over the text
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = txt.text;
-    input.style.position = 'fixed';
-    input.style.left = textX + 'px';
-    input.style.top = textY + 'px';
-    input.style.fontSize = txt.fontSize + 'px';
-    input.style.color = txt.color;
-    input.style.background = 'rgba(255,255,255,0.95)';
-    input.style.border = '2px solid rgba(225,255,0,0.8)';
-    input.style.borderRadius = '4px';
-    input.style.padding = '4px 8px';
-    input.style.outline = 'none';
-    input.style.fontFamily = 'Arial, sans-serif';
-    input.style.fontWeight = 'normal';
-    input.style.fontStyle = 'normal';
-    input.style.zIndex = '1000';
-    input.style.minWidth = Math.max(100, txt.text.length * 20) + 'px';
-    input.style.maxWidth = '600px';
-    
-    // Add to body
-    document.body.appendChild(input);
-    
-    // Focus and select all text
-    input.focus();
-    input.select();
-    
-    // Handle input changes in real-time
-    const handleInput = () => {
-      const newValue = input.value;
-      setEditingText(prev => prev ? { ...prev, value: newValue } : null);
-    };
-    
-    // Handle completion (Enter key or blur)
-    const handleComplete = () => {
-      const newValue = input.value;
-      
-      if (newValue.trim() !== '') {
-        // Save the changes
-        pushToUndoStackWithSave();
-        setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, text: newValue } : t));
-        
-        // Switch to select tool after editing
+    // Focus the stage for keyboard input
+    const stageForEdit = stageRef.current;
+    if (stageForEdit) {
+      stageForEdit.container().focus();
+    }
+  };
+  
+  // Handle click outside to exit text editing
+  const handleStageClick = (e: any) => {
+    // If we're editing text and clicked outside the text, exit editing
+    if (editingText && e.target === e.target.getStage()) {
+      // Only exit if text has content, otherwise keep editing
+      if (editingText.value.trim() !== '') {
+        setEditingText(null);
         if (props.onTextAdded) props.onTextAdded();
       }
-      
-      // Clean up
-      cleanupSimpleTextEditing(input);
-    };
-    
-    // Handle keyboard events
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleComplete();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        cleanupSimpleTextEditing(input);
-      }
-    };
-    
-    // Add event listeners
-    input.addEventListener('input', handleInput);
-    input.addEventListener('blur', handleComplete);
-    input.addEventListener('keydown', handleKeyDown);
-  };
-  // Text editing is now handled inline, no separate textarea needed
-  
-  // Cleanup function for simple text editing
-  const cleanupSimpleTextEditing = useCallback((input: HTMLInputElement) => {
-    if (!input) return;
-    
-    // Remove from DOM
-    if (document.body.contains(input)) {
-      document.body.removeChild(input);
+      return;
     }
     
-    // Clear editing state
-    setEditingText(null);
-  }, []);
+    // If we're editing text and clicked on a different text element, exit current editing
+    if (editingText && e.target.id() && e.target.id().startsWith('text-') && e.target.id() !== `text-${editingText.id}`) {
+      // Only exit if text has content, otherwise keep editing
+      if (editingText.value.trim() !== '') {
+        setEditingText(null);
+        if (props.onTextAdded) props.onTextAdded();
+      }
+      // Don't return here, let the click handler continue to select the new text
+    }
+    
+    // Original stage click logic
+    if (props.selectedTool === 'text') {
+      if (editingText) return;
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      const canvasPos = screenToCanvas(pointer.x, pointer.y);
+      const id = Date.now().toString();
+      pushToUndoStackWithSave();
+      setTexts(prev => [
+        ...prev,
+        {
+          id,
+          text: '', // Start with blank text
+          x: canvasPos.x,
+          y: canvasPos.y,
+          color: props.textColor || '#FF0000',
+          fontSize: 32,
+          rotation: 0,
+          timestamp: Date.now()
+        }
+      ]);
+      
+      // Immediately enter native edit mode for the new text
+      setEditingText({
+        id,
+        value: '', // Start with blank text
+        x: canvasPos.x,
+        y: canvasPos.y,
+        color: props.textColor || '#FF0000',
+        fontSize: 32,
+        rotation: 0,
+        cursorPosition: 0, // Start at beginning of blank text
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      
+      // Select the new text
+      setSelectedIds([{ id, type: 'text' }]);
+      
+      // Focus the stage for keyboard input
+      const stageForFocus = stageRef.current;
+      if (stageForFocus) {
+        stageForFocus.container().focus();
+      }
+      
+      return;
+    }
+    if (props.selectedTool === 'select' && e.target === e.target.getStage()) {
+      setSelectedIds([]);
+    }
+  };
 
   // Text editing is now handled inline, no need for click outside handlers
 
@@ -2694,54 +2971,186 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             .slice()
             .sort((a, b) => a.timestamp - b.timestamp)
             .map(txt => (
-              <KonvaText
-                key={txt.id}
-                id={`text-${txt.id}`}
-                text={txt.text}
-                x={txt.x}
-                y={txt.y}
-                fontSize={txt.fontSize}
-                fill={txt.color}
-                draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
-                rotation={txt.rotation}
-                // Show text normally, but highlight when editing
-                opacity={editingText && editingText.id === txt.id ? 0.3 : 1}
-                // Add subtle highlight when text tool is active
-                shadowColor={props.selectedTool === 'text' ? 'rgba(225,255,0,0.3)' : 'transparent'}
-                shadowBlur={props.selectedTool === 'text' ? 8 : 0}
-                shadowOffset={{ x: 0, y: 0 }}
-                // Add border when editing
-                stroke={editingText && editingText.id === txt.id ? 'rgba(225,255,0,0.6)' : 'transparent'}
-                strokeWidth={editingText && editingText.id === txt.id ? 0.5 : 0}
-                onClick={evt => handleItemClick(txt.id, 'text', evt)}
-                onTap={evt => handleItemClick(txt.id, 'text', evt)}
-                onDblClick={() => handleTextDblClick(txt)}
-                onDblTap={() => handleTextDblClick(txt)}
-                onDragEnd={e => {
-                  pushToUndoStackWithSave();
-                  const { x, y } = e.target.position();
-                  setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x, y } : t));
-                  handleGroupDragEnd();
-                }}
-                onTransformEnd={e => {
-                  pushToUndoStackWithSave();
-                  const node = e.target;
-                  const scaleX = node.scaleX();
-                  const scaleY = node.scaleY();
-                  const rotation = node.rotation();
-                  const x = node.x();
-                  const y = node.y();
-                  setTexts(prev => prev.map(t =>
-                    t.id === txt.id
-                      ? { ...t, x, y, fontSize: Math.max(10, t.fontSize * scaleY), rotation }
-                      : t
-                  ));
-                  node.scaleX(1);
-                  node.scaleY(1);
-                }}
-                onDragStart={e => handleGroupDragStart(e, txt.id, 'text')}
-                onDragMove={e => handleGroupDragMove(e, txt.id, 'text')}
-              />
+              <Group key={txt.id}>
+                {/* Main text */}
+                <KonvaText
+                  id={`text-${txt.id}`}
+                  text={txt.text || ' '} // Show space for empty text to maintain clickable area
+                  x={txt.x}
+                  y={txt.y}
+                  fontSize={txt.fontSize}
+                  fontFamily="Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                  fill={txt.text ? txt.color : 'transparent'} // Make empty text transparent
+                  draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
+                  rotation={txt.rotation}
+                  // Show text normally
+                  opacity={1}
+                  // Add subtle highlight when text tool is active or when editing
+                  shadowColor={props.selectedTool === 'text' || (editingText && editingText.id === txt.id) ? 'rgba(225,255,0,0.3)' : 'transparent'}
+                  shadowBlur={props.selectedTool === 'text' || (editingText && editingText.id === txt.id) ? 8 : 0}
+                  shadowOffset={{ x: 0, y: 0 }}
+                  stroke="transparent"
+                  strokeWidth={0}
+                  onClick={evt => handleItemClick(txt.id, 'text', evt)}
+                  onTap={evt => handleItemClick(txt.id, 'text', evt)}
+                  onDblClick={() => handleTextDblClick(txt)}
+                  onDblTap={() => handleTextDblClick(txt)}
+                  onDragEnd={e => {
+                    pushToUndoStackWithSave();
+                    const { x, y } = e.target.position();
+                    setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x, y } : t));
+                    handleGroupDragEnd();
+                  }}
+                  onTransformEnd={e => {
+                    pushToUndoStackWithSave();
+                    const node = e.target;
+                    const scaleX = node.scaleX();
+                    const scaleY = node.scaleY();
+                    const rotation = node.rotation();
+                    const x = node.x();
+                    const y = node.y();
+                    setTexts(prev => prev.map(t =>
+                      t.id === txt.id
+                        ? { ...t, x, y, fontSize: Math.max(10, t.fontSize * scaleY), rotation }
+                        : t
+                    ));
+                    node.scaleX(1);
+                    node.scaleY(1);
+                  }}
+                  onDragStart={e => handleGroupDragStart(e, txt.id, 'text')}
+                  onDragMove={e => handleGroupDragMove(e, txt.id, 'text')}
+                />
+                
+                {/* Text selection highlight */}
+                {editingText && editingText.id === txt.id && editingText.selectionStart !== editingText.selectionEnd && (() => {
+                  // Calculate selection highlight for multi-line text
+                  const textLines = editingText.value.split('\n');
+                  const startPos = editingText.selectionStart;
+                  const endPos = editingText.selectionEnd;
+                  const lineHeight = txt.fontSize * 1.2;
+                  
+                  // Find start and end lines
+                  let startLine = 0;
+                  let startChar = startPos;
+                  let endLine = 0;
+                  let endChar = endPos;
+                  
+                  // Find start line and character
+                  for (let i = 0; i < textLines.length; i++) {
+                    if (startChar <= textLines[i].length) {
+                      startLine = i;
+                      break;
+                    }
+                    startChar -= textLines[i].length + 1;
+                  }
+                  
+                  // Find end line and character
+                  for (let i = 0; i < textLines.length; i++) {
+                    if (endChar <= textLines[i].length) {
+                      endLine = i;
+                      break;
+                    }
+                    endChar -= textLines[i].length + 1;
+                  }
+                  
+                  // Render selection highlights for each line
+                  const highlights = [];
+                  
+                  if (startLine === endLine) {
+                    // Single line selection
+                    const textBeforeSelection = textLines[startLine].substring(0, startChar);
+                    const selectedText = textLines[startLine].substring(startChar, endChar);
+                    const textBeforeWidth = measureTextWidth(textBeforeSelection, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                    const selectionWidth = measureTextWidth(selectedText, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                    
+                    highlights.push(
+                      <Rect
+                        key={`selection-${startLine}`}
+                        x={txt.x + textBeforeWidth}
+                        y={txt.y + (startLine * lineHeight)}
+                        width={selectionWidth}
+                        height={txt.fontSize}
+                        fill="rgba(0, 123, 255, 0.3)"
+                        rotation={txt.rotation}
+                      />
+                    );
+                  } else {
+                    // Multi-line selection
+                    for (let line = startLine; line <= endLine; line++) {
+                      let lineStart = 0;
+                      let lineEnd = textLines[line].length;
+                      
+                      if (line === startLine) {
+                        lineStart = startChar;
+                      }
+                      if (line === endLine) {
+                        lineEnd = endChar;
+                      }
+                      
+                      const textBeforeSelection = textLines[line].substring(0, lineStart);
+                      const selectedText = textLines[line].substring(lineStart, lineEnd);
+                      const textBeforeWidth = measureTextWidth(textBeforeSelection, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                      const selectionWidth = measureTextWidth(selectedText, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                      
+                      highlights.push(
+                        <Rect
+                          key={`selection-${line}`}
+                          x={txt.x + textBeforeWidth}
+                          y={txt.y + (line * lineHeight)}
+                          width={selectionWidth}
+                          height={txt.fontSize}
+                          fill="rgba(0, 123, 255, 0.3)"
+                          rotation={txt.rotation}
+                        />
+                      );
+                    }
+                  }
+                  
+                  return highlights;
+                })()}
+                
+                {/* Custom caret for native editing */}
+                {editingText && editingText.id === txt.id && caretVisible && (() => {
+                  // Calculate caret position for multi-line text
+                  const textLines = editingText.value.split('\n');
+                  let currentLine = 0;
+                  let currentChar = editingText.cursorPosition;
+                  
+                  // Find which line the cursor is on
+                  for (let i = 0; i < textLines.length; i++) {
+                    if (currentChar <= textLines[i].length) {
+                      currentLine = i;
+                      break;
+                    }
+                    currentChar -= textLines[i].length + 1; // +1 for the newline character
+                  }
+                  
+                  // Use accurate text measurement for caret positioning
+                  const textBeforeCursor = textLines[currentLine].substring(0, currentChar);
+                  const textWidth = measureTextWidth(textBeforeCursor, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                  const lineHeight = txt.fontSize * 1.2; // Better line height for multi-line
+                  
+                  // Calculate caret position with proper vertical alignment
+                  const caretX = txt.x + textWidth;
+                  const caretY = txt.y + (currentLine * lineHeight); // Remove offset for better alignment
+                  
+                  return (
+                    <Line
+                      points={[
+                        caretX,
+                        caretY,
+                        caretX,
+                        caretY + txt.fontSize
+                      ]}
+                      stroke={txt.color}
+                      strokeWidth={2}
+                      rotation={txt.rotation}
+                      lineCap="round"
+                      lineJoin="round"
+                    />
+                  );
+                })()}
+              </Group>
             ))}
           {/* Render all strokes after images (oldest to newest) */}
           {strokes
