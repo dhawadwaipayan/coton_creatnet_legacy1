@@ -156,6 +156,63 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
   }, [zoom, stagePos]);
 
+  // Frames state: white rectangles always rendered below other elements
+  const [frames, setFrames] = useState<Array<{ id: string, name?: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
+  const [frameDrawing, setFrameDrawing] = useState(false);
+  const [frameStart, setFrameStart] = useState<{ x: number, y: number } | null>(null);
+  const [currentFrame, setCurrentFrame] = useState<{ id: string, x: number, y: number, width: number, height: number } | null>(null);
+  const snapThreshold = 8;
+  const gridSize = 20;
+
+  // Snap helpers
+  const roundToGrid = (val: number) => Math.round(val / gridSize) * gridSize;
+  const getFrameEdges = (f: {x:number;y:number;width:number;height:number}) => ({
+    left: f.x,
+    right: f.x + f.width,
+    top: f.y,
+    bottom: f.y + f.height,
+    cx: f.x + f.width / 2,
+    cy: f.y + f.height / 2
+  });
+  const applySnapToFrame = (proposal: {x:number;y:number;width:number;height:number}, ignoreId?: string) => {
+    let { x, y, width, height } = proposal;
+    // Grid snap
+    const gx = roundToGrid(x);
+    const gy = roundToGrid(y);
+    if (Math.abs(gx - x) <= snapThreshold) x = gx;
+    if (Math.abs(gy - y) <= snapThreshold) y = gy;
+    const gxr = roundToGrid(x + width);
+    const gyr = roundToGrid(y + height);
+    if (Math.abs(gxr - (x + width)) <= snapThreshold) width = Math.max(20, gxr - x);
+    if (Math.abs(gyr - (y + height)) <= snapThreshold) height = Math.max(20, gyr - y);
+    // Other frames snap
+    const currentEdges = getFrameEdges({ x, y, width, height });
+    frames.filter(f => f.id !== ignoreId).forEach(f => {
+      const e = getFrameEdges(f);
+      // Horizontal alignments
+      const candidatesX = [e.left, e.right, e.cx];
+      candidatesX.forEach(cxVal => {
+        // snap left
+        if (Math.abs(x - cxVal) <= snapThreshold) x = cxVal;
+        // snap right
+        if (Math.abs(x + width - cxVal) <= snapThreshold) x = cxVal - width;
+        // snap center X
+        if (Math.abs(x + width / 2 - cxVal) <= snapThreshold) x = cxVal - width / 2;
+      });
+      // Vertical alignments
+      const candidatesY = [e.top, e.bottom, e.cy];
+      candidatesY.forEach(cyVal => {
+        // snap top
+        if (Math.abs(y - cyVal) <= snapThreshold) y = cyVal;
+        // snap bottom
+        if (Math.abs(y + height - cyVal) <= snapThreshold) y = cyVal - height;
+        // snap center Y
+        if (Math.abs(y + height / 2 - cyVal) <= snapThreshold) y = cyVal - height / 2;
+      });
+    });
+    return { x, y, width, height };
+  };
+
   // Images state: store loaded HTMLImageElement
   const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
   // Videos state: store video elements with Konva.js video support
@@ -198,8 +255,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [currentStroke, setCurrentStroke] = useState<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number } | null>(null);
   // Replace selection state and logic
   // Remove selectedId, selectedType
-  // Use only selectedIds: Array<{ id: string, type: 'image' | 'stroke' }>
-  const [selectedIds, setSelectedIds] = useState<Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video' }>>([]);
+  // Use only selectedIds: Array<{ id: string, type: 'frame' | 'image' | 'stroke' | 'text' | 'video' }>
+  const [selectedIds, setSelectedIds] = useState<Array<{ id: string, type: 'frame' | 'image' | 'stroke' | 'text' | 'video' }>>([]);
   const [selectionRect, setSelectionRect] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ x: number, y: number } | null>(null);
   const [groupDragStart, setGroupDragStart] = useState<{ x: number, y: number, items: Array<{ id: string, type: 'image' | 'stroke' | 'text' | 'video', x: number, y: number }> } | null>(null);
@@ -2103,6 +2160,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         x: e.evt.clientX,
         y: e.evt.clientY
       });
+    } else if (props.selectedTool === 'frame') {
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      setFrameDrawing(true);
+      const start = screenToCanvas(pointer.x, pointer.y);
+      setFrameStart(start);
+      const id = Date.now().toString();
+      setCurrentFrame({ id, x: start.x, y: start.y, width: 0, height: 0 });
     } else if (props.selectedTool === 'draw') {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
@@ -2135,6 +2201,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const dy = e.evt.clientY - lastPos.y;
       setStagePos(prev => clampStagePos({ x: prev.x + dx, y: prev.y + dy }));
       setLastPos({ x: e.evt.clientX, y: e.evt.clientY });
+    } else if (props.selectedTool === 'frame' && frameDrawing && frameStart) {
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      const pos = screenToCanvas(pointer.x, pointer.y);
+      const x = Math.min(frameStart.x, pos.x);
+      const y = Math.min(frameStart.y, pos.y);
+      const width = Math.abs(pos.x - frameStart.x);
+      const height = Math.abs(pos.y - frameStart.y);
+      setCurrentFrame(prev => prev ? { ...prev, x, y, width, height } : prev);
     } else if (props.selectedTool === 'draw' && drawing && currentStroke) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
@@ -2155,6 +2231,25 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     if (props.selectedTool === 'hand') {
       setIsDragging(false);
       setLastPos(null);
+    } else if (props.selectedTool === 'frame' && frameDrawing && currentFrame) {
+      const width = Math.max(20, currentFrame.width);
+      const height = Math.max(20, currentFrame.height);
+      const id = currentFrame.id;
+      const allTimestamps = [
+        ...images.map(i => i.timestamp),
+        ...strokes.map(s => s.timestamp),
+        ...texts.map(t => t.timestamp),
+        ...videos.map(v => v.timestamp)
+      ];
+      const minExistingTimestamp = allTimestamps.length > 0 ? Math.min(...allTimestamps) : Date.now();
+      const frameTimestamp = minExistingTimestamp - 1;
+      // Auto-name: Frame N
+      const nextIndex = frames.length + 1;
+      setFrames(prev => [...prev, { id, name: `Frame ${nextIndex}`, x: currentFrame.x, y: currentFrame.y, width, height, rotation: 0, timestamp: frameTimestamp }]);
+      setSelectedIds([{ id, type: 'frame' }]);
+      setFrameDrawing(false);
+      setFrameStart(null);
+      setCurrentFrame(null);
     } else if (props.selectedTool === 'draw' && drawing && currentStroke) {
       // Calculate bounding box for the stroke
       const xs = currentStroke.points.filter((_, i) => i % 2 === 0);
@@ -2226,10 +2321,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Add text tool logic
 
   // Selection helpers
-  const isSelected = (id: string, type: 'image' | 'stroke' | 'text' | 'video') => selectedIds.some(sel => sel.id === id && sel.type === type);
+  const isSelected = (id: string, type: 'frame' | 'image' | 'stroke' | 'text' | 'video') => selectedIds.some(sel => sel.id === id && sel.type === type);
 
   // Handle click on image/stroke/text/video
-  const handleItemClick = (id: string, type: 'image' | 'stroke' | 'text' | 'video', evt: any) => {
+  const handleItemClick = (id: string, type: 'frame' | 'image' | 'stroke' | 'text' | 'video', evt: any) => {
     if (props.selectedTool !== 'select') return;
     const isMulti = evt.evt.shiftKey || evt.evt.ctrlKey || evt.evt.metaKey;
     if (isMulti) {
@@ -2405,6 +2500,42 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   };
   const handleGroupDragEnd = () => {
+    // On group drag end, snap selected items
+    if (groupDragStart && selectedIds.length > 0) {
+      selectedIds.forEach(sel => {
+        if (sel.type === 'image') {
+          const img = images.find(i => i.id === sel.id);
+          if (img) {
+            const snapped = applySnapToFrame({ x: img.x, y: img.y, width: img.width || 200, height: img.height || 200 }, undefined);
+            setImages(prev => prev.map(i => i.id === img.id ? { ...i, x: snapped.x, y: snapped.y } : i));
+          }
+        } else if (sel.type === 'text') {
+          const txt = texts.find(t => t.id === sel.id);
+          if (txt) {
+            const snapped = applySnapToFrame({ x: txt.x, y: txt.y, width: measureTextWidth(txt.text, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"), height: txt.fontSize * 1.2 }, undefined);
+            setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x: snapped.x, y: snapped.y } : t));
+          }
+        } else if (sel.type === 'stroke') {
+          const stroke = strokes.find(s => s.id === sel.id);
+          if (stroke) {
+            const snapped = applySnapToFrame({ x: stroke.x, y: stroke.y, width: stroke.width, height: stroke.height }, undefined);
+            setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x: snapped.x, y: snapped.y } : s));
+          }
+        } else if (sel.type === 'video') {
+          const video = videos.find(v => v.id === sel.id);
+          if (video) {
+            const snapped = applySnapToFrame({ x: video.x, y: video.y, width: video.width, height: video.height }, undefined);
+            setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x: snapped.x, y: snapped.y } : v));
+          }
+        } else if (sel.type === 'frame') {
+          const frame = frames.find(f => f.id === sel.id);
+          if (frame) {
+            const snapped = applySnapToFrame({ x: frame.x, y: frame.y, width: frame.width, height: frame.height }, frame.id);
+            setFrames(prev => prev.map(f => f.id === frame.id ? { ...f, x: snapped.x, y: snapped.y } : f));
+          }
+        }
+      });
+    }
     setGroupDragStart(null);
   };
 
@@ -2417,11 +2548,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const y = node.y();
     const width = Math.max(20, node.width() * scaleX);
     const height = Math.max(20, node.height() * scaleY);
-    setImages(prev => prev.map(img =>
-      img.id === id
-        ? { ...img, x, y, width, height, rotation }
-        : img
-    ));
+    const snapped = applySnapToFrame({ x, y, width, height }, undefined);
+    setImages(prev => prev.map(img => img.id === id ? { ...img, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, rotation } : img));
     node.scaleX(1);
     node.scaleY(1);
   };
@@ -2433,19 +2561,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const rotation = node.rotation();
     const x = node.x();
     const y = node.y();
-    setStrokes(prev => prev.map(stroke =>
-      stroke.id === id
-        ? {
-            ...stroke,
-            x,
-            y,
-            width: Math.max(20, stroke.width * scaleX),
-            height: Math.max(20, stroke.height * scaleY),
-            points: stroke.points.map((p, i) => i % 2 === 0 ? p * scaleX : p * scaleY),
-            rotation
-          }
-        : stroke
-    ));
+    const newWidth = Math.max(20, node.width() ? node.width() * scaleX : (strokes.find(s => s.id === id)?.width || 20) * scaleX);
+    const newHeight = Math.max(20, node.height() ? node.height() * scaleY : (strokes.find(s => s.id === id)?.height || 20) * scaleY);
+    const snapped = applySnapToFrame({ x, y, width: newWidth, height: newHeight }, undefined);
+    setStrokes(prev => prev.map(stroke => stroke.id === id ? { ...stroke, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, points: stroke.points.map((p, i) => i % 2 === 0 ? p * scaleX : p * scaleY), rotation } : stroke));
     node.scaleX(1);
     node.scaleY(1);
   };
@@ -2454,7 +2573,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   React.useEffect(() => {
     if (transformerRef.current && selectedIds.length > 0) {
       const nodes = selectedIds.map(sel => {
-        if (sel.type === 'image') {
+        if (sel.type === 'frame') {
+          return layerRef.current.findOne(`#frame-${sel.id}`);
+        } else if (sel.type === 'image') {
           return layerRef.current.findOne(`#img-${sel.id}`);
         } else if (sel.type === 'stroke') {
           return layerRef.current.findOne(`#stroke-${sel.id}`);
@@ -2468,13 +2589,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       transformerRef.current.nodes(nodes);
       transformerRef.current.getLayer().batchDraw();
     }
-  }, [selectedIds, images, strokes, texts, videos]);
+  }, [selectedIds, images, strokes, texts, videos, frames]);
 
   // Delete selected items
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
         pushToUndoStackWithSave();
+        setFrames(prev => prev.filter(frame => !selectedIds.some(sel => sel.id === frame.id && sel.type === 'frame')));
         setImages(prev => prev.filter(img => !selectedIds.some(sel => sel.id === img.id && sel.type === 'image')));
         setStrokes(prev => prev.filter(stroke => !selectedIds.some(sel => sel.id === stroke.id && sel.type === 'stroke')));
         setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
@@ -2780,6 +2902,87 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               listening={false}
             />
           ))}
+          {/* Render frames at the very bottom (oldest to newest) */}
+          {frames
+            .slice()
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .map(frame => (
+              <Group
+                key={frame.id}
+                id={`frame-${frame.id}`}
+                x={frame.x}
+                y={frame.y}
+                rotation={frame.rotation || 0}
+                draggable={props.selectedTool === 'select' && isSelected(frame.id, 'frame')}
+                onClick={evt => handleItemClick(frame.id, 'frame', evt)}
+                onTap={evt => handleItemClick(frame.id, 'frame', evt)}
+                onDragEnd={e => {
+                  const { x, y } = e.target.position();
+                  const snapped = applySnapToFrame({ x, y, width: frame.width, height: frame.height }, frame.id);
+                  setFrames(prev => prev.map(f => f.id === frame.id ? { ...f, x: snapped.x, y: snapped.y } : f));
+                }}
+                onTransformEnd={e => {
+                  const node = e.target;
+                  const scaleX = node.scaleX();
+                  const scaleY = node.scaleY();
+                  const rotation = node.rotation();
+                  const x = node.x();
+                  const y = node.y();
+                  const newDims = { width: Math.max(20, frame.width * scaleX), height: Math.max(20, frame.height * scaleY) };
+                  const snapped = applySnapToFrame({ x, y, width: newDims.width, height: newDims.height }, frame.id);
+                  setFrames(prev => prev.map(f => f.id === frame.id ? { ...f, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, rotation } : f));
+                  node.scaleX(1);
+                  node.scaleY(1);
+                }}
+              >
+                <Rect
+                  x={0}
+                  y={0}
+                  width={frame.width}
+                  height={frame.height}
+                  fill="#ffffff"
+                  stroke="#cccccc"
+                  strokeWidth={1}
+                  shadowColor="#000000"
+                  shadowBlur={2}
+                />
+                {/* Title label */}
+                <KonvaText
+                  text={frame.name || ''}
+                  x={8}
+                  y={8}
+                  fontSize={16}
+                  fontFamily="Gilroy, sans-serif"
+                  fill="#111111"
+                  onDblClick={() => {
+                    const newName = prompt('Rename frame', frame.name || '');
+                    if (newName !== null) {
+                      setFrames(prev => prev.map(f => f.id === frame.id ? { ...f, name: newName } : f));
+                    }
+                  }}
+                  onDblTap={() => {
+                    const newName = prompt('Rename frame', frame.name || '');
+                    if (newName !== null) {
+                      setFrames(prev => prev.map(f => f.id === frame.id ? { ...f, name: newName } : f));
+                    }
+                  }}
+                />
+              </Group>
+            ))}
+
+          {/* Preview current frame while creating */}
+          {currentFrame && props.selectedTool === 'frame' && frameDrawing && (
+            <Rect
+              x={currentFrame.x}
+              y={currentFrame.y}
+              width={currentFrame.width}
+              height={currentFrame.height}
+              fill="rgba(255,255,255,0.6)"
+              stroke="#cccccc"
+              strokeWidth={1}
+              listening={false}
+            />
+          )}
           
           {/* Show empty state message when no board is selected */}
           {!props.boardContent && (
@@ -2831,7 +3034,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onDragEnd={e => {
                     pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
-                    setImages(prev => prev.map(im => im.id === img.id ? { ...im, x, y } : im));
+                    const snapped = applySnapToFrame({ x, y, width: img.width || 200, height: img.height || 200 }, undefined);
+                    setImages(prev => prev.map(im => im.id === img.id ? { ...im, x: snapped.x, y: snapped.y } : im));
                     handleGroupDragEnd();
                   }}
                   onTransformEnd={e => handleTransformEndImage(img.id, e.target)}
@@ -2860,7 +3064,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onDragEnd={e => {
                     pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
-                    setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x, y } : v));
+                    const snapped = applySnapToFrame({ x, y, width: video.width, height: video.height }, undefined);
+                    setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x: snapped.x, y: snapped.y } : v));
                     handleGroupDragEnd();
                   }}
                   onTransformEnd={e => {
@@ -2871,11 +3076,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     const rotation = node.rotation();
                     const x = node.x();
                     const y = node.y();
-                    setVideos(prev => prev.map(v =>
-                      v.id === video.id
-                        ? { ...v, x, y, width: v.width * scaleX, height: v.height * scaleY, rotation }
-                        : v
-                    ));
+                    const newWidth = Math.max(20, video.width * scaleX);
+                    const newHeight = Math.max(20, video.height * scaleY);
+                    const snapped = applySnapToFrame({ x, y, width: newWidth, height: newHeight }, undefined);
+                    setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, rotation } : v));
                     node.scaleX(1);
                     node.scaleY(1);
                   }}
@@ -2998,7 +3202,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onDragEnd={e => {
                     pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
-                    setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x, y } : t));
+                    const widthApprox = measureTextWidth(txt.text, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                    const snapped = applySnapToFrame({ x, y, width: widthApprox, height: txt.fontSize * 1.2 }, undefined);
+                    setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x: snapped.x, y: snapped.y } : t));
                     handleGroupDragEnd();
                   }}
                   onTransformEnd={e => {
@@ -3009,11 +3215,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     const rotation = node.rotation();
                     const x = node.x();
                     const y = node.y();
-                    setTexts(prev => prev.map(t =>
-                      t.id === txt.id
-                        ? { ...t, x, y, fontSize: Math.max(10, t.fontSize * scaleY), rotation }
-                        : t
-                    ));
+                    const newFontSize = Math.max(10, txt.fontSize * scaleY);
+                    const widthApprox = measureTextWidth(txt.text, newFontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
+                    const snapped = applySnapToFrame({ x, y, width: widthApprox, height: newFontSize * 1.2 }, undefined);
+                    setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x: snapped.x, y: snapped.y, fontSize: newFontSize, rotation } : t));
                     node.scaleX(1);
                     node.scaleY(1);
                   }}
@@ -3175,7 +3380,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onDragEnd={e => {
                   pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
-                  setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x, y } : s));
+                  const snapped = applySnapToFrame({ x, y, width: stroke.width, height: stroke.height }, undefined);
+                  setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x: snapped.x, y: snapped.y } : s));
                   handleGroupDragEnd();
                 }}
                 onTransformEnd={e => handleTransformEndStroke(stroke.id, e.target)}
