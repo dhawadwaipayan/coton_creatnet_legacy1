@@ -1,6 +1,8 @@
 // Edit Service - Handles edit operations (fastrack only)
 // Separate service for edit operations
 
+import { trackGeneration } from '../lib/utils';
+
 interface EditRequest {
   base64Sketch: string;
   additionalDetails?: string;
@@ -24,7 +26,7 @@ interface EditResponse {
   };
 }
 
-export async function callEditService(request: EditRequest): Promise<EditResponse> {
+export async function callEditService(request: EditRequest, userId?: string): Promise<EditResponse> {
   const { base64Sketch, additionalDetails } = request;
   
   console.log('[Edit Service] Calling edit fastrack with:', {
@@ -64,6 +66,22 @@ export async function callEditService(request: EditRequest): Promise<EditRespons
       outputLength: result.output?.length || 0
     });
 
+    // Track successful generation if userId is provided
+    if (result.success && userId) {
+      try {
+        console.log('[Edit Service] Tracking edit generation for user:', userId);
+        await trackGeneration(userId, 'image', {
+          mode: 'edit_fastrack',
+          hasAdditionalDetails: !!additionalDetails,
+          timestamp: Date.now()
+        });
+        console.log('[Edit Service] Successfully tracked edit generation');
+      } catch (trackingError) {
+        console.warn('[Edit Service] Failed to track generation:', trackingError);
+        // Don't throw error - tracking failure shouldn't break the generation
+      }
+    }
+
     return result.result;
   } catch (error) {
     console.error('[Edit Service] Error in edit fastrack:', error);
@@ -72,5 +90,5 @@ export async function callEditService(request: EditRequest): Promise<EditRespons
 }
 
 // Convenience function
-export const editFastrack = (base64Sketch: string, additionalDetails?: string) =>
-  callEditService({ base64Sketch, additionalDetails });
+export const editFastrack = (base64Sketch: string, additionalDetails?: string, userId?: string) =>
+  callEditService({ base64Sketch, additionalDetails }, userId);

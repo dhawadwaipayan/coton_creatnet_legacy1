@@ -3,6 +3,7 @@
 
 import { forceAspectRatio, PreprocessingResult } from './imagePreprocessingService';
 import { restoreAspectRatio, VideoProcessingResult } from './videoPostProcessingService';
+import { trackGeneration } from '../lib/utils';
 
 interface VideoRequest {
   base64Sketch: string;
@@ -127,13 +128,30 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
       };
 
       console.log('[Video Service] Complete processing pipeline finished');
+      
+      // Track successful generation
+      try {
+        console.log('[Video Service] Tracking video generation for user:', userId);
+        await trackGeneration(userId, 'video', {
+          mode: 'video_fastrack',
+          hasAdditionalDetails: !!additionalDetails,
+          hasPreprocessing: !!preprocessingResult,
+          hasPostProcessing: !!postProcessingResult,
+          timestamp: Date.now()
+        });
+        console.log('[Video Service] Successfully tracked video generation');
+      } catch (trackingError) {
+        console.warn('[Video Service] Failed to track generation:', trackingError);
+        // Don't throw error - tracking failure shouldn't break the generation
+      }
+      
       return responseWithProcessing;
 
     } catch (desqueezeError) {
       console.warn('[Video Service] Desqueeze failed, returning original video:', desqueezeError);
       
       // If desqueeze fails, return original video with preprocessing info
-      return {
+      const fallbackResponse = {
         ...result.result,
         video: {
           ...result.result.video,
@@ -141,6 +159,24 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
         },
         preprocessingInfo: preprocessingResult
       };
+      
+      // Track successful generation even if desqueeze failed
+      try {
+        console.log('[Video Service] Tracking video generation (fallback) for user:', userId);
+        await trackGeneration(userId, 'video', {
+          mode: 'video_fastrack',
+          hasAdditionalDetails: !!additionalDetails,
+          hasPreprocessing: !!preprocessingResult,
+          hasPostProcessing: false, // Desqueeze failed
+          timestamp: Date.now()
+        });
+        console.log('[Video Service] Successfully tracked video generation (fallback)');
+      } catch (trackingError) {
+        console.warn('[Video Service] Failed to track generation (fallback):', trackingError);
+        // Don't throw error - tracking failure shouldn't break the generation
+      }
+      
+      return fallbackResponse;
     }
   } catch (error) {
     console.error(`[Video Service] Error in fastrack:`, error);

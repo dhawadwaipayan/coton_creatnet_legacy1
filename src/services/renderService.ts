@@ -1,6 +1,8 @@
 // Render Service - Handles both fastrack and accurate modes
 // Separate service for render operations
 
+import { trackGeneration } from '../lib/utils';
+
 interface RenderRequest {
   mode: 'fastrack' | 'accurate';
   base64Sketch: string;
@@ -26,7 +28,7 @@ interface RenderResponse {
   };
 }
 
-export async function callRenderService(request: RenderRequest): Promise<RenderResponse> {
+export async function callRenderService(request: RenderRequest, userId?: string): Promise<RenderResponse> {
   const { mode, base64Sketch, base64Material, additionalDetails } = request;
   
   console.log(`[Render Service] Calling ${mode} mode with:`, {
@@ -70,6 +72,23 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
       outputLength: result.output?.length || 0
     });
 
+    // Track successful generation if userId is provided
+    if (result.success && userId) {
+      try {
+        console.log(`[Render Service] Tracking ${mode} generation for user:`, userId);
+        await trackGeneration(userId, 'image', {
+          mode,
+          hasMaterial: !!base64Material,
+          hasAdditionalDetails: !!additionalDetails,
+          timestamp: Date.now()
+        });
+        console.log(`[Render Service] Successfully tracked ${mode} generation`);
+      } catch (trackingError) {
+        console.warn(`[Render Service] Failed to track generation:`, trackingError);
+        // Don't throw error - tracking failure shouldn't break the generation
+      }
+    }
+
     return result.result;
   } catch (error) {
     console.error(`[Render Service] Error in ${mode}:`, error);
@@ -78,8 +97,8 @@ export async function callRenderService(request: RenderRequest): Promise<RenderR
 }
 
 // Convenience functions
-export const renderFastrack = (base64Sketch: string, base64Material?: string, additionalDetails?: string) =>
-  callRenderService({ mode: 'fastrack', base64Sketch, base64Material, additionalDetails });
+export const renderFastrack = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'fastrack', base64Sketch, base64Material, additionalDetails }, userId);
 
-export const renderAccurate = (base64Sketch: string, base64Material?: string, additionalDetails?: string) =>
-  callRenderService({ mode: 'accurate', base64Sketch, base64Material, additionalDetails });
+export const renderAccurate = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'accurate', base64Sketch, base64Material, additionalDetails }, userId);

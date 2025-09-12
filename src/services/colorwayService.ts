@@ -1,6 +1,8 @@
 // Colorway Service - Handles colorway operations (color and print)
 // Separate service for colorway operations
 
+import { trackGeneration } from '../lib/utils';
+
 interface ColorwayRequest {
   mode: 'color' | 'print';
   base64Sketch: string;
@@ -27,7 +29,7 @@ interface ColorwayResponse {
   };
 }
 
-export async function callColorwayService(request: ColorwayRequest): Promise<ColorwayResponse> {
+export async function callColorwayService(request: ColorwayRequest, userId?: string): Promise<ColorwayResponse> {
   const { mode, base64Sketch, additionalDetails, selectedColor, referenceImage } = request;
   
   console.log(`[Colorway Service] Calling ${mode} mode with:`, {
@@ -71,6 +73,24 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
       error: result.error
     });
 
+    // Track successful generation if userId is provided
+    if (result.success && userId) {
+      try {
+        console.log(`[Colorway Service] Tracking ${mode} generation for user:`, userId);
+        await trackGeneration(userId, 'image', {
+          mode: `colorway_${mode}`,
+          hasSelectedColor: !!selectedColor,
+          hasReferenceImage: !!referenceImage,
+          hasAdditionalDetails: !!additionalDetails,
+          timestamp: Date.now()
+        });
+        console.log(`[Colorway Service] Successfully tracked ${mode} generation`);
+      } catch (trackingError) {
+        console.warn(`[Colorway Service] Failed to track generation:`, trackingError);
+        // Don't throw error - tracking failure shouldn't break the generation
+      }
+    }
+
     return result.result;
   } catch (error) {
     console.error(`[Colorway Service] Error in ${mode}:`, error);
@@ -79,11 +99,11 @@ export async function callColorwayService(request: ColorwayRequest): Promise<Col
 }
 
 // Convenience functions for each colorway mode
-export const colorwayColor = (base64Sketch: string, selectedColor: string, additionalDetails?: string) =>
-  callColorwayService({ mode: 'color', base64Sketch, selectedColor, additionalDetails });
+export const colorwayColor = (base64Sketch: string, selectedColor: string, additionalDetails?: string, userId?: string) =>
+  callColorwayService({ mode: 'color', base64Sketch, selectedColor, additionalDetails }, userId);
 
-export const colorwayPrint = (base64Sketch: string, referenceImage: string, additionalDetails?: string) =>
-  callColorwayService({ mode: 'print', base64Sketch, referenceImage, additionalDetails });
+export const colorwayPrint = (base64Sketch: string, referenceImage: string, additionalDetails?: string, userId?: string) =>
+  callColorwayService({ mode: 'print', base64Sketch, referenceImage, additionalDetails }, userId);
 
 // Alternative function names that match user's changes
 export const generateColorwayColor = colorwayColor;

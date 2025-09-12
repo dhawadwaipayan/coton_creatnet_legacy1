@@ -213,7 +213,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     // No overlay/status logic
     // Use edit service with additional details
     try {
-      const result = await editFastrack(base64Sketch, details);
+      const result = await editFastrack(base64Sketch, details, userId);
       let base64 = null;
       if (result && Array.isArray(result.output)) {
         const imageOutput = result.output.find(
@@ -374,7 +374,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       // Minimal logs without provider/model names
         console.log('[Render] Calling render service');
         
-        const geminiResponse = await renderFastrack(base64Sketch, base64Material, cleanDetails);
+        const geminiResponse = await renderFastrack(base64Sketch, base64Material, cleanDetails, userId);
         result = geminiResponse;
         
         console.log('[Render] Response structure:', {
@@ -596,13 +596,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         }
         
         console.log('[Colorway] Using Print mode with reference image');
-        const colorwayResponse = await generateColorwayPrint(base64Sketch, colorwayReference);
+        const colorwayResponse = await generateColorwayPrint(base64Sketch, colorwayReference, undefined, userId);
         result = transformColorwayResponse(colorwayResponse, 'print');
         
       } else {
         // Color mode: Generate color variations
         console.log('[Colorway] Using Color mode');
-        const colorwayResponse = await generateColorwayColor(base64Sketch, details);
+        const colorwayResponse = await generateColorwayColor(base64Sketch, details, undefined, userId);
         result = transformColorwayResponse(colorwayResponse, 'color', details);
       }
       
