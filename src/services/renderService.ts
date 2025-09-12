@@ -80,7 +80,9 @@ export async function callRenderService(request: RenderRequest, userId?: string)
         throw limitError;
       }
       
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      // Sanitize provider-specific errors
+      console.warn('[Render Service] Upstream error (sanitized):', errorData?.error || response.statusText);
+      throw new Error('Image generation failed. Please try again.');
     }
 
     const result = await response.json();

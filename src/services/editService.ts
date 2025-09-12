@@ -74,7 +74,8 @@ export async function callEditService(request: EditRequest, userId?: string): Pr
         throw limitError;
       }
       
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      console.warn('[Edit Service] Upstream error (sanitized):', errorData?.error || response.statusText);
+      throw new Error('Image editing failed. Please try again.');
     }
 
     const result = await response.json();

@@ -93,7 +93,8 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
         throw limitError;
       }
       
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      console.warn('[Video Service] Upstream error (sanitized):', errorData?.error || response.statusText);
+      throw new Error('Video generation failed. Please try again.');
     }
 
     const result = await response.json();

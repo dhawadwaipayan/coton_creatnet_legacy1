@@ -81,7 +81,8 @@ export async function callColorwayService(request: ColorwayRequest, userId?: str
         throw limitError;
       }
       
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      console.warn('[Colorway Service] Upstream error (sanitized):', errorData?.error || response.statusText);
+      throw new Error('Colorway operation failed. Please try again.');
     }
 
     const result = await response.json();
