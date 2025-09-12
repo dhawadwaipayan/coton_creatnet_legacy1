@@ -3,7 +3,7 @@
 
 import { forceAspectRatio, PreprocessingResult } from './imagePreprocessingService';
 import { restoreAspectRatio, VideoProcessingResult } from './videoPostProcessingService';
-import { trackGeneration } from '../lib/utils';
+import { trackGeneration, precheckGeneration } from '../lib/utils';
 
 interface VideoRequest {
   base64Sketch: string;
@@ -42,6 +42,16 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
   });
 
   try {
+    // Precheck: block upfront if limit reached
+    if (userId) {
+      const { error } = await precheckGeneration(userId, 'video');
+      if (error) {
+        const limitError: any = new Error('LIMIT_EXCEEDED');
+        limitError.message = 'Please update video credit';
+        limitError.name = 'LimitExceededError';
+        throw limitError;
+      }
+    }
     // STEP 1: SQUEEZE - Preprocess image to 9:16 aspect ratio
     console.log('[Video Service] Starting image preprocessing (squeeze)');
     const preprocessingResult = await forceAspectRatio(base64Sketch, 9/16);

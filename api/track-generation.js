@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, generationType, metadata } = req.body;
+    const { userId, generationType, metadata, checkOnly } = req.body;
 
     if (!userId || !generationType) {
       return res.status(400).json({ error: 'Missing userId or generationType' });
@@ -80,6 +80,20 @@ export default async function handler(req, res) {
           limit,
           usage,
           remaining: 0
+        }
+      });
+    }
+
+    // If this is a precheck request, do not record usage
+    if (checkOnly) {
+      return res.status(200).json({ 
+        success: true, 
+        data: {
+          allowed: true,
+          limit,
+          usage,
+          remaining: limit - usage,
+          precheck: true
         }
       });
     }

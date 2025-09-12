@@ -1,7 +1,7 @@
 // Render Service - Handles both fastrack and accurate modes
 // Separate service for render operations
 
-import { trackGeneration } from '../lib/utils';
+import { trackGeneration, precheckGeneration } from '../lib/utils';
 
 interface RenderRequest {
   mode: 'fastrack' | 'accurate';
@@ -40,6 +40,16 @@ export async function callRenderService(request: RenderRequest, userId?: string)
   });
 
   try {
+    // Precheck: block upfront if limit reached
+    if (userId) {
+      const { error } = await precheckGeneration(userId, 'image');
+      if (error) {
+        const limitError: any = new Error('LIMIT_EXCEEDED');
+        limitError.message = 'Please update image credit';
+        limitError.name = 'LimitExceededError';
+        throw limitError;
+      }
+    }
     const response = await fetch('/api/render-engine', {
       method: 'POST',
       headers: {

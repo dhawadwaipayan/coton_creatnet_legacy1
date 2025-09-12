@@ -1,7 +1,7 @@
 // Colorway Service - Handles colorway operations (color and print)
 // Separate service for colorway operations
 
-import { trackGeneration } from '../lib/utils';
+import { trackGeneration, precheckGeneration } from '../lib/utils';
 
 interface ColorwayRequest {
   mode: 'color' | 'print';
@@ -41,6 +41,16 @@ export async function callColorwayService(request: ColorwayRequest, userId?: str
   });
 
   try {
+    // Precheck: block upfront if limit reached
+    if (userId) {
+      const { error } = await precheckGeneration(userId, 'image');
+      if (error) {
+        const limitError: any = new Error('LIMIT_EXCEEDED');
+        limitError.message = 'Please update image credit';
+        limitError.name = 'LimitExceededError';
+        throw limitError;
+      }
+    }
     const response = await fetch('/api/colorway-engine', {
       method: 'POST',
       headers: {
