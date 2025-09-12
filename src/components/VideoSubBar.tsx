@@ -6,6 +6,7 @@ interface VideoSubBarProps {
   hasSelectedImage: boolean;
   processingStatus?: 'idle' | 'preprocessing' | 'ai-processing' | 'post-processing' | 'complete' | 'error';
   processingProgress?: number;
+  isLimitReached?: boolean;
 }
 
 export const VideoSubBar: React.FC<VideoSubBarProps> = ({
@@ -13,7 +14,8 @@ export const VideoSubBar: React.FC<VideoSubBarProps> = ({
   onGenerate,
   hasSelectedImage,
   processingStatus = 'idle',
-  processingProgress = 0
+  processingProgress = 0,
+  isLimitReached = false
 }) => {
   const [additionalDetails, setAdditionalDetails] = useState('');
   const isFastMode = true; // Locked to fastrack only
@@ -78,11 +80,13 @@ export const VideoSubBar: React.FC<VideoSubBarProps> = ({
       {/* Generate button - disabled until image is selected */}
       <button 
         onClick={handleGenerate} 
-        disabled={!hasSelectedImage || processingStatus !== 'idle'}
+        disabled={!hasSelectedImage || processingStatus !== 'idle' || isLimitReached}
         className={`flex items-center gap-1 px-2 py-1 transition-colors shrink-0 ${
-          hasSelectedImage && processingStatus === 'idle'
-            ? 'text-[#E1FF00] hover:text-white cursor-pointer' 
-            : 'text-neutral-500 cursor-not-allowed'
+          isLimitReached
+            ? 'text-red-500 cursor-not-allowed opacity-50'
+            : hasSelectedImage && processingStatus === 'idle'
+              ? 'text-[#E1FF00] hover:text-white cursor-pointer' 
+              : 'text-neutral-500 cursor-not-allowed'
         }`}
       >
         <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[30px] h-[30px]">

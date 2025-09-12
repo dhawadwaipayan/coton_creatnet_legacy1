@@ -74,6 +74,15 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
 
     if (!response.ok) {
       const errorData = await response.json();
+      
+      // Check for limit exceeded error (429)
+      if (response.status === 429) {
+        const limitError = new Error('LIMIT_EXCEEDED');
+        limitError.message = 'Please update video credit';
+        limitError.name = 'LimitExceededError';
+        throw limitError;
+      }
+      
       throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
     }
 

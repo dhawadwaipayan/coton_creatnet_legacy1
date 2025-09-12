@@ -56,7 +56,26 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   const [showVideoSubBar, setShowVideoSubBar] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'generating' | 'error' | 'success'>('idle');
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isImageLimitReached, setIsImageLimitReached] = useState(false);
+  const [isVideoLimitReached, setIsVideoLimitReached] = useState(false);
   const [lastInputImage, setLastInputImage] = useState<string | null>(null);
+  
+  // Helper function to handle limit exceeded errors
+  const handleLimitExceededError = (error: any, type: 'image' | 'video') => {
+    if (error.name === 'LimitExceededError') {
+      if (type === 'image') {
+        setIsImageLimitReached(true);
+        setAiError('Please update image credit');
+      } else {
+        setIsVideoLimitReached(true);
+        setAiError('Please update video credit');
+      }
+      setAiStatus('error');
+      setTimeout(() => setAiStatus('idle'), 6000); // Show error longer for credit issues
+      return true;
+    }
+    return false;
+  };
   const [renderMaterial, setRenderMaterial] = useState<string | null>(null); // base64 material for Render AI
   const [colorwayReference, setColorwayReference] = useState<string | null>(null); // base64 reference for Colorway AI
   const modes = [{
@@ -265,10 +284,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      setAiStatus('error');
-      setAiError(err instanceof Error ? err.message : String(err));
-      setTimeout(() => setAiStatus('idle'), 4000);
-      alert('Sketch Error: ' + (err instanceof Error ? err.message : String(err)));
+      if (!handleLimitExceededError(err, 'image')) {
+        setAiStatus('error');
+        setAiError(err instanceof Error ? err.message : String(err));
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert('Sketch Error: ' + (err instanceof Error ? err.message : String(err)));
+      }
     }
   };
 
@@ -495,10 +516,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
     } catch (err) {
-      setAiStatus('error');
-      setAiError(err instanceof Error ? err.message : String(err));
-      setTimeout(() => setAiStatus('idle'), 4000);
-      alert('Render Error: ' + (err instanceof Error ? err.message : String(err)));
+      if (!handleLimitExceededError(err, 'image')) {
+        setAiStatus('error');
+        setAiError(err instanceof Error ? err.message : String(err));
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert('Render Error: ' + (err instanceof Error ? err.message : String(err)));
+      }
     }
   };
 
@@ -664,10 +687,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setTimeout(() => setAiStatus('idle'), 2000);
       
     } catch (err) {
-      setAiStatus('error');
-      setAiError(err instanceof Error ? err.message : String(err));
-      setTimeout(() => setAiStatus('idle'), 4000);
-      alert(`Colorway Error: ${err instanceof Error ? err.message : String(err)}`);
+      if (!handleLimitExceededError(err, 'image')) {
+        setAiStatus('error');
+        setAiError(err instanceof Error ? err.message : String(err));
+        setTimeout(() => setAiStatus('idle'), 4000);
+        alert(`Colorway Error: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   };
 
@@ -836,10 +861,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       }
       
     } catch (err) {
-      setAiStatus('error');
-      setAiError(err instanceof Error ? err.message : String(err));
-      console.error('[Video] Error:', err);
-      alert('Video Error: ' + (err instanceof Error ? err.message : String(err)));
+      if (!handleLimitExceededError(err, 'video')) {
+        setAiStatus('error');
+        setAiError(err instanceof Error ? err.message : String(err));
+        console.error('[Video] Error:', err);
+        alert('Video Error: ' + (err instanceof Error ? err.message : String(err)));
+      }
       
       // Remove placeholder on error
       if (canvasRef.current?.removeImage && placeholderId) {
@@ -884,6 +911,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         <SketchSubBar 
           onCancel={handleSketchCancel}
           onGenerate={handleSketchGenerate}
+          isLimitReached={isImageLimitReached}
         />
       )}
       {showRenderSubBar && (
@@ -892,7 +920,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onGenerate={handleRenderGenerate}
           onAddMaterial={handleAddMaterial}
           onMaterialChange={handleRenderMaterial}
-          canGenerate={!!renderBoundingBox} // Only require bounding box, material is optional
+          canGenerate={!!renderBoundingBox && !isImageLimitReached} // Only require bounding box, material is optional, and not at limit
+          isLimitReached={isImageLimitReached}
         />
       )}
       {showColorwaySubBar && (
@@ -901,6 +930,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onGenerate={handleColorwayGenerate}
           onAddReference={handleAddColorwayReference}
           onReferenceChange={handleColorwayReference}
+          isLimitReached={isImageLimitReached}
         />
       )}
       {showVideoSubBar && (
@@ -908,6 +938,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           onCancel={handleVideoCancel}
           onGenerate={handleVideoGenerate}
           hasSelectedImage={!!canvasRef.current?.getSelectedImage?.()}
+          isLimitReached={isVideoLimitReached}
         />
       )}
       <div style={{
