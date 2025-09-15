@@ -1078,42 +1078,98 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
   }, [saveTimeout]);
 
+  // High-resolution bounding box capture (like Miro/Figma frame export)
+  const captureHighResBoundingBox = useCallback((bbox: { x: number, y: number, width: number, height: number }, scaleFactor: number = 2) => {
+    console.log('🎯 Capturing high-res bounding box:', bbox, 'scale factor:', scaleFactor);
+    
+    const stage = stageRef.current;
+    if (!stage) {
+      console.error('❌ No stage reference available');
+      return null;
+    }
+
+    // Create a temporary high-resolution canvas
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) {
+      console.error('❌ Could not get 2D context for high-res capture');
+      return null;
+    }
+
+    // Set canvas size to bounding box dimensions scaled up
+    const scaledWidth = bbox.width * scaleFactor;
+    const scaledHeight = bbox.height * scaleFactor;
+    tempCanvas.width = scaledWidth;
+    tempCanvas.height = scaledHeight;
+
+    // Clear canvas with transparent background
+    tempCtx.clearRect(0, 0, scaledWidth, scaledHeight);
+
+    // Store original stage properties
+    const originalScaleX = stage.scaleX();
+    const originalScaleY = stage.scaleY();
+    const originalX = stage.x();
+    const originalY = stage.y();
+
+    try {
+      // Temporarily adjust stage to focus on bounding box area
+      // Reset zoom to 1 and position to show the bounding box area
+      stage.scaleX(1);
+      stage.scaleY(1);
+      stage.x(-bbox.x);
+      stage.y(-bbox.y);
+
+      // Force a redraw to ensure the stage is updated
+      stage.batchDraw();
+
+      // Get the stage's canvas element
+      const stageCanvas = stage.getCanvas();
+      if (!stageCanvas) {
+        console.error('❌ Could not get stage canvas');
+        return null;
+      }
+
+      // Draw the stage content to our high-resolution canvas
+      // This captures the entire stage at 1x zoom, then we'll crop to bounding box
+      tempCtx.drawImage(
+        stageCanvas,
+        bbox.x, bbox.y, bbox.width, bbox.height, // Source rectangle (bounding box area)
+        0, 0, scaledWidth, scaledHeight // Destination rectangle (scaled up)
+      );
+
+      // Restore original stage properties
+      stage.scaleX(originalScaleX);
+      stage.scaleY(originalScaleY);
+      stage.x(originalX);
+      stage.y(originalY);
+      stage.batchDraw();
+
+      // Convert to base64
+      const result = tempCanvas.toDataURL('image/png');
+      console.log('✅ High-res bounding box captured successfully, data length:', result.length);
+      return result;
+
+    } catch (error) {
+      console.error('❌ High-res capture failed:', error);
+      
+      // Restore original stage properties on error
+      stage.scaleX(originalScaleX);
+      stage.scaleY(originalScaleY);
+      stage.x(originalX);
+      stage.y(originalY);
+      stage.batchDraw();
+      
+      return null;
+    }
+  }, [zoom, stagePos]);
+
   // Fallback export method that only exports images (no videos) to avoid CORS issues
   const exportImagesOnlyFromRenderBox = useCallback((box: { x: number, y: number, width: number, height: number }) => {
     console.log('🖼️ Using fallback export method for render box:', box);
     console.log('🖼️ Current zoom:', zoom, 'stagePos:', stagePos);
     
-    // Convert screen coordinates back to canvas coordinates using Konva transform
-    const stage = stageRef.current;
-    let canvasBox = { x: 0, y: 0, width: 0, height: 0 } as { x: number; y: number; width: number; height: number };
-    if (stage && typeof stage.getAbsoluteTransform === 'function') {
-      try {
-        const inv = stage.getAbsoluteTransform().copy().invert();
-        const topLeft = inv.point({ x: box.x, y: box.y });
-        const bottomRight = inv.point({ x: box.x + box.width, y: box.y + box.height });
-        canvasBox = {
-          x: topLeft.x,
-          y: topLeft.y,
-          width: bottomRight.x - topLeft.x,
-          height: bottomRight.y - topLeft.y
-        };
-      } catch (e) {
-        console.warn('⚠️ Transform conversion failed, falling back to manual math');
-        canvasBox = {
-          x: (box.x - stagePos.x) / zoom,
-          y: (box.y - stagePos.y) / zoom,
-          width: box.width / zoom,
-          height: box.height / zoom
-        };
-      }
-    } else {
-      canvasBox = {
-        x: (box.x - stagePos.x) / zoom,
-        y: (box.y - stagePos.y) / zoom,
-        width: box.width / zoom,
-        height: box.height / zoom
-      };
-    }
+    // Box is already in canvas coordinates, no conversion needed
+    const canvasBox = box;
     
     console.log('🖼️ Converted to canvas coordinates:', canvasBox);
     
@@ -1125,12 +1181,17 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       return null;
     }
     
-    // Set canvas dimensions to match the bounding box (use original screen dimensions for output)
-    tempCanvas.width = box.width;
-    tempCanvas.height = box.height;
+    // Calculate scale factor for high-resolution capture
+    const minScaleFactor = 2;
+    const zoomBasedScale = Math.max(minScaleFactor, 1 / Math.max(zoom, 0.1));
+    const scaleFactor = Math.min(zoomBasedScale, 4); // Cap at 4x to prevent memory issues
+    
+    // Set canvas dimensions to match the bounding box scaled up for high resolution
+    tempCanvas.width = box.width * scaleFactor;
+    tempCanvas.height = box.height * scaleFactor;
     
     // Fill with transparent background
-    tempCtx.clearRect(0, 0, box.width, box.height);
+    tempCtx.clearRect(0, 0, box.width * scaleFactor, box.height * scaleFactor);
     
     // Debug: Log all images and their positions
     console.log('🖼️ All images in state:', images.map(img => ({
@@ -1205,19 +1266,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         
         // Create a warning representation instead of a placeholder
         tempCtx.fillStyle = '#FFE066'; // Light yellow for warning
-        tempCtx.fillRect(0, 0, box.width, box.height);
+        tempCtx.fillRect(0, 0, box.width * scaleFactor, box.height * scaleFactor);
         
         // Add a border
         tempCtx.strokeStyle = '#FFA500';
-        tempCtx.lineWidth = 2;
-        tempCtx.strokeRect(0, 0, box.width, box.height);
+        tempCtx.lineWidth = 2 * scaleFactor;
+        tempCtx.strokeRect(0, 0, box.width * scaleFactor, box.height * scaleFactor);
         
         // Add warning text
         tempCtx.fillStyle = '#000000';
-        tempCtx.font = '14px Arial';
+        tempCtx.font = `${14 * scaleFactor}px Arial`;
         tempCtx.textAlign = 'center';
-        tempCtx.fillText('Cannot export videos', box.width / 2, box.height / 2 - 10);
-        tempCtx.fillText('(CORS restriction)', box.width / 2, box.height / 2 + 10);
+        tempCtx.fillText('Cannot export videos', (box.width * scaleFactor) / 2, (box.height * scaleFactor) / 2 - 10 * scaleFactor);
+        tempCtx.fillText('(CORS restriction)', (box.width * scaleFactor) / 2, (box.height * scaleFactor) / 2 + 10 * scaleFactor);
         
         try {
           const dataURL = tempCanvas.toDataURL('image/png');
@@ -1232,18 +1293,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // No images or videos in bounding box - create white background
       console.log('🖼️ No content found in bounding box area - creating white background export');
       tempCtx.fillStyle = '#FFFFFF';
-      tempCtx.fillRect(0, 0, box.width, box.height);
+      tempCtx.fillRect(0, 0, box.width * scaleFactor, box.height * scaleFactor);
       
       // Add a border to make it visible
       tempCtx.strokeStyle = '#CCCCCC';
-      tempCtx.lineWidth = 1;
-      tempCtx.strokeRect(0, 0, box.width, box.height);
+      tempCtx.lineWidth = 1 * scaleFactor;
+      tempCtx.strokeRect(0, 0, box.width * scaleFactor, box.height * scaleFactor);
       
       // Add text to indicate empty area
       tempCtx.fillStyle = '#666666';
-      tempCtx.font = '14px Arial';
+      tempCtx.font = `${14 * scaleFactor}px Arial`;
       tempCtx.textAlign = 'center';
-      tempCtx.fillText('No images in this area', box.width / 2, box.height / 2);
+      tempCtx.fillText('No images in this area', (box.width * scaleFactor) / 2, (box.height * scaleFactor) / 2);
       
       try {
         const dataURL = tempCanvas.toDataURL('image/png');
@@ -1255,9 +1316,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
     }
     
-    // Compute scale from canvas-space to output (screen) space
-    const scaleX = box.width / canvasBox.width;
-    const scaleY = box.height / canvasBox.height;
+    // Compute scale from canvas-space to high-resolution output space
+    const scaleX = (box.width * scaleFactor) / canvasBox.width;
+    const scaleY = (box.height * scaleFactor) / canvasBox.height;
     
     // Draw each intersecting image onto the temporary canvas
     intersectingImages.forEach(img => {
@@ -1314,97 +1375,81 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       // Use sketchBox for Sketch mode, renderBox for Render mode
       const activeBox = props.renderModeActive ? renderBox : sketchBox;
       if (!activeBox) return null;
-      const stage = stageRef.current;
-      if (!stage) return null;
-      
-      // Convert canvas coordinates to screen coordinates for export
-      // Canvas coordinates need to be scaled by zoom and offset by stagePos
-      const screenX = activeBox.x * zoom + stagePos.x;
-      const screenY = activeBox.y * zoom + stagePos.y;
-      const screenWidth = activeBox.width * zoom;
-      const screenHeight = activeBox.height * zoom;
       
       console.log('🎯 Exporting bounding box (canvas coordinates):', activeBox);
       console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
-      console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
       console.log('🎯 Videos present on canvas:', videos.length);
+      
+      // Calculate optimal scale factor based on current zoom level
+      // Ensure minimum 2x resolution for crisp export
+      const minScaleFactor = 2;
+      const zoomBasedScale = Math.max(minScaleFactor, 1 / Math.max(zoom, 0.1));
+      const scaleFactor = Math.min(zoomBasedScale, 4); // Cap at 4x to prevent memory issues
+      
+      console.log('🎯 Using scale factor for high-res capture:', scaleFactor);
       
       // If videos are present, use fallback method directly to avoid CORS issues
       if (videos.length > 0) {
         console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        return exportImagesOnlyFromRenderBox(activeBox);
       }
       
       try {
-        // Primary export method - only used when no videos are present
-        const result = stage.toDataURL({
-          x: screenX,
-          y: screenY,
-          width: screenWidth,
-          height: screenHeight,
-          pixelRatio: 1,
-        });
+        // Use high-resolution capture method (like Miro/Figma frame export)
+        const result = captureHighResBoundingBox(activeBox, scaleFactor);
         
         if (result && result !== 'data:,' && result.length > 100) {
-          console.log('✅ Primary export successful, data length:', result.length);
+          console.log('✅ High-res export successful, data length:', result.length);
           return result;
         }
         
         // Fallback: export only images in the bounding box area (skip videos to avoid CORS)
-        console.warn('⚠️ Primary export failed, using fallback method (images only)');
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        console.warn('⚠️ High-res export failed, using fallback method (images only)');
+        return exportImagesOnlyFromRenderBox(activeBox);
         
       } catch (error) {
-        console.error('❌ Export failed, using fallback method (images only):', error);
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        console.error('❌ High-res export failed, using fallback method (images only):', error);
+        return exportImagesOnlyFromRenderBox(activeBox);
       }
     },
     
     exportCurrentRenderBoxAsPng: () => {
       if (!renderBox) return null;
-      const stage = stageRef.current;
-      if (!stage) return null;
-      
-      // Convert canvas coordinates to screen coordinates for export
-      // Canvas coordinates need to be scaled by zoom and offset by stagePos
-      const screenX = renderBox.x * zoom + stagePos.x;
-      const screenY = renderBox.y * zoom + stagePos.y;
-      const screenWidth = renderBox.width * zoom;
-      const screenHeight = renderBox.height * zoom;
       
       console.log('🎯 Exporting render box (canvas coordinates):', renderBox);
       console.log('🎯 Current zoom:', zoom, 'stagePos:', stagePos);
-      console.log('🎯 Screen coordinates for export:', { screenX, screenY, screenWidth, screenHeight });
       console.log('🎯 Videos present on canvas:', videos.length);
+      
+      // Calculate optimal scale factor based on current zoom level
+      // Ensure minimum 2x resolution for crisp export
+      const minScaleFactor = 2;
+      const zoomBasedScale = Math.max(minScaleFactor, 1 / Math.max(zoom, 0.1));
+      const scaleFactor = Math.min(zoomBasedScale, 4); // Cap at 4x to prevent memory issues
+      
+      console.log('🎯 Using scale factor for high-res capture:', scaleFactor);
       
       // If videos are present, use fallback method directly to avoid CORS issues
       if (videos.length > 0) {
         console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        return exportImagesOnlyFromRenderBox(renderBox);
       }
       
       try {
-        // Primary export method - only used when no videos are present
-        const result = stage.toDataURL({
-          x: screenX,
-          y: screenY,
-          width: screenWidth,
-          height: screenHeight,
-          pixelRatio: 1,
-        });
+        // Use high-resolution capture method (like Miro/Figma frame export)
+        const result = captureHighResBoundingBox(renderBox, scaleFactor);
         
         if (result && result !== 'data:,' && result.length > 100) {
-          console.log('✅ Primary export successful, data length:', result.length);
+          console.log('✅ High-res export successful, data length:', result.length);
           return result;
         }
         
         // Fallback: export only images in the bounding box area
-        console.warn('⚠️ Primary export failed, using fallback method');
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        console.warn('⚠️ High-res export failed, using fallback method');
+        return exportImagesOnlyFromRenderBox(renderBox);
         
       } catch (error) {
-        console.error('❌ Export failed, using fallback method:', error);
-        return exportImagesOnlyFromRenderBox({ x: screenX, y: screenY, width: screenWidth, height: screenHeight });
+        console.error('❌ High-res export failed, using fallback method:', error);
+        return exportImagesOnlyFromRenderBox(renderBox);
       }
     },
     removeImage: (id: string) => {
