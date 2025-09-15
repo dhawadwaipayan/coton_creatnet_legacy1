@@ -1369,7 +1369,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [images, zoom, stagePos]);
 
-  // Expose importImage method on ref
+  // Expose importImageHelper method on ref
   useImperativeHandle(ref, () => ({
     exportCurrentBoundingBoxAsPng: () => {
       // Use sketchBox for Sketch mode, renderBox for Render mode
@@ -1457,7 +1457,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setImages(prev => prev.filter(img => img.id !== id));
       console.log('🎬 Image removed successfully');
     },
-    importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
+    importImageHelper: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
       // Security validation (DISABLED FOR NOW)
       // const validation = securityManager.validateInput(src, 'string');
       // if (!validation.valid) {
@@ -2902,8 +2902,339 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setRenderBoxStart(null);
   };
 
+  // Drag and drop functionality
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+
+  // Helper function to import image using the existing importImage logic
+  const importImageHelper = useCallback((src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
+    console.log('🎯 importImageHelper called with:', { src: src.substring(0, 50) + '...', x, y, width, height });
+    pushToUndoStackWithSave();
+    const img = new window.Image();
+    // Avoid tainted canvas: set CORS mode for cross-origin images
+    try {
+      const isDataUrl = /^data:/i.test(src);
+      const isSameOrigin = (() => {
+        try {
+          const u = new URL(src, window.location.href);
+          return u.origin === window.location.origin;
+        } catch {
+          return true; // data URLs or invalid URLs
+        }
+      })();
+      if (!isDataUrl && !isSameOrigin) {
+        img.crossOrigin = 'anonymous';
+      }
+    } catch {}
+    img.src = src;
+    const id = Date.now().toString();
+    
+    img.onload = () => {
+      console.log('🎯 Image loaded successfully, natural dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+      // Calculate viewport center if no coordinates provided
+      let imageX = x;
+      let imageY = y;
+      
+      if (x === undefined || y === undefined) {
+        const center = getViewportCenter();
+        imageX = center.x - (width || 200) / 2;
+        imageY = center.y - (height || 200) / 2;
+      }
+      
+      // Calculate dimensions maintaining aspect ratio if not provided
+      let imageWidth = width;
+      let imageHeight = height;
+      
+      if (width === undefined || height === undefined) {
+        // Maintain original aspect ratio
+        const originalWidth = img.naturalWidth;
+        const originalHeight = img.naturalHeight;
+        
+        if (width === undefined && height === undefined) {
+          // Neither provided - use original dimensions
+          imageWidth = originalWidth;
+          imageHeight = originalHeight;
+        } else if (width === undefined) {
+          // Only height provided - calculate width maintaining aspect ratio
+          imageWidth = (originalWidth / originalHeight) * height;
+        } else {
+          // Only width provided - calculate height maintaining aspect ratio
+          imageHeight = (originalHeight / originalWidth) * width;
+        }
+      }
+      
+      console.log('🎯 Adding image to state:', { id, x: imageX, y: imageY, width: imageWidth, height: imageHeight });
+      setImages(prev => [
+        ...prev,
+        { 
+          id, 
+          image: img, 
+          x: imageX, 
+          y: imageY, 
+          width: imageWidth, 
+          height: imageHeight, 
+          rotation: 0, 
+          timestamp: Date.now() 
+        }
+      ]);
+      
+      if (onLoadId) onLoadId(id);
+      
+      // Center viewport on the newly imported image if no specific coordinates were provided
+      if (x === undefined || y === undefined) {
+        setTimeout(() => {
+          centerViewportOnElement(imageX, imageY, width || 200, height || 200);
+        }, 100);
+      }
+    };
+    
+    img.onerror = () => {
+      console.error('Failed to load image:', src);
+      
+      // Calculate viewport center if no coordinates provided
+      let imageX = x;
+      let imageY = y;
+      
+      if (x === undefined || y === undefined) {
+        const center = getViewportCenter();
+        imageX = center.x - (width || 200) / 2;
+        imageY = center.y - (height || 200) / 2;
+      }
+      
+      // Calculate dimensions maintaining aspect ratio if not provided (same logic as success case)
+      let imageWidth = width;
+      let imageHeight = height;
+      
+      if (width === undefined || height === undefined) {
+        // For error case, we don't have img.naturalWidth/Height, so use default with aspect ratio
+        if (width === undefined && height === undefined) {
+          // Neither provided - use default dimensions
+          imageWidth = 200;
+          imageHeight = 200;
+        } else if (width === undefined) {
+          // Only height provided - use default aspect ratio
+          imageWidth = height;
+          imageHeight = height;
+        } else {
+          // Only width provided - use default aspect ratio
+          imageWidth = width;
+          imageHeight = width;
+        }
+      }
+      
+      setImages(prev => [
+        ...prev,
+        { 
+          id, 
+          image: null, 
+          x: imageX, 
+          y: imageY, 
+          width: imageWidth, 
+          height: imageHeight, 
+          rotation: 0, 
+          timestamp: Date.now(), 
+          error: true 
+        }
+      ]);
+      
+      if (onLoadId) onLoadId(id);
+    };
+    
+    return id;
+  }, [pushToUndoStackWithSave, getViewportCenter, centerViewportOnElement]);
+
+  // Helper function to validate image URLs
+  const isValidImageUrl = useCallback((url: string): boolean => {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname.toLowerCase();
+      return /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(pathname) || 
+             urlObj.hostname.includes('imgur') || 
+             urlObj.hostname.includes('unsplash') ||
+             urlObj.hostname.includes('pixabay');
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Handle external image URLs
+  const handleExternalImageUrl = useCallback((url: string, e: React.DragEvent) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
+
+    // Create image with CORS handling
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      // Convert to data URL for consistency
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      importImageHelper(dataUrl, canvasPos.x, canvasPos.y, img.width, img.height);
+    };
+
+    img.onerror = () => {
+      console.warn('Failed to load external image:', url);
+    };
+
+    img.src = url;
+  }, [screenToCanvas]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+    
+    // Update drag position for visual feedback
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragPosition({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only hide if leaving the entire canvas area
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer?.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+      // Check for URL data (from browser, other apps)
+      const url = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+      if (url && isValidImageUrl(url)) {
+        handleExternalImageUrl(url, e);
+        return;
+      }
+      console.log('No valid image files or URLs found in drop');
+      return;
+    }
+
+    // Convert drop coordinates to canvas coordinates
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const canvasPos = screenToCanvas(pointer.x, pointer.y);
+
+    // Process each image file
+    console.log('🎯 Processing dropped files:', imageFiles.length);
+    imageFiles.forEach((file, index) => {
+      console.log('🎯 Processing file:', file.name, file.type);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        if (dataUrl) {
+          console.log('🎯 File loaded, importing image at position:', canvasPos);
+          // Stagger positioning for multiple images
+          const offsetX = index * 50;
+          const offsetY = index * 50;
+          const result = importImageHelper(dataUrl, canvasPos.x + offsetX, canvasPos.y + offsetY);
+          console.log('🎯 Import result:', result);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [screenToCanvas, handleExternalImageUrl]);
+
+
+  // Paste functionality
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    e.preventDefault();
+    
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+    
+    if (imageItems.length === 0) return;
+
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    // Get viewport center for paste position
+    const centerX = viewport.width / 2;
+    const centerY = viewport.height / 2;
+    const canvasPos = screenToCanvas(centerX, centerY);
+
+    for (let i = 0; i < imageItems.length; i++) {
+      const item = imageItems[i];
+      const file = item.getAsFile();
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string;
+          if (dataUrl) {
+            // Stagger positioning for multiple images
+            const offsetX = i * 50;
+            const offsetY = i * 50;
+            importImageHelper(dataUrl, canvasPos.x + offsetX, canvasPos.y + offsetY);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }, [screenToCanvas, viewport]);
+
+  // Add global paste handler
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      // Only handle paste when canvas is focused or no input is focused
+      if (document.activeElement?.tagName === 'INPUT' || 
+          document.activeElement?.tagName === 'TEXTAREA' ||
+          (document.activeElement as HTMLElement)?.contentEditable === 'true') {
+        return;
+      }
+      handlePaste(e);
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => document.removeEventListener('paste', handleGlobalPaste);
+  }, [handlePaste]);
+
     return (
-    <div className={`fixed inset-0 z-0 overflow-hidden ${props.className || ''}`} style={{ background: '#1E1E1E' }}>
+    <div 
+      className={`fixed inset-0 z-0 overflow-hidden ${props.className || ''}`} 
+      style={{ background: '#1E1E1E' }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay for visual feedback */}
+      {isDragOver && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
+          style={{ background: 'rgba(59, 130, 246, 0.1)' }}
+        >
+          <div className="bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg border-2 border-dashed border-blue-400">
+            📁 Drop images here
+          </div>
+        </div>
+      )}
+      
       <Stage
         width={viewport.width}
         height={viewport.height}
