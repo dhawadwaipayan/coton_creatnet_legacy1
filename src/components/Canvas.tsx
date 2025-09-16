@@ -65,22 +65,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const [isTemporaryPanMode, setIsTemporaryPanMode] = useState(false);
   const [temporaryPanStart, setTemporaryPanStart] = useState<{x: number, y: number} | null>(null);
 
-  // Keyboard event listeners for delete functionality
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Delete selected items (Delete or Backspace key)
-      if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIds.length > 0) {
-        e.preventDefault();
-        handleDeleteSelected();
-      }
-    };
+  // Alt+drag duplication state
+  const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [duplicateStartPos, setDuplicateStartPos] = useState<{x: number, y: number} | null>(null);
+  const [duplicateOffset, setDuplicateOffset] = useState<{x: number, y: number} | null>(null);
 
-    window.addEventListener('keydown', handleKeyDown);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
 
   // Zoom state - initialize at 80% zoom
   const [zoom, setZoom] = useState(0.8);
@@ -800,6 +790,45 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setSelectedIds([]);
     setSelectionRect(null);
   }, [selectedIds, pushToUndoStackWithSave]);
+
+  // Keyboard event listeners for delete functionality and Alt/Option key detection
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt/Option key detection for duplication (works on both Windows/Linux Alt and Mac Option)
+      if (e.key === 'Alt' || e.key === 'Meta' || e.altKey) {
+        console.log('Alt/Option key pressed:', { key: e.key, altKey: e.altKey, metaKey: e.metaKey });
+        setIsAltPressed(true);
+      }
+      
+      // Delete selected items (Delete or Backspace key)
+      if ((e.code === 'Delete' || e.code === 'Backspace') && selectedIds.length > 0) {
+        e.preventDefault();
+        handleDeleteSelected();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Alt/Option key release
+      if (e.key === 'Alt' || e.key === 'Meta' || !e.altKey) {
+        console.log('Alt/Option key released:', { key: e.key, altKey: e.altKey, metaKey: e.metaKey });
+        setIsAltPressed(false);
+        // Cancel duplication if Alt is released during drag
+        if (isDuplicating) {
+          setIsDuplicating(false);
+          setDuplicateStartPos(null);
+          setDuplicateOffset(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isDuplicating, selectedIds.length, handleDeleteSelected]);
 
   // Call onSelectedImageSrcChange with the data URL of the selected image (if one image is selected), or null if not
     useEffect(() => {
@@ -2159,6 +2188,101 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }
 
+  // Generate unique ID for duplicated items
+  const generateUniqueId = useCallback(() => {
+    return `duplicate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
+  // Duplicate board items function
+  const duplicateBoardItems = useCallback((offsetX: number, offsetY: number) => {
+    if (selectedIds.length === 0) return;
+
+    const newItems: { images: any[], videos: any[], texts: any[], strokes: any[] } = {
+      images: [],
+      videos: [],
+      texts: [],
+      strokes: []
+    };
+
+    // Duplicate selected items
+    selectedIds.forEach(sel => {
+      if (sel.type === 'image') {
+        const img = images.find(i => i.id === sel.id);
+        if (img) {
+          const newImage = {
+            ...img,
+            id: generateUniqueId(),
+            x: img.x + offsetX,
+            y: img.y + offsetY,
+            timestamp: Date.now()
+          };
+          newItems.images.push(newImage);
+        }
+      } else if (sel.type === 'video') {
+        const video = videos.find(v => v.id === sel.id);
+        if (video) {
+          const newVideo = {
+            ...video,
+            id: generateUniqueId(),
+            x: video.x + offsetX,
+            y: video.y + offsetY,
+            timestamp: Date.now()
+          };
+          newItems.videos.push(newVideo);
+        }
+      } else if (sel.type === 'text') {
+        const txt = texts.find(t => t.id === sel.id);
+        if (txt) {
+          const newText = {
+            ...txt,
+            id: generateUniqueId(),
+            x: txt.x + offsetX,
+            y: txt.y + offsetY,
+            timestamp: Date.now()
+          };
+          newItems.texts.push(newText);
+        }
+      } else if (sel.type === 'stroke') {
+        const stroke = strokes.find(s => s.id === sel.id);
+        if (stroke) {
+          const newStroke = {
+            ...stroke,
+            id: generateUniqueId(),
+            x: stroke.x + offsetX,
+            y: stroke.y + offsetY,
+            timestamp: Date.now()
+          };
+          newItems.strokes.push(newStroke);
+        }
+      }
+    });
+
+    // Add duplicated items to state
+    if (newItems.images.length > 0) {
+      setImages(prev => [...prev, ...newItems.images]);
+    }
+    if (newItems.videos.length > 0) {
+      setVideos(prev => [...prev, ...newItems.videos]);
+    }
+    if (newItems.texts.length > 0) {
+      setTexts(prev => [...prev, ...newItems.texts]);
+    }
+    if (newItems.strokes.length > 0) {
+      setStrokes(prev => [...prev, ...newItems.strokes]);
+    }
+
+    // Update selection to the new duplicated items
+    const newSelectedIds = [
+      ...newItems.images.map(img => ({ id: img.id, type: 'image' as const })),
+      ...newItems.videos.map(video => ({ id: video.id, type: 'video' as const })),
+      ...newItems.texts.map(txt => ({ id: txt.id, type: 'text' as const })),
+      ...newItems.strokes.map(stroke => ({ id: stroke.id, type: 'stroke' as const }))
+    ];
+    setSelectedIds(newSelectedIds);
+
+    console.log('Duplicated items:', newItems);
+  }, [selectedIds, images, videos, texts, strokes, generateUniqueId]);
+
   // Wheel event handler for zooming
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
@@ -2199,6 +2323,28 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Mouse down: start drawing (brush tool) or panning (hand tool)
   const handleMouseDown = (e: any) => {
+    // Check for Alt/Option+drag duplication (check both state and event)
+    const isAltHeld = isAltPressed || e.evt.altKey;
+    console.log('Mouse down:', { 
+      isAltPressed, 
+      evtAltKey: e.evt.altKey, 
+      isAltHeld, 
+      selectedTool: props.selectedTool, 
+      selectedIdsLength: selectedIds.length 
+    });
+    
+    if (isAltHeld && props.selectedTool === 'select' && selectedIds.length > 0) {
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      
+      console.log('Starting Alt+drag duplication');
+      setIsDuplicating(true);
+      setDuplicateStartPos({ x: pointer.x, y: pointer.y });
+      setDuplicateOffset({ x: 0, y: 0 });
+      return;
+    }
+
     if (props.selectedTool === 'hand') {
       setIsDragging(true);
       setLastPos({
@@ -2241,6 +2387,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Mouse move: update stage position (hand tool) or add points (brush tool)
   const handleMouseMove = (e: any) => {
+    // Handle Alt+drag duplication
+    if (isDuplicating && duplicateStartPos) {
+      const stage = stageRef.current;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
+      
+      const offsetX = (pointer.x - duplicateStartPos.x) / zoom;
+      const offsetY = (pointer.y - duplicateStartPos.y) / zoom;
+      setDuplicateOffset({ x: offsetX, y: offsetY });
+      return;
+    }
+
     if (props.selectedTool === 'hand' && isDragging && lastPos) {
       const dx = e.evt.clientX - lastPos.x;
       const dy = e.evt.clientY - lastPos.y;
@@ -2273,6 +2431,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Mouse up: stop drawing (brush tool) or panning (hand tool)
   const handleMouseUp = () => {
+    // Handle Alt+drag duplication completion
+    if (isDuplicating && duplicateOffset) {
+      duplicateBoardItems(duplicateOffset.x, duplicateOffset.y);
+      setIsDuplicating(false);
+      setDuplicateStartPos(null);
+      setDuplicateOffset(null);
+      return;
+    }
+
     if (props.selectedTool === 'hand') {
       setIsDragging(false);
       setLastPos(null);
@@ -2498,6 +2665,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Multi-select: drag group
   const handleGroupDragStart = (e: any, id: string, type: 'image' | 'stroke' | 'text' | 'video') => {
+    // Prevent normal dragging when Alt/Option is pressed (duplication mode)
+    const isAltHeld = isAltPressed || e.evt.altKey;
+    if (isAltHeld) {
+      e.cancelBubble = true;
+      return;
+    }
+    
     if (props.selectedTool === 'select' && isSelected(id, type)) {
       const items = selectedIds.map(sel => {
         if (sel.type === 'image') {
@@ -2515,6 +2689,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   };
   const handleGroupDragMove = (e: any, id: string, type: 'image' | 'stroke' | 'text' | 'video') => {
+    // Prevent normal dragging when Alt/Option is pressed (duplication mode)
+    const isAltHeld = isAltPressed || e.evt.altKey;
+    if (isAltHeld) {
+      e.cancelBubble = true;
+      return;
+    }
+    
     if (groupDragStart) {
       const dx = e.target.x() - groupDragStart.x;
       const dy = e.target.y() - groupDragStart.y;
@@ -2545,6 +2726,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   };
   const handleGroupDragEnd = () => {
+    // Prevent normal drag end when Alt/Option is pressed (duplication mode)
+    if (isAltPressed) {
+      return;
+    }
+    
     // On group drag end, snap selected items
     if (groupDragStart && selectedIds.length > 0) {
       selectedIds.forEach(sel => {
@@ -3240,6 +3426,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         height={viewport.height}
         ref={stageRef}
         style={{ position: 'absolute', top: 0, left: 0, zIndex: 0, cursor: 
+          isDuplicating ? 'copy' :
           isTemporaryPanMode ? 'grabbing' : 
           props.selectedTool === 'hand' && isDragging ? 'grabbing' : 
           props.selectedTool === 'hand' ? 'grab' : 
@@ -3289,7 +3476,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 x={frame.x}
                 y={frame.y}
                 rotation={frame.rotation || 0}
-                draggable={props.selectedTool === 'select' && isSelected(frame.id, 'frame')}
+                draggable={props.selectedTool === 'select' && isSelected(frame.id, 'frame') && !isAltPressed}
                 onClick={evt => handleItemClick(frame.id, 'frame', evt)}
                 onTap={evt => handleItemClick(frame.id, 'frame', evt)}
                 onDragEnd={e => {
@@ -3404,7 +3591,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   height={img.height || 200}
                   rotation={img.rotation || 0}
                   opacity={img.loading ? 0.3 : 1} // Show loading state
-                  draggable={props.selectedTool === 'select' && isSelected(img.id, 'image')}
+                  draggable={props.selectedTool === 'select' && isSelected(img.id, 'image') && !isAltPressed}
                   onClick={evt => handleItemClick(img.id, 'image', evt)}
                   onTap={evt => handleItemClick(img.id, 'image', evt)}
                   onDragEnd={e => {
@@ -3433,7 +3620,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   x={video.x}
                   y={video.y}
                   rotation={video.rotation || 0}
-                  draggable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
+                  draggable={props.selectedTool === 'select' && isSelected(video.id, 'video') && !isAltPressed}
                   transformable={props.selectedTool === 'select' && isSelected(video.id, 'video')}
                   onClick={evt => handleItemClick(video.id, 'video', evt)}
                   onTap={evt => handleItemClick(video.id, 'video', evt)}
@@ -3561,7 +3748,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   fontSize={txt.fontSize}
                   fontFamily="Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
                   fill={txt.text ? txt.color : 'transparent'} // Make empty text transparent
-                  draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text')}
+                  draggable={props.selectedTool === 'select' && isSelected(txt.id, 'text') && !isAltPressed}
                   rotation={txt.rotation}
                   // Show text normally
                   opacity={1}
@@ -3749,7 +3936,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 tension={0.5}
                 lineCap="round"
                 lineJoin="round"
-                draggable={props.selectedTool === 'select' && isSelected(stroke.id, 'stroke')}
+                draggable={props.selectedTool === 'select' && isSelected(stroke.id, 'stroke') && !isAltPressed}
                 rotation={stroke.rotation}
                 onClick={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onTap={evt => handleItemClick(stroke.id, 'stroke', evt)}
@@ -3882,6 +4069,83 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               />
             </>
           )}
+
+          {/* Duplication preview layer */}
+          {isDuplicating && duplicateOffset && selectedIds.map(sel => {
+            if (sel.type === 'image') {
+              const img = images.find(i => i.id === sel.id);
+              if (!img) return null;
+              return (
+                <KonvaImage
+                  key={`duplicate-preview-${sel.id}`}
+                  image={img.image}
+                  x={img.x + duplicateOffset.x}
+                  y={img.y + duplicateOffset.y}
+                  width={img.width || 200}
+                  height={img.height || 200}
+                  rotation={img.rotation || 0}
+                  opacity={0.6}
+                  listening={false}
+                />
+              );
+            } else if (sel.type === 'video') {
+              const video = videos.find(v => v.id === sel.id);
+              if (!video) return null;
+              return (
+                <Rect
+                  key={`duplicate-preview-${sel.id}`}
+                  x={video.x + duplicateOffset.x}
+                  y={video.y + duplicateOffset.y}
+                  width={video.width}
+                  height={video.height}
+                  rotation={video.rotation}
+                  fill="rgba(0, 0, 0, 0.3)"
+                  stroke="rgba(255, 255, 255, 0.8)"
+                  strokeWidth={2}
+                  opacity={0.6}
+                  listening={false}
+                />
+              );
+            } else if (sel.type === 'text') {
+              const txt = texts.find(t => t.id === sel.id);
+              if (!txt) return null;
+              return (
+                <KonvaText
+                  key={`duplicate-preview-${sel.id}`}
+                  text={txt.text}
+                  x={txt.x + duplicateOffset.x}
+                  y={txt.y + duplicateOffset.y}
+                  fontSize={txt.fontSize}
+                  fontFamily="Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                  fill={txt.color}
+                  rotation={txt.rotation || 0}
+                  opacity={0.6}
+                  listening={false}
+                />
+              );
+            } else if (sel.type === 'stroke') {
+              const stroke = strokes.find(s => s.id === sel.id);
+              if (!stroke) return null;
+              return (
+                <Line
+                  key={`duplicate-preview-${sel.id}`}
+                  points={stroke.points.map((p, i) => 
+                    i % 2 === 0 ? p + duplicateOffset.x : p + duplicateOffset.y
+                  )}
+                  x={stroke.x + duplicateOffset.x}
+                  y={stroke.y + duplicateOffset.y}
+                  stroke={stroke.color}
+                  strokeWidth={stroke.size}
+                  lineCap="round"
+                  lineJoin="round"
+                  rotation={stroke.rotation || 0}
+                  opacity={0.6}
+                  listening={false}
+                />
+              );
+            }
+            return null;
+          })}
         </Layer>
       </Stage>
       {/* Inline text editing is now handled directly in the text elements */}
