@@ -1192,6 +1192,55 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
   }, [zoom, stagePos]);
 
+  // WYSIWYG export using Konva Stage API (captures images, texts, strokes, etc.)
+  const exportWysiwygFromBox = useCallback((box: { x: number, y: number, width: number, height: number }, scaleFactor: number) => {
+    const stage = stageRef.current;
+    if (!stage) return null;
+    // Save original transforms
+    const originalScaleX = stage.scaleX();
+    const originalScaleY = stage.scaleY();
+    const originalX = stage.x();
+    const originalY = stage.y();
+    try {
+      // Reset transforms so box (canvas coords) aligns with stage coords
+      stage.scaleX(1);
+      stage.scaleY(1);
+      stage.x(0);
+      stage.y(0);
+      stage.batchDraw();
+
+      const dataUrl = stage.toDataURL({
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        pixelRatio: Math.max(1, Math.min(4, scaleFactor)),
+        mimeType: 'image/png',
+        quality: 1
+      });
+      // Restore transforms
+      stage.scaleX(originalScaleX);
+      stage.scaleY(originalScaleY);
+      stage.x(originalX);
+      stage.y(originalY);
+      stage.batchDraw();
+
+      if (dataUrl && dataUrl !== 'data:,' && dataUrl.length > 100) {
+        return dataUrl;
+      }
+      return null;
+    } catch (err) {
+      // Restore on error
+      stage.scaleX(originalScaleX);
+      stage.scaleY(originalScaleY);
+      stage.x(originalX);
+      stage.y(originalY);
+      stage.batchDraw();
+      console.warn('WYSIWYG export failed (likely tainted canvas). Falling back to image-only export.', err);
+      return null;
+    }
+  }, []);
+
   // Fallback export method that only exports images (no videos) to avoid CORS issues
   const exportImagesOnlyFromRenderBox = useCallback((box: { x: number, y: number, width: number, height: number }) => {
     console.log('🖼️ Using fallback export method for render box:', box);
@@ -1349,7 +1398,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const scaleX = (box.width * scaleFactor) / canvasBox.width;
     const scaleY = (box.height * scaleFactor) / canvasBox.height;
     
-    // Draw each intersecting image onto the temporary canvas
+    // Draw each intersecting image onto the temporary canvas matching on-canvas scaling (WYSIWYG)
     intersectingImages.forEach(img => {
       if (!img.image) return;
       
@@ -1366,10 +1415,18 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const drawWidth = Math.min(img.width || 0, boxRight - img.x, imgRight - canvasBox.x);
       const drawHeight = Math.min(img.height || 0, boxBottom - img.y, imgBottom - canvasBox.y);
       
-      // Calculate source coordinates for the image
-      const srcX = Math.max(0, canvasBox.x - img.x);
-      const srcY = Math.max(0, canvasBox.y - img.y);
-      
+      // Calculate source coordinates for the image in source pixel space using natural size mapping
+      const naturalW = (img.image as HTMLImageElement).naturalWidth || img.image.width;
+      const naturalH = (img.image as HTMLImageElement).naturalHeight || img.image.height;
+      const displayW = img.width || naturalW;
+      const displayH = img.height || naturalH;
+      const scaleToSourceX = naturalW / Math.max(displayW, 1);
+      const scaleToSourceY = naturalH / Math.max(displayH, 1);
+      const srcX = Math.max(0, canvasBox.x - img.x) * scaleToSourceX;
+      const srcY = Math.max(0, canvasBox.y - img.y) * scaleToSourceY;
+      const srcW = Math.max(0, drawWidth * scaleToSourceX);
+      const srcH = Math.max(0, drawHeight * scaleToSourceY);
+
       console.log('🖼️ Drawing image:', {
         id: img.id,
         drawPos: { x: drawX, y: drawY, width: drawWidth, height: drawHeight },
@@ -1379,14 +1436,100 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       try {
         tempCtx.drawImage(
           img.image,
-          srcX, srcY, drawWidth, drawHeight,  // Source (canvas units)
-          Math.round(drawX * scaleX), Math.round(drawY * scaleY), Math.round(drawWidth * scaleX), Math.round(drawHeight * scaleY) // Dest (screen/output units)
+          Math.round(srcX), Math.round(srcY), Math.round(srcW), Math.round(srcH),  // Source (source pixels)
+          Math.round(drawX * scaleX), Math.round(drawY * scaleY), Math.round(drawWidth * scaleX), Math.round(drawHeight * scaleY) // Dest (output)
         );
       } catch (error) {
         console.warn('Failed to draw image in fallback export:', error);
       }
     });
     
+    // Overlay vector content (texts, strokes, frames, etc.) from Konva, while excluding videos and images (already drawn)
+    try {
+      const stage = stageRef.current;
+      if (stage) {
+        // Save transform
+        const originalScaleX = stage.scaleX();
+        const originalScaleY = stage.scaleY();
+        const originalX = stage.x();
+        const originalY = stage.y();
+
+        // Hide images and videos and optionally grid and bounding boxes
+        const hiddenNodes: Array<{ node: any, prevVisible: boolean }> = [];
+        const gridNode = layerRef.current?.findOne('#grid-group');
+        if (gridNode) {
+          hiddenNodes.push({ node: gridNode, prevVisible: gridNode.visible() });
+          gridNode.visible(false);
+        }
+        if (sketchBoxRef.current) {
+          hiddenNodes.push({ node: sketchBoxRef.current, prevVisible: sketchBoxRef.current.visible() });
+          sketchBoxRef.current.visible(false);
+        }
+        if (renderBoxRef.current) {
+          hiddenNodes.push({ node: renderBoxRef.current, prevVisible: renderBoxRef.current.visible() });
+          renderBoxRef.current.visible(false);
+        }
+        if (sketchBoxTransformerRef.current) {
+          hiddenNodes.push({ node: sketchBoxTransformerRef.current, prevVisible: sketchBoxTransformerRef.current.visible() });
+          sketchBoxTransformerRef.current.visible(false);
+        }
+        if (renderBoxTransformerRef.current) {
+          hiddenNodes.push({ node: renderBoxTransformerRef.current, prevVisible: renderBoxTransformerRef.current.visible() });
+          renderBoxTransformerRef.current.visible(false);
+        }
+        images.forEach(img => {
+          const node = layerRef.current?.findOne(`#img-${img.id}`);
+          if (node) {
+            hiddenNodes.push({ node, prevVisible: node.visible() });
+            node.visible(false);
+          }
+        });
+        videos.forEach(v => {
+          const node = layerRef.current?.findOne(`#video-${v.id}`);
+          if (node) {
+            hiddenNodes.push({ node, prevVisible: node.visible() });
+            node.visible(false);
+          }
+        });
+
+        // Reset transforms to align canvas coords
+        stage.scaleX(1);
+        stage.scaleY(1);
+        stage.x(0);
+        stage.y(0);
+        stage.batchDraw();
+
+        // Render only vectors to an offscreen canvas synchronously
+        let overlayCanvas: HTMLCanvasElement | null = null;
+        try {
+          // Prefer toCanvas if available for sync draw
+          // @ts-ignore - toCanvas may exist on Konva Stage
+          overlayCanvas = stage.toCanvas({
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            pixelRatio: Math.min(4, Math.max(1, scaleFactor))
+          });
+        } catch {}
+
+        // Restore nodes and transforms
+        hiddenNodes.forEach(({ node, prevVisible }) => node.visible(prevVisible));
+        stage.scaleX(originalScaleX);
+        stage.scaleY(originalScaleY);
+        stage.x(originalX);
+        stage.y(originalY);
+        stage.batchDraw();
+
+        if (overlayCanvas) {
+          // Draw overlay onto temp export canvas
+          tempCtx.drawImage(overlayCanvas, 0, 0, box.width * scaleFactor, box.height * scaleFactor);
+        }
+      }
+    } catch (e) {
+      console.warn('Vector overlay render failed, continuing with images only.', e);
+    }
+
     // Return the canvas as a data URL
     try {
       const dataURL = tempCanvas.toDataURL('image/png');
@@ -1417,29 +1560,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       console.log('🎯 Using scale factor for high-res capture:', scaleFactor);
       
-      // If videos are present, use fallback method directly to avoid CORS issues
-      if (videos.length > 0) {
-        console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox(activeBox);
-      }
-      
-      try {
-        // Use high-resolution capture method (like Miro/Figma frame export)
-        const result = captureHighResBoundingBox(activeBox, scaleFactor);
-        
-        if (result && result !== 'data:,' && result.length > 100) {
-          console.log('✅ High-res export successful, data length:', result.length);
-          return result;
-        }
-        
-        // Fallback: export only images in the bounding box area (skip videos to avoid CORS)
-        console.warn('⚠️ High-res export failed, using fallback method (images only)');
-        return exportImagesOnlyFromRenderBox(activeBox);
-        
-      } catch (error) {
-        console.error('❌ High-res export failed, using fallback method (images only):', error);
-        return exportImagesOnlyFromRenderBox(activeBox);
-      }
+      // Single method: images-only export (videos are excluded by design)
+      return exportImagesOnlyFromRenderBox(activeBox);
     },
     
     exportCurrentRenderBoxAsPng: () => {
@@ -1457,29 +1579,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       console.log('🎯 Using scale factor for high-res capture:', scaleFactor);
       
-      // If videos are present, use fallback method directly to avoid CORS issues
-      if (videos.length > 0) {
-        console.log('🎬 Videos present on canvas - using image-only export method to avoid CORS issues');
-        return exportImagesOnlyFromRenderBox(renderBox);
-      }
-      
-      try {
-        // Use high-resolution capture method (like Miro/Figma frame export)
-        const result = captureHighResBoundingBox(renderBox, scaleFactor);
-        
-        if (result && result !== 'data:,' && result.length > 100) {
-          console.log('✅ High-res export successful, data length:', result.length);
-          return result;
-        }
-        
-        // Fallback: export only images in the bounding box area
-        console.warn('⚠️ High-res export failed, using fallback method');
-        return exportImagesOnlyFromRenderBox(renderBox);
-        
-      } catch (error) {
-        console.error('❌ High-res export failed, using fallback method:', error);
-        return exportImagesOnlyFromRenderBox(renderBox);
-      }
+      // Single method: images-only export (videos are excluded by design)
+      return exportImagesOnlyFromRenderBox(renderBox);
     },
     removeImage: (id: string) => {
       console.log('🎬 Removing image with ID:', id);
@@ -1735,6 +1836,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       
       // Create video element following Konva.js pattern
       const videoElement = document.createElement('video');
+      videoElement.crossOrigin = 'anonymous';
       videoElement.src = src;
       videoElement.preload = 'metadata';
       videoElement.muted = true; // Mute to allow autoplay
@@ -1757,7 +1859,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           console.log('🎬 No dimensions provided, using actual video dimensions:', actualWidth, 'x', actualHeight);
           
           setVideos(prev => prev.map(v => 
-            v.id === id ? { ...v, width: actualWidth, height: actualHeight } : v
+            v.id === id ? { ...v, width: actualWidth * DISPLAY_SCALE, height: actualHeight * DISPLAY_SCALE } : v
           ));
         } else {
           console.log('🎬 Using provided desqueezed dimensions:', width, 'x', height);
@@ -1800,13 +1902,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         console.error('Video loading error:', e, src);
       });
       
+      const displayWidth = (width || 764) * DISPLAY_SCALE;
+      const displayHeight = (height || 1200) * DISPLAY_SCALE;
+
       const newVideo = {
         id,
         src,
         x,
         y,
-        width: width || 764,  // Use correct video aspect ratio width
-        height: height || 1200, // Use correct video aspect ratio height
+        width: displayWidth,
+        height: displayHeight,
         rotation: 0,
         timestamp: Date.now(),
         videoElement
@@ -1840,6 +1945,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           if (newSrc) {
             // Create video element following Konva.js pattern
             const videoElement = document.createElement('video');
+            videoElement.crossOrigin = 'anonymous';
             videoElement.src = newSrc;
             videoElement.preload = 'metadata';
             videoElement.muted = true;
@@ -1893,7 +1999,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               console.error('🎬 Video loading error in replaceImageById:', e, newSrc);
             });
             
-            // Add video to videos array with desqueezed dimensions
+            // Add video to videos array with desqueezed dimensions (apply display scaling)
             setVideos(videos => [
               ...videos,
               {
@@ -1901,8 +2007,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 src: newSrc,
                 x: oldImg.x,
                 y: oldImg.y,
-                width: width || 764,  // Use provided width (desqueezed) or fallback
-                height: height || 1200, // Use provided height (desqueezed) or fallback
+                width: ((width || 764) * DISPLAY_SCALE),  // Use provided width (desqueezed) or fallback
+                height: ((height || 1200) * DISPLAY_SCALE), // Use provided height (desqueezed) or fallback
                 rotation: oldImg.rotation,
                 timestamp: Date.now(),
                 videoElement
@@ -2081,6 +2187,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           console.log(`🎬 Creating video element ${index + 1}:`, videoData);
           
           const videoElement = document.createElement('video');
+          videoElement.crossOrigin = 'anonymous';
           videoElement.src = videoData.src;
           videoElement.preload = 'metadata';
           videoElement.muted = true;
@@ -3088,6 +3195,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setRenderBoxStart(null);
   };
 
+  // Display scale for newly added media (images/videos) to keep board light
+  const DISPLAY_SCALE = 0.2;
+
   // Drag and drop functionality
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
@@ -3149,6 +3259,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         }
       }
       
+      // Apply display scaling for lighter on-canvas representation
+      if (imageWidth !== undefined && imageHeight !== undefined) {
+        imageWidth = imageWidth * DISPLAY_SCALE;
+        imageHeight = imageHeight * DISPLAY_SCALE;
+      }
+
       console.log('🎯 Adding image to state:', { id, x: imageX, y: imageY, width: imageWidth, height: imageHeight });
       setImages(prev => [
         ...prev,
@@ -3206,6 +3322,11 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           imageWidth = width;
           imageHeight = width;
         }
+      }
+      // Apply display scaling for lighter on-canvas representation
+      if (imageWidth !== undefined && imageHeight !== undefined) {
+        imageWidth = imageWidth * DISPLAY_SCALE;
+        imageHeight = imageHeight * DISPLAY_SCALE;
       }
       
       setImages(prev => [
@@ -3456,15 +3577,17 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       >
         <Layer ref={layerRef} width={boardWidth} height={boardHeight}>
           {/* Draw grid lines */}
-          {gridLines.map((line, i) => (
-            <Line
-              key={i}
-              points={line.points}
-              stroke="#333"
-              strokeWidth={0.5}
-              listening={false}
-            />
-          ))}
+          <Group id="grid-group">
+            {gridLines.map((line, i) => (
+              <Line
+                key={i}
+                points={line.points}
+                stroke="#333"
+                strokeWidth={0.5}
+                listening={false}
+              />
+            ))}
+          </Group>
           {/* Render frames at the very bottom (oldest to newest) */}
           {frames
             .slice()
