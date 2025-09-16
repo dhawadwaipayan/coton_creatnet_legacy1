@@ -10,17 +10,33 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { userId, generationType, metadata, checkOnly } = req.body;
+    // Limit generation tracking to 60 req/min per IP
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 60 });
+    if (!rateLimit(req, res)) return;
+    const { generationType, metadata, checkOnly } = req.body;
 
-    if (!userId || !generationType) {
-      return res.status(400).json({ error: 'Missing userId or generationType' });
+    if (!generationType) {
+      return res.status(400).json({ error: 'Missing generationType' });
     }
+
+    // Derive user from Authorization header
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const userId = userFromToken.user.id;
 
     if (!['image', 'video'].includes(generationType)) {
       return res.status(400).json({ error: 'Invalid generationType. Must be "image" or "video"' });

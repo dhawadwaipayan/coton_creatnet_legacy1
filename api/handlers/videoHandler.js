@@ -51,10 +51,10 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Failed to upload image to Supabase: ${uploadError.message}`);
   }
 
-  // Get public URL from board-images bucket
-  const { data: urlData } = supabase.storage
+  // Get signed URL from board-images bucket
+  const { data: urlData } = await supabase.storage
     .from('board-images')
-    .getPublicUrl(tempImagePath);
+    .createSignedUrl(tempImagePath, 60);
 
   console.log('[Video Handler] Image upload result:', {
     uploadData: uploadData?.path,
@@ -122,10 +122,10 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Failed to upload video to Supabase: ${videoUploadError.message}`);
   }
 
-  // Get video public URL from board-videos bucket
-  const { data: videoUrlData } = supabase.storage
+  // Get video signed URL from board-videos bucket
+  const { data: videoUrlData } = await supabase.storage
     .from('board-videos')
-    .getPublicUrl(videoPath);
+    .createSignedUrl(videoPath, 60);
 
   // Cleanup temp image from board-images bucket
   try {

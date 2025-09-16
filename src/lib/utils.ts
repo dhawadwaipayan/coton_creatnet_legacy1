@@ -4,22 +4,19 @@ import { twMerge } from "tailwind-merge"
 // Supabase client setup (hardcoded for debugging)
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZmxndnBoeGtseXpxbXZyZHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMDg4OTksImV4cCI6MjA2NzU4NDg5OX0.3fK8z6DnuaMjZsbrLb-3GRg3JQN1d84LI-qkTw2XxXo';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://mtflgvphxklyzqmvrdyw.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZmxndnBoeGtseXpxbXZyZHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMDg4OTksImV4cCI6MjA2NzU4NDg5OX0.3fK8z6DnuaMjZsbrLb-3GRg3JQN1d84LI-qkTw2XxXo';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Admin Approval System Functions
-export async function requestAccess(email: string, password: string, name: string) {
-  // Hash the password for storage (in production, use proper hashing)
-  const passwordHash = btoa(password); // Simple base64 encoding for demo
-  
+export async function requestAccess(email: string, _password: string, name: string) {
+  // New flow: do not store passwords in approvals table
   const { data, error } = await supabase
     .from('user_approvals')
     .insert([{
       email,
       name,
-      password_hash: passwordHash,
       status: 'pending'
     }])
     .select()
@@ -97,13 +94,18 @@ export async function getPendingApprovals() {
 
 export async function approveUser(approvalId: string, adminUserId: string) {
   try {
+    // Include bearer token for server-side auth
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
     const response = await fetch('/api/approve-user', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
         approvalId,
+        // adminUserId no longer trusted server-side; kept for backward compatibility
         adminUserId
       })
     });
@@ -241,11 +243,11 @@ export async function uploadBoardImage(userId: string, boardId: string, imageId:
   }
   
   // Get the public URL
-  const { data: urlData } = supabase.storage
+  const { data: signed } = await supabase.storage
     .from('board-images')
-    .getPublicUrl(filePath);
+    .createSignedUrl(filePath, 60);
   
-  return urlData.publicUrl;
+  return signed?.signedUrl || '';
 }
 
 export async function deleteBoardImage(boardId: string, imageId: string) {
@@ -393,10 +395,13 @@ export async function deleteBoard(id: string) {
 // Group Management Functions
 export async function getGroups(adminUserId: string) {
   try {
-    const response = await fetch(`/api/groups?adminUserId=${adminUserId}`, {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
+    const response = await fetch(`/api/groups`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       }
     });
 
@@ -420,13 +425,15 @@ export async function createGroup(adminUserId: string, groupData: {
   videoLimit: number;
 }) {
   try {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
     const response = await fetch('/api/groups', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        adminUserId,
         ...groupData
       })
     });
@@ -451,13 +458,15 @@ export async function updateGroup(adminUserId: string, groupId: string, groupDat
   videoLimit?: number;
 }) {
   try {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
     const response = await fetch(`/api/groups?groupId=${groupId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        adminUserId,
         ...groupData
       })
     });
@@ -477,13 +486,15 @@ export async function updateGroup(adminUserId: string, groupId: string, groupDat
 
 export async function deleteGroup(adminUserId: string, groupId: string) {
   try {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
     const response = await fetch(`/api/groups?groupId=${groupId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        adminUserId
       })
     });
 
@@ -502,10 +513,13 @@ export async function deleteGroup(adminUserId: string, groupId: string) {
 
 export async function getGroupMembers(adminUserId: string, groupId: string) {
   try {
-    const response = await fetch(`/api/group-members?groupId=${groupId}&adminUserId=${adminUserId}`, {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
+    const response = await fetch(`/api/group-members?groupId=${groupId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       }
     });
 
@@ -524,13 +538,15 @@ export async function getGroupMembers(adminUserId: string, groupId: string) {
 
 export async function addUserToGroup(adminUserId: string, groupId: string, userId: string) {
   try {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
     const response = await fetch('/api/group-members', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({
-        adminUserId,
         groupId,
         userId
       })
@@ -551,10 +567,13 @@ export async function addUserToGroup(adminUserId: string, groupId: string, userI
 
 export async function removeUserFromGroup(adminUserId: string, groupId: string, userId: string) {
   try {
-    const response = await fetch(`/api/group-members?groupId=${groupId}&userId=${userId}&adminUserId=${adminUserId}`, {
+    const session = await supabase.auth.getSession();
+    const accessToken = session.data.session?.access_token;
+    const response = await fetch(`/api/group-members?groupId=${groupId}&userId=${userId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       }
     });
 

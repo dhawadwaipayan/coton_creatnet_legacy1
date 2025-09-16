@@ -10,14 +10,28 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method === 'GET') {
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 60 });
+    if (!rateLimit(req, res)) return;
     return handleGetGroups(req, res);
   } else if (req.method === 'POST') {
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 20 });
+    if (!rateLimit(req, res)) return;
     return handleCreateGroup(req, res);
   } else if (req.method === 'PUT') {
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 20 });
+    if (!rateLimit(req, res)) return;
     return handleUpdateGroup(req, res);
   } else if (req.method === 'DELETE') {
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 10 });
+    if (!rateLimit(req, res)) return;
     return handleDeleteGroup(req, res);
   } else {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -26,11 +40,15 @@ export default async function handler(req, res) {
 
 async function handleGetGroups(req, res) {
   try {
-    const { adminUserId } = req.query;
-
-    if (!adminUserId) {
-      return res.status(400).json({ error: 'Missing adminUserId' });
-    }
+    // Derive user from Authorization header
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const adminUserId = userFromToken.user.id;
 
     // Verify admin access
     const { data: adminData, error: adminError } = await supabase
@@ -106,11 +124,19 @@ async function handleGetGroups(req, res) {
 
 async function handleCreateGroup(req, res) {
   try {
-    const { adminUserId, name, description, imageLimit, videoLimit } = req.body;
+    const { name, description, imageLimit, videoLimit } = req.body;
 
-    if (!adminUserId || !name || imageLimit === undefined || videoLimit === undefined) {
+    if (!name || imageLimit === undefined || videoLimit === undefined) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const adminUserId = userFromToken.user.id;
 
     // Verify admin access
     const { data: adminData, error: adminError } = await supabase
@@ -156,11 +182,19 @@ async function handleCreateGroup(req, res) {
 async function handleUpdateGroup(req, res) {
   try {
     const { groupId } = req.query;
-    const { adminUserId, name, description, imageLimit, videoLimit } = req.body;
+    const { name, description, imageLimit, videoLimit } = req.body;
 
-    if (!groupId || !adminUserId) {
-      return res.status(400).json({ error: 'Missing groupId or adminUserId' });
+    if (!groupId) {
+      return res.status(400).json({ error: 'Missing groupId' });
     }
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const adminUserId = userFromToken.user.id;
 
     // Verify admin access
     const { data: adminData, error: adminError } = await supabase
@@ -207,11 +241,17 @@ async function handleUpdateGroup(req, res) {
 async function handleDeleteGroup(req, res) {
   try {
     const { groupId } = req.query;
-    const { adminUserId } = req.body;
-
-    if (!groupId || !adminUserId) {
-      return res.status(400).json({ error: 'Missing groupId or adminUserId' });
+    if (!groupId) {
+      return res.status(400).json({ error: 'Missing groupId' });
     }
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+    if (!token) return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const adminUserId = userFromToken.user.id;
 
     // Verify admin access
     const { data: adminData, error: adminError } = await supabase

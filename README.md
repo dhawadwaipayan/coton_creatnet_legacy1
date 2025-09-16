@@ -30,29 +30,39 @@ A modern, AI-enhanced design and sketching application built with React, TypeScr
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd coton_konva1
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
+1. Set up environment variables:
+
 Create a `.env` file with your Supabase and AI service credentials.
 
-4. Start the development server:
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key # server-only
+```
+
+1. Start the development server:
+
 ```bash
 npm run dev
 ```
 
-5. Open your browser and navigate to `http://localhost:5173`
+1. Open your browser and navigate to `http://localhost:5173`
 
 ## Project Structure
 
-```
+```text
 src/
 ├── components/          # React components
 │   ├── Canvas.tsx      # Main canvas component
@@ -75,17 +85,40 @@ src/
 ## Authentication
 
 The application uses a secure admin approval system:
+
 - New users request access through the signup form
 - Admins review and approve user requests
 - Approved users can sign in and access the application
 - Admin dashboard for user management
 
+### Security & RLS Setup
+
+1. Open Supabase SQL editor and run the SQL in `supabase-policies.sql`.
+
+   - This enables Row Level Security, adds `auth.uid()` policies to tables, and sets private storage policies for `board-images` and `board-videos`.
+   - Adjust bucket IDs and table names if your schema differs.
+
+1. Make buckets private in Supabase Storage:
+
+   - `board-images`, `board-videos` should be private.
+
+1. Rotate keys if needed:
+
+   - Ensure `SUPABASE_SERVICE_ROLE_KEY` is server-only.
+   - Keep only the `anon` key in the browser.
+
+1. Test access:
+
+   - Unapproved user cannot read/modify boards or storage.
+   - Approved user can read/write their own data only.
+   - Non-admin cannot access admin endpoints.
+
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+1. Create a feature branch
+1. Make your changes
+1. Submit a pull request
 
 ## License
 

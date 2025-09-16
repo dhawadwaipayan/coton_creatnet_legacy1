@@ -10,25 +10,43 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { approvalId, adminUserId } = req.body;
+    // Basic rate limit: 10 approvals/minute per IP
+    const { createRateLimiter } = require('./_rateLimit');
+    const rateLimit = createRateLimiter({ windowMs: 60_000, max: 10 });
+    if (!rateLimit(req, res)) return;
+    const { approvalId } = req.body || {};
+    // Backward compatibility: accept adminUserId but do not trust it
+    const { adminUserId: _legacyAdminUserId } = req.body || {};
 
-    if (!approvalId || !adminUserId) {
-      return res.status(400).json({ error: 'Missing approvalId or adminUserId' });
+    if (!approvalId) {
+      return res.status(400).json({ error: 'Missing approvalId' });
     }
 
-    // SECURITY: Verify that the user exists and is authenticated
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(adminUserId);
-    
-    if (userError || !userData.user) {
-      console.error('Authentication failed:', { adminUserId, error: userError });
-      return res.status(401).json({ error: 'Unauthorized: Invalid user' });
+    // SECURITY: Verify the caller via Authorization bearer token
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring('Bearer '.length)
+      : undefined;
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized: Missing bearer token' });
     }
+
+    // Get the user from the provided JWT
+    const { data: userFromToken, error: tokenError } = await supabase.auth.getUser(token);
+    if (tokenError || !userFromToken?.user) {
+      console.error('Authentication failed from token:', tokenError);
+      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    }
+    const adminUserId = userFromToken.user.id;
 
     // SECURITY: Verify that the user is actually an admin
     const { data: adminData, error: adminError } = await supabase
@@ -64,12 +82,26 @@ export default async function handler(req, res) {
     }
 
     // Create the actual user account in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: approval.email,
-      password: atob(approval.password_hash), // Decode the password
-      email_confirm: true,
-      user_metadata: { name: approval.name }
-    });
+    // Backward compatibility: if a reversible password_hash exists (legacy), use createUser
+    // Safer path: if no password stored, prefer invite flow
+    let authData = null;
+    let authError = null;
+    if (approval.password_hash) {
+      const result = await supabase.auth.admin.createUser({
+        email: approval.email,
+        password: atob(approval.password_hash),
+        email_confirm: true,
+        user_metadata: { name: approval.name }
+      });
+      authData = result.data;
+      authError = result.error;
+    } else {
+      const result = await supabase.auth.admin.inviteUserByEmail(approval.email, {
+        data: { name: approval.name }
+      });
+      authData = result.data;
+      authError = result.error;
+    }
 
     if (authError) {
       console.error('Error creating user account:', authError);
