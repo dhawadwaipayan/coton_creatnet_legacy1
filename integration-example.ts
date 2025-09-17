@@ -1,17 +1,13 @@
 // Integration Example for Existing Generation Services
 // This file shows how to integrate the token tracking system with your existing services
 
-import { trackGeneration } from '../lib/utils';
+// Tracking disabled in app; this example is no longer used
 
 // Example: Integration with existing render service
 export async function generateImageWithTokenTracking(userId: string, prompt: string, options: any) {
   try {
     // 1. Check if user can generate (token tracking)
-    const usageCheck = await trackGeneration(userId, 'image', {
-      prompt,
-      timestamp: new Date().toISOString(),
-      ...options
-    });
+    const usageCheck: any = { data: { allowed: true, limit: 0, usage: 0, remaining: 0 } };
 
     if (!usageCheck.data.allowed) {
       throw new Error(usageCheck.error || 'Image generation limit exceeded');
@@ -45,11 +41,7 @@ export async function generateImageWithTokenTracking(userId: string, prompt: str
 export async function generateVideoWithTokenTracking(userId: string, prompt: string, options: any) {
   try {
     // 1. Check if user can generate (token tracking)
-    const usageCheck = await trackGeneration(userId, 'video', {
-      prompt,
-      timestamp: new Date().toISOString(),
-      ...options
-    });
+    const usageCheck: any = { data: { allowed: true, limit: 0, usage: 0, remaining: 0 } };
 
     if (!usageCheck.data.allowed) {
       throw new Error(usageCheck.error || 'Video generation limit exceeded');
@@ -83,11 +75,7 @@ export async function generateVideoWithTokenTracking(userId: string, prompt: str
 export async function generateColorwayWithTokenTracking(userId: string, imageData: any, options: any) {
   try {
     // 1. Check if user can generate (token tracking)
-    const usageCheck = await trackGeneration(userId, 'image', {
-      type: 'colorway',
-      timestamp: new Date().toISOString(),
-      ...options
-    });
+    const usageCheck: any = { data: { allowed: true, limit: 0, usage: 0, remaining: 0 } };
 
     if (!usageCheck.data.allowed) {
       throw new Error(usageCheck.error || 'Colorway generation limit exceeded');
@@ -121,12 +109,7 @@ export async function generateColorwayWithTokenTracking(userId: string, imageDat
 export async function editImageWithTokenTracking(userId: string, imageData: any, editPrompt: string, options: any) {
   try {
     // 1. Check if user can generate (token tracking)
-    const usageCheck = await trackGeneration(userId, 'image', {
-      type: 'edit',
-      editPrompt,
-      timestamp: new Date().toISOString(),
-      ...options
-    });
+    const usageCheck: any = { data: { allowed: true, limit: 0, usage: 0, remaining: 0 } };
 
     if (!usageCheck.data.allowed) {
       throw new Error(usageCheck.error || 'Image editing limit exceeded');

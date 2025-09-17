@@ -1,7 +1,7 @@
 // Render Service - Handles both fastrack and accurate modes
 // Separate service for render operations
 
-import { trackGeneration, precheckGeneration } from '../lib/utils';
+// Tracking disabled: no imports
 
 interface RenderRequest {
   mode: 'fastrack' | 'accurate';
@@ -40,16 +40,7 @@ export async function callRenderService(request: RenderRequest, userId?: string)
   });
 
   try {
-    // Precheck: block upfront if limit reached
-    if (userId) {
-      const { error } = await precheckGeneration(userId, 'image');
-      if (error) {
-        const limitError: any = new Error('LIMIT_EXCEEDED');
-        limitError.message = 'Please update image credit';
-        limitError.name = 'LimitExceededError';
-        throw limitError;
-      }
-    }
+    // Tracking/precheck disabled
     const response = await fetch('/api/render-engine', {
       method: 'POST',
       headers: {
@@ -93,22 +84,7 @@ export async function callRenderService(request: RenderRequest, userId?: string)
       outputLength: result.output?.length || 0
     });
 
-    // Track successful generation if userId is provided
-    if (result.success && userId) {
-      try {
-        console.log(`[Render Service] Tracking ${mode} generation for user:`, userId);
-        await trackGeneration(userId, 'image', {
-          mode,
-          hasMaterial: !!base64Material,
-          hasAdditionalDetails: !!additionalDetails,
-          timestamp: Date.now()
-        });
-        console.log(`[Render Service] Successfully tracked ${mode} generation`);
-      } catch (trackingError) {
-        console.warn(`[Render Service] Failed to track generation:`, trackingError);
-        // Don't throw error - tracking failure shouldn't break the generation
-      }
-    }
+    // Tracking disabled
 
     return result.result;
   } catch (error) {

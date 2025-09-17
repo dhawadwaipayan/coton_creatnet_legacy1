@@ -3,7 +3,7 @@
 
 import { forceAspectRatio, PreprocessingResult } from './imagePreprocessingService';
 import { restoreAspectRatio, VideoProcessingResult } from './videoPostProcessingService';
-import { trackGeneration, precheckGeneration } from '../lib/utils';
+// Tracking disabled: no imports
 
 interface VideoRequest {
   base64Sketch: string;
@@ -42,16 +42,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
   });
 
   try {
-    // Precheck: block upfront if limit reached
-    if (userId) {
-      const { error } = await precheckGeneration(userId, 'video');
-      if (error) {
-        const limitError: any = new Error('LIMIT_EXCEEDED');
-        limitError.message = 'Please update video credit';
-        limitError.name = 'LimitExceededError';
-        throw limitError;
-      }
-    }
+    // Tracking/precheck disabled
     // STEP 1: SQUEEZE - Preprocess image to 9:16 aspect ratio
     console.log('[Video Service] Starting image preprocessing (squeeze)');
     const preprocessingResult = await forceAspectRatio(base64Sketch, 9/16);
@@ -149,21 +140,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
 
       console.log('[Video Service] Complete processing pipeline finished');
       
-      // Track successful generation
-      try {
-        console.log('[Video Service] Tracking video generation for user:', userId);
-        await trackGeneration(userId, 'video', {
-          mode: 'video_fastrack',
-          hasAdditionalDetails: !!additionalDetails,
-          hasPreprocessing: !!preprocessingResult,
-          hasPostProcessing: !!postProcessingResult,
-          timestamp: Date.now()
-        });
-        console.log('[Video Service] Successfully tracked video generation');
-      } catch (trackingError) {
-        console.warn('[Video Service] Failed to track generation:', trackingError);
-        // Don't throw error - tracking failure shouldn't break the generation
-      }
+      // Tracking disabled
       
       return responseWithProcessing;
 
@@ -180,21 +157,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
         preprocessingInfo: preprocessingResult
       };
       
-      // Track successful generation even if desqueeze failed
-      try {
-        console.log('[Video Service] Tracking video generation (fallback) for user:', userId);
-        await trackGeneration(userId, 'video', {
-          mode: 'video_fastrack',
-          hasAdditionalDetails: !!additionalDetails,
-          hasPreprocessing: !!preprocessingResult,
-          hasPostProcessing: false, // Desqueeze failed
-          timestamp: Date.now()
-        });
-        console.log('[Video Service] Successfully tracked video generation (fallback)');
-      } catch (trackingError) {
-        console.warn('[Video Service] Failed to track generation (fallback):', trackingError);
-        // Don't throw error - tracking failure shouldn't break the generation
-      }
+      // Tracking disabled
       
       return fallbackResponse;
     }

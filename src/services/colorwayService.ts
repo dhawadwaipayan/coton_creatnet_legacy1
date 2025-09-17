@@ -1,7 +1,7 @@
 // Colorway Service - Handles colorway operations (color and print)
 // Separate service for colorway operations
 
-import { trackGeneration, precheckGeneration } from '../lib/utils';
+// Tracking disabled: no imports
 
 interface ColorwayRequest {
   mode: 'color' | 'print';
@@ -41,16 +41,7 @@ export async function callColorwayService(request: ColorwayRequest, userId?: str
   });
 
   try {
-    // Precheck: block upfront if limit reached
-    if (userId) {
-      const { error } = await precheckGeneration(userId, 'image');
-      if (error) {
-        const limitError: any = new Error('LIMIT_EXCEEDED');
-        limitError.message = 'Please update image credit';
-        limitError.name = 'LimitExceededError';
-        throw limitError;
-      }
-    }
+    // Tracking/precheck disabled
     const response = await fetch('/api/colorway-engine', {
       method: 'POST',
       headers: {
@@ -93,23 +84,7 @@ export async function callColorwayService(request: ColorwayRequest, userId?: str
       error: result.error
     });
 
-    // Track successful generation if userId is provided
-    if (result.success && userId) {
-      try {
-        console.log(`[Colorway Service] Tracking ${mode} generation for user:`, userId);
-        await trackGeneration(userId, 'image', {
-          mode: `colorway_${mode}`,
-          hasSelectedColor: !!selectedColor,
-          hasReferenceImage: !!referenceImage,
-          hasAdditionalDetails: !!additionalDetails,
-          timestamp: Date.now()
-        });
-        console.log(`[Colorway Service] Successfully tracked ${mode} generation`);
-      } catch (trackingError) {
-        console.warn(`[Colorway Service] Failed to track generation:`, trackingError);
-        // Don't throw error - tracking failure shouldn't break the generation
-      }
-    }
+    // Tracking disabled
 
     return result.result;
   } catch (error) {
