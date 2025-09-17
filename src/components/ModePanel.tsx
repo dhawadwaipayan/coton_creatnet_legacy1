@@ -214,8 +214,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
-      if (canvasRef.current.importImage) {
-        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+      if (canvasRef.current.importImageHelper) {
+        placeholderId = canvasRef.current.importImageHelper(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
           // After image is loaded, select it
           if (canvasRef.current && canvasRef.current.setSelectedIds) {
             canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
@@ -268,8 +268,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         }
         
         // Now add the real image with bounding box dimensions
-        if (canvasRef.current.importImage) {
-          const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
+        if (canvasRef.current.importImageHelper) {
+          const newImageId = canvasRef.current.importImageHelper(imageUrl, x, y, finalWidth, finalHeight);
           console.log('[Edit AI] Real image imported with bounding box dimensions:', { 
             finalWidth, 
             finalHeight, 
@@ -277,9 +277,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
             aspectRatio: finalWidth / finalHeight 
           });
         }
-      } else if (canvasRef.current.importImage) {
+      } else if (canvasRef.current.importImageHelper) {
         // Fallback: Use the same dimensions as the placeholder to maintain aspect ratio
-        canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
+        canvasRef.current.importImageHelper(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
@@ -368,8 +368,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
-      if (canvasRef.current.importImage) {
-        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+      if (canvasRef.current.importImageHelper) {
+        placeholderId = canvasRef.current.importImageHelper(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
           // After image is loaded, select it
           if (canvasRef.current && canvasRef.current.setSelectedIds) {
             canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
@@ -491,8 +491,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
         }
         
         // Now add the real image with bounding box dimensions
-        if (canvasRef.current.importImage) {
-          const newImageId = canvasRef.current.importImage(imageUrl, x, y, finalWidth, finalHeight);
+        if (canvasRef.current.importImageHelper) {
+          const newImageId = canvasRef.current.importImageHelper(imageUrl, x, y, finalWidth, finalHeight);
           console.log('[Render] Real image imported with adjusted dimensions:', { 
             finalWidth, 
             finalHeight, 
@@ -509,9 +509,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
           canvasRef.current.replaceImageById(placeholderId, imageUrl);
           console.log('[Render] Image replaced using fallback method');
         }
-      } else if (canvasRef.current.importImage) {
+      } else if (canvasRef.current.importImageHelper) {
         // Fallback: Use the same dimensions as the placeholder
-        canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
+        canvasRef.current.importImageHelper(imageUrl, x, y, placeholderWidth, placeholderHeight);
       }
       setAiStatus('success');
       setTimeout(() => setAiStatus('idle'), 2000);
@@ -590,8 +590,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
-      if (canvasRef.current.importImage) {
-        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
+      if (canvasRef.current.importImageHelper) {
+        placeholderId = canvasRef.current.importImageHelper(placeholderUrl, x, y, placeholderWidth, placeholderHeight, (id: string) => {
           // After image is loaded, select it
           if (canvasRef.current && canvasRef.current.setSelectedIds) {
             canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
@@ -676,9 +676,9 @@ export const ModePanel: React.FC<ModePanelProps> = ({
             }
             
             canvasRef.current.replaceImageById(placeholderId, imageUrl, false, finalWidth, finalHeight);
-          } else if (canvasRef.current.importImage) {
+          } else if (canvasRef.current.importImageHelper) {
             // Use the same dimensions as the placeholder to maintain aspect ratio
-            canvasRef.current.importImage(imageUrl, x, y, placeholderWidth, placeholderHeight);
+            canvasRef.current.importImageHelper(imageUrl, x, y, placeholderWidth, placeholderHeight);
           }
         }
       }
@@ -760,8 +760,8 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     
     let placeholderId: string | null = null;
     await new Promise<void>(resolve => {
-      if (canvasRef.current?.importImage) {
-        placeholderId = canvasRef.current.importImage(placeholderUrl, x, y, videoWidth, videoHeight, (id: string) => {
+      if (canvasRef.current?.importImageHelper) {
+        placeholderId = canvasRef.current.importImageHelper(placeholderUrl, x, y, videoWidth, videoHeight, (id: string) => {
           // After placeholder is loaded, select it
           if (canvasRef.current && canvasRef.current.setSelectedIds) {
             canvasRef.current.setSelectedIds([{ id, type: 'image' }]);
