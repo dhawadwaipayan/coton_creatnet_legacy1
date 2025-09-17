@@ -1587,6 +1587,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setImages(prev => prev.filter(img => img.id !== id));
       console.log('🎬 Image removed successfully');
     },
+    // Back-compat alias expected by ModePanel.tsx
+    importImage: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
+      return importImageHelper(src, x, y, width, height, onLoadId);
+    },
     importImageHelper: (src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
       // Security validation (DISABLED FOR NOW)
       // const validation = securityManager.validateInput(src, 'string');
