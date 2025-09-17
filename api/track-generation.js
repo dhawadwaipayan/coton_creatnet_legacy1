@@ -17,6 +17,21 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // TEMP: Completely bypass tracking; always allow without auth/DB
+  try {
+    const { checkOnly } = req.body || {};
+    return res.status(200).json({
+      success: true,
+      data: {
+        allowed: true,
+        bypassed: true,
+        precheck: !!checkOnly
+      }
+    });
+  } catch (e) {
+    return res.status(200).json({ success: true, data: { allowed: true, bypassed: true } });
+  }
+
   try {
     // Limit generation tracking to 60 req/min per IP
     const { createRateLimiter } = require('./_rateLimit');

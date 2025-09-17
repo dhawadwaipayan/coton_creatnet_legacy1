@@ -591,65 +591,14 @@ export async function removeUserFromGroup(adminUserId: string, groupId: string, 
 }
 
 export async function trackGeneration(userId: string, generationType: 'image' | 'video', metadata?: any) {
-  try {
-    const response = await fetch('/api/track-generation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        generationType,
-        metadata
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      if (response.status === 429) {
-        // Limit exceeded
-        return { data: errorData.data, error: errorData.error };
-      }
-      throw new Error(errorData.error || 'Failed to track generation');
-    }
-
-    const result = await response.json();
-    return { data: result.data, error: null };
-  } catch (error) {
-    console.error('Error tracking generation:', error);
-    throw error;
-  }
+  console.warn('[tracking] Disabled: trackGeneration no-op');
+  return { data: { bypassed: true }, error: null };
 }
 
 // Precheck without consuming credit
 export async function precheckGeneration(userId: string, generationType: 'image' | 'video') {
-  try {
-    const response = await fetch('/api/track-generation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userId,
-        generationType,
-        checkOnly: true
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      if (response.status === 429) {
-        return { data: errorData.data, error: errorData.error };
-      }
-      throw new Error(errorData.error || 'Failed to precheck generation');
-    }
-
-    const result = await response.json();
-    return { data: result.data, error: null };
-  } catch (error) {
-    console.error('Error prechecking generation:', error);
-    throw error;
-  }
+  console.warn('[tracking] Disabled: precheckGeneration no-op');
+  return { data: { allowed: true, bypassed: true }, error: null };
 }
 
 export function cn(...inputs: ClassValue[]) {
