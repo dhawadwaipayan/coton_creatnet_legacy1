@@ -2402,7 +2402,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     console.log('Duplicated items:', newItems);
   }, [selectedIds, images, videos, texts, strokes, generateUniqueId]);
 
-  // Wheel event handler for zooming
+  // Wheel event handler for zooming and scrolling
   const handleWheel = (e: any) => {
     e.evt.preventDefault();
     const stage = stageRef.current;
@@ -2411,31 +2411,51 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
     
-    const scaleBy = 1.02; // Set to 1.02 for 2% zoom steps
-    const oldScale = zoom;
-    const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+    // Check if Ctrl/Cmd key is held for zooming, otherwise scroll/pan
+    const isZooming = e.evt.ctrlKey || e.evt.metaKey;
     
-    // Calculate minimum zoom to fit canvas width in viewport
-    const minZoomForWidth = viewport.width / boardWidth;
-    
-    // Clamp zoom between width-fit minimum and 5x maximum
-    const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
-    
-    // Calculate the point under the mouse in canvas coordinates
-    const mousePointTo = {
-      x: (pointer.x - stagePos.x) / oldScale,
-      y: (pointer.y - stagePos.y) / oldScale,
-    };
-    
-    // Calculate new stage position to keep the mouse point in the same screen position
-    const newPos = {
-      x: pointer.x - mousePointTo.x * clampedScale,
-      y: pointer.y - mousePointTo.y * clampedScale,
-    };
-    
-    // Update both zoom and stage position to zoom relative to mouse cursor
-    setZoom(clampedScale);
-    setStagePos(clampStagePos(newPos));
+    if (isZooming) {
+      // Zoom functionality (existing behavior)
+      const scaleBy = 1.02; // Set to 1.02 for 2% zoom steps
+      const oldScale = zoom;
+      const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+      
+      // Calculate minimum zoom to fit canvas width in viewport
+      const minZoomForWidth = viewport.width / boardWidth;
+      
+      // Clamp zoom between width-fit minimum and 5x maximum
+      const clampedScale = Math.max(minZoomForWidth, Math.min(5, newScale));
+      
+      // Calculate the point under the mouse in canvas coordinates
+      const mousePointTo = {
+        x: (pointer.x - stagePos.x) / oldScale,
+        y: (pointer.y - stagePos.y) / oldScale,
+      };
+      
+      // Calculate new stage position to keep the mouse point in the same screen position
+      const newPos = {
+        x: pointer.x - mousePointTo.x * clampedScale,
+        y: pointer.y - mousePointTo.y * clampedScale,
+      };
+      
+      // Update both zoom and stage position to zoom relative to mouse cursor
+      setZoom(clampedScale);
+      setStagePos(clampStagePos(newPos));
+    } else {
+      // Scroll/pan functionality
+      const scrollSpeed = 1.5; // Adjust this value to control scroll speed
+      const deltaX = e.evt.deltaX || 0;
+      const deltaY = e.evt.deltaY || 0;
+      
+      // Calculate new stage position for panning
+      const newPos = {
+        x: stagePos.x - deltaX * scrollSpeed,
+        y: stagePos.y - deltaY * scrollSpeed,
+      };
+      
+      // Update stage position with clamping
+      setStagePos(clampStagePos(newPos));
+    }
   };
 
 
