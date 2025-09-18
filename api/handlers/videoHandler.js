@@ -51,26 +51,42 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Failed to upload image to Supabase: ${uploadError.message}`);
   }
 
-  // Get signed URL from board-images bucket
-  const { data: urlData } = await supabase.storage
+  // Get signed URL from board-images bucket (10 minutes expiry for Segmind processing)
+  const { data: urlData, error: urlError } = await supabase.storage
     .from('board-images')
-    .createSignedUrl(tempImagePath, 60);
+    .createSignedUrl(tempImagePath, 600);
+
+  if (urlError) {
+    throw new Error(`Failed to create signed URL: ${urlError.message}`);
+  }
 
   console.log('[Video Handler] Image upload result:', {
     uploadData: uploadData?.path,
-    urlData: urlData?.publicUrl,
+    urlData: urlData?.signedUrl ? 'Signed URL created successfully' : 'No signed URL',
     tempImagePath
   });
 
   // Validate that we have a valid image URL
-  if (!urlData?.publicUrl) {
-    throw new Error('Failed to get public URL for uploaded image');
+  if (!urlData?.signedUrl) {
+    throw new Error('Failed to get signed URL for uploaded image');
+  }
+
+  // Test that the signed URL is accessible (optional verification)
+  try {
+    const testResponse = await fetch(urlData.signedUrl, { method: 'HEAD' });
+    if (!testResponse.ok) {
+      console.warn(`[Video Handler] Signed URL test failed: ${testResponse.status}`);
+    } else {
+      console.log('[Video Handler] Signed URL verified as accessible');
+    }
+  } catch (testError) {
+    console.warn('[Video Handler] Signed URL test error:', testError.message);
   }
 
   // Prepare Segmind API request
   const segmindRequest = {
     prompt: `Front View Shot of model in fashion garment. [Push in] [Static shot] Subtle shoulder rotation, confident smile, slight weight shift. ${finalPrompt}`,
-    image: urlData.publicUrl,  // Changed from image_url to image
+    image: urlData.signedUrl,  // Use signed URL for private bucket access
     duration: 5,
     aspect_ratio: "9:16",
     style: "realistic"
@@ -146,7 +162,7 @@ export async function handleVideoFastrack(action, data) {
       : "Video generation",
     output: [{
       type: "video_generation_call",
-      result: videoUrlData.publicUrl,
+      result: videoUrlData.signedUrl,
       enhanced_description: additionalDetails && additionalDetails.trim()
         ? `Video generated. Custom requirements: ${additionalDetails.trim()}`
         : "Video generated"
@@ -154,7 +170,7 @@ export async function handleVideoFastrack(action, data) {
     message: "Video generation complete",
     video: {
       id: videoId,
-      url: videoUrlData.publicUrl,
+      url: videoUrlData.signedUrl,
       size: videoBuffer.byteLength
     }
   };
