@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export default async function handler(req, res) {
   // Set CORS headers
-  const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://coton-ai.vercel.app';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
