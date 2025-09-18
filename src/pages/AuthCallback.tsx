@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { handleGoogleAuthCallback } from '../lib/utils';
 
 const AuthCallback: React.FC = () => {
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+  const [status, setStatus] = useState<'processing' | 'success' | 'error' | 'recovery'>('processing');
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode');
 
   useEffect(() => {
     handleAuthCallback();
@@ -14,6 +16,15 @@ const AuthCallback: React.FC = () => {
   const handleAuthCallback = async () => {
     try {
       setStatus('processing');
+      
+      // Handle password recovery mode
+      if (mode === 'recovery') {
+        setStatus('recovery');
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 3000);
+        return;
+      }
       
       const { data, error } = await handleGoogleAuthCallback();
       
@@ -65,6 +76,15 @@ const AuthCallback: React.FC = () => {
             <div className="text-green-400 text-4xl mb-4">✓</div>
             <h2 className="text-white text-lg font-gilroy mb-2">Welcome to CotonAI!</h2>
             <p className="text-neutral-300 text-sm mb-4">Your account has been created successfully.</p>
+            <p className="text-neutral-400 text-xs">Redirecting to the app...</p>
+          </div>
+        )}
+        
+        {status === 'recovery' && (
+          <div>
+            <div className="text-blue-400 text-4xl mb-4">✓</div>
+            <h2 className="text-white text-lg font-gilroy mb-2">Password Reset Complete!</h2>
+            <p className="text-neutral-300 text-sm mb-4">Your password has been successfully reset. You can now sign in with your new password.</p>
             <p className="text-neutral-400 text-xs">Redirecting to the app...</p>
           </div>
         )}

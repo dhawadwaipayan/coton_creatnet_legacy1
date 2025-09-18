@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn, signUp, getUser, signInWithGoogle } from '../lib/utils';
+import { signIn, signUp, getUser, signInWithGoogle, resetPassword } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
@@ -8,12 +8,14 @@ const LOGO_IMAGE = '/CotonAI_Logo.svg';
 
 const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState<'google' | 'email'>('google');
+  const [emailMode, setEmailMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
@@ -63,12 +65,34 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         setRequestSuccess(true);
         setTimeout(() => {
           setRequestSuccess(false);
-          setMode('google');
+          setEmailMode('signin'); // Switch to sign-in after successful signup
         }, 3000);
       }
     } catch (error: any) {
       setLoading(false);
       setError(error.message || 'Failed to create account. Please try again.');
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await resetPassword(email);
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        setResetEmailSent(true);
+        setTimeout(() => {
+          setResetEmailSent(false);
+          setEmailMode('signin');
+        }, 5000);
+      }
+    } catch (error: any) {
+      setLoading(false);
+      setError(error.message || 'Failed to send reset email. Please try again.');
     }
   };
 
@@ -114,20 +138,26 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
 
           {/* Email Authentication - Secondary Method */}
           <form
-            onSubmit={mode === 'email' ? handleEmailSignIn : handleEmailSignUp}
+            onSubmit={
+              emailMode === 'signin' 
+                ? handleEmailSignIn 
+                : emailMode === 'signup' 
+                ? handleEmailSignUp 
+                : handlePasswordReset
+            }
             className="w-full"
           >
-            {mode === 'email' && (
+            {emailMode === 'signup' && (
               <>
                 <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Name</label>
-            <input
-              type="text"
-              className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Enter your full name"
-              required
-            />
+                <input
+                  type="text"
+                  className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Enter your full name"
+                  required
+                />
               </>
             )}
             <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Email</label>
@@ -139,15 +169,19 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
               placeholder="Enter your email address"
               required
             />
-            <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Password</label>
-            <input
-              type="password"
-              className={`w-full mb-6 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-            />
+            {emailMode !== 'forgot' && (
+              <>
+                <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Password</label>
+                <input
+                  type="password"
+                  className={`w-full mb-6 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                />
+              </>
+            )}
             {error && (
               <div className="text-red-400 mb-2 text-[11px] text-center">
                 {error}
@@ -155,7 +189,12 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
             )}
             {requestSuccess && (
               <div className="text-green-400 mb-2 text-[11px] text-center">
-                Account created successfully! You can now sign in.
+                {emailMode === 'signup' ? 'Account created successfully! You can now sign in.' : 'Welcome back!'}
+              </div>
+            )}
+            {resetEmailSent && (
+              <div className="text-green-400 mb-2 text-[11px] text-center">
+                Password reset email sent! Check your inbox and follow the instructions.
               </div>
             )}
             <button
@@ -167,17 +206,74 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                   : 'bg-[#E1FF00] text-black hover:bg-[#D1EF00]'
               }`}
             >
-              {loading ? 'Loading...' : mode === 'email' ? 'Sign In' : 'Create Account'}
+              {loading 
+                ? 'Loading...' 
+                : emailMode === 'signin' 
+                ? 'Sign In' 
+                : emailMode === 'signup' 
+                ? 'Create Account' 
+                : 'Send Reset Email'
+              }
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => setMode(mode === 'google' ? 'email' : 'google')}
-            className="mt-3 text-neutral-400 hover:text-white font-gilroy text-[11px]"
-          >
-            {mode === 'google' ? 'Use email instead' : 'Use Google instead'}
-          </button>
+          <div className="mt-3 flex flex-col items-center gap-2">
+            {emailMode === 'signin' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailMode('forgot');
+                  setError(null);
+                  setRequestSuccess(false);
+                  setResetEmailSent(false);
+                }}
+                className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
+              >
+                Forgot your password?
+              </button>
+            )}
+            {emailMode === 'forgot' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailMode('signin');
+                  setError(null);
+                  setRequestSuccess(false);
+                  setResetEmailSent(false);
+                }}
+                className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
+              >
+                Back to Sign In
+              </button>
+            )}
+            {emailMode !== 'forgot' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailMode(emailMode === 'signin' ? 'signup' : 'signin');
+                  setError(null);
+                  setRequestSuccess(false);
+                  setResetEmailSent(false);
+                }}
+                className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
+              >
+                {emailMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === 'google' ? 'email' : 'google');
+                setEmailMode('signin'); // Reset to sign-in when switching to email
+                setError(null);
+                setRequestSuccess(false);
+                setResetEmailSent(false);
+              }}
+              className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
+            >
+              {mode === 'google' ? 'Use email instead' : 'Use Google instead'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

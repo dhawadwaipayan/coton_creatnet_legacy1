@@ -157,6 +157,15 @@ export async function signOut() {
   return supabase.auth.signOut();
 }
 
+// Password reset function
+export async function resetPassword(email: string) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback?mode=recovery`,
+  });
+  
+  return { data, error };
+}
+
 export function getUser() {
   return supabase.auth.getUser();
 }
