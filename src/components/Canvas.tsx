@@ -2416,7 +2416,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     
     if (isZooming) {
       // Zoom functionality (existing behavior)
-      const scaleBy = 1.02; // Set to 1.02 for 2% zoom steps
+      const scaleBy = 1.015; // Reduced zoom speed for gentler interaction
       const oldScale = zoom;
       const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
       
@@ -2443,7 +2443,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       setStagePos(clampStagePos(newPos));
     } else {
       // Scroll/pan functionality
-      const scrollSpeed = 1.5; // Adjust this value to control scroll speed
+      const scrollSpeed = 0.8; // Reduced scroll speed for gentler interaction
       const deltaX = e.evt.deltaX || 0;
       const deltaY = e.evt.deltaY || 0;
       
@@ -2539,8 +2539,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
 
     if (props.selectedTool === 'hand' && isDragging && lastPos) {
-      const dx = e.evt.clientX - lastPos.x;
-      const dy = e.evt.clientY - lastPos.y;
+      const panSpeed = 0.7; // Reduced pan speed for gentler interaction
+      const dx = (e.evt.clientX - lastPos.x) * panSpeed;
+      const dy = (e.evt.clientY - lastPos.y) * panSpeed;
       setStagePos(prev => clampStagePos({ x: prev.x + dx, y: prev.y + dy }));
       setLastPos({ x: e.evt.clientX, y: e.evt.clientY });
     } else if (props.selectedTool === 'frame' && frameDrawing && frameStart) {
@@ -2731,8 +2732,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const handleStageMouseMove = (e: any) => {
     if (isTemporaryPanMode && temporaryPanStart) {
       // Handle temporary pan mode
-      const dx = e.evt.clientX - temporaryPanStart.x;
-      const dy = e.evt.clientY - temporaryPanStart.y;
+      const panSpeed = 0.7; // Reduced pan speed for gentler interaction
+      const dx = (e.evt.clientX - temporaryPanStart.x) * panSpeed;
+      const dy = (e.evt.clientY - temporaryPanStart.y) * panSpeed;
       setStagePos(prev => clampStagePos({ x: prev.x + dx, y: prev.y + dy }));
       setTemporaryPanStart({ x: e.evt.clientX, y: e.evt.clientY });
     } else if (selectionStart && selectionRect) {
