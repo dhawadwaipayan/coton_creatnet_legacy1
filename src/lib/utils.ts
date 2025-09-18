@@ -166,6 +166,121 @@ export async function resetPassword(email: string) {
   return { data, error };
 }
 
+// OTP Signup Functions
+export async function sendSignupOTP(email: string, name: string, password: string) {
+  // Generate a 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Store OTP and user data temporarily in localStorage
+  const signupData = {
+    email,
+    name,
+    password,
+    otp,
+    timestamp: Date.now(),
+    attempts: 0
+  };
+  
+  localStorage.setItem('signup_data', JSON.stringify(signupData));
+  
+  // For development: show OTP in console and alert
+  console.log('Development OTP for', email, ':', otp);
+  alert(`Development Mode: OTP for ${email} is ${otp}`);
+  
+  // TODO: Replace with actual Supabase Edge Function when deployed
+  // const { data, error } = await supabase.functions.invoke('send-otp', {
+  //   body: {
+  //     email,
+  //     otp,
+  //     type: 'signup'
+  //   }
+  // });
+  
+  return { data: { otp }, error: null };
+}
+
+export async function verifySignupOTP(enteredOTP: string) {
+  const signupDataStr = localStorage.getItem('signup_data');
+  if (!signupDataStr) {
+    return { data: null, error: { message: 'No signup data found. Please start over.' } };
+  }
+  
+  const signupData = JSON.parse(signupDataStr);
+  
+  // Check if OTP is expired (5 minutes)
+  if (Date.now() - signupData.timestamp > 5 * 60 * 1000) {
+    localStorage.removeItem('signup_data');
+    return { data: null, error: { message: 'OTP expired. Please request a new one.' } };
+  }
+  
+  // Check attempts (max 3)
+  if (signupData.attempts >= 3) {
+    localStorage.removeItem('signup_data');
+    return { data: null, error: { message: 'Too many attempts. Please start over.' } };
+  }
+  
+  // Verify OTP
+  if (enteredOTP !== signupData.otp) {
+    signupData.attempts++;
+    localStorage.setItem('signup_data', JSON.stringify(signupData));
+    return { data: null, error: { message: 'Invalid OTP. Please try again.' } };
+  }
+  
+  // OTP is correct, proceed with signup
+  const { data, error } = await supabase.auth.signUp({
+    email: signupData.email,
+    password: signupData.password,
+    options: {
+      data: {
+        name: signupData.name,
+        full_name: signupData.name
+      }
+    }
+  });
+  
+  // Clean up
+  localStorage.removeItem('signup_data');
+  
+  if (data.user && !error) {
+    // Auto-approve the user
+    await autoApproveUser(data.user);
+  }
+  
+  return { data, error };
+}
+
+export async function resendSignupOTP() {
+  const signupDataStr = localStorage.getItem('signup_data');
+  if (!signupDataStr) {
+    return { data: null, error: { message: 'No signup data found. Please start over.' } };
+  }
+  
+  const signupData = JSON.parse(signupDataStr);
+  
+  // Generate new OTP
+  const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  signupData.otp = newOtp;
+  signupData.timestamp = Date.now();
+  signupData.attempts = 0;
+  
+  localStorage.setItem('signup_data', JSON.stringify(signupData));
+  
+  // For development: show OTP in console and alert
+  console.log('Development OTP (resend) for', signupData.email, ':', newOtp);
+  alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}`);
+  
+  // TODO: Replace with actual Supabase Edge Function when deployed
+  // const { data, error } = await supabase.functions.invoke('send-otp', {
+  //   body: {
+  //     email: signupData.email,
+  //     otp: newOtp,
+  //     type: 'signup'
+  //   }
+  // });
+  
+  return { data: { otp: newOtp }, error: null };
+}
+
 export function getUser() {
   return supabase.auth.getUser();
 }
