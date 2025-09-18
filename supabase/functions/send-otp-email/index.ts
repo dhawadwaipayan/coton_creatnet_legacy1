@@ -1,19 +1,15 @@
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-const SITE_URL = Deno.env.get('SITE_URL') || 'https://coton-ai.vercel.app';
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-Deno.serve(async (req) => {
-  // Handle CORS
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -23,16 +19,26 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: email, otp, type' }),
         {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
         }
       );
     }
 
-    // Generate email content based on type
+    // Create Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
+
+    // Prepare email content
     let subject = '';
     let htmlContent = '';
     let textContent = '';
@@ -40,109 +46,100 @@ Deno.serve(async (req) => {
     if (type === 'signup') {
       subject = `Your CotonAI Verification Code: ${otp}`;
       htmlContent = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="${SITE_URL}/CotonAI_Logo.svg" alt="CotonAI Logo" style="width: 100px; height: auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 30px; padding: 20px 0; border-bottom: 2px solid #E1FF00;">
+            <h1 style="color: #333; margin: 0; font-size: 28px;">CotonAI</h1>
+            <p style="color: #666; margin: 10px 0 0 0; font-size: 16px;">AI-Powered Design Platform</p>
           </div>
-          <h2 style="color: #2a2a2a; text-align: center;">Email Verification</h2>
-          <p style="text-align: center;">Hello ${name || 'there'}! Thank you for signing up for CotonAI. To complete your registration, please use the verification code below:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <span style="display: inline-block; background-color: #E1FF00; color: #181818; font-size: 28px; font-weight: bold; padding: 15px 25px; border-radius: 8px; letter-spacing: 3px;">${otp}</span>
+          
+          <div style="background-color: #f8f9fa; padding: 40px; border-radius: 12px; text-align: center; margin: 30px 0; border: 1px solid #e9ecef;">
+            <h2 style="color: #333; margin: 0 0 25px 0; font-size: 24px;">Your Verification Code</h2>
+            <div style="background-color: #E1FF00; color: #333; font-size: 36px; font-weight: bold; letter-spacing: 8px; padding: 25px; border-radius: 8px; margin: 25px 0; display: inline-block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+              ${otp}
+            </div>
+            <p style="color: #666; margin: 25px 0 0 0; font-size: 16px; line-height: 1.5;">
+              This code will expire in <strong>5 minutes</strong>.
+            </p>
+            <p style="color: #666; margin: 15px 0 0 0; font-size: 14px;">
+              Use this code to complete your CotonAI account verification.
+            </p>
           </div>
-          <p style="text-align: center; font-size: 14px; color: #777;">This code is valid for 5 minutes.</p>
-          <p style="text-align: center;">If you did not request this, please ignore this email.</p>
-          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">
-            <p>&copy; ${new Date().getFullYear()} CotonAI. All rights reserved.</p>
+          
+          <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 14px; margin: 0 0 10px 0;">
+              If you didn't request this code, please ignore this email.
+            </p>
+            <p style="color: #999; font-size: 12px; margin: 0;">
+              This is an automated message from CotonAI. Please do not reply to this email.
+            </p>
           </div>
         </div>
       `;
-      textContent = `Your CotonAI Verification Code: ${otp}\n\nHello ${name || 'there'}! Thank you for signing up for CotonAI. To complete your registration, please use the verification code above.\n\nThis code is valid for 5 minutes.\n\nIf you did not request this, please ignore this email.\n\n© ${new Date().getFullYear()} CotonAI. All rights reserved.`;
+      textContent = `Your CotonAI Verification Code: ${otp}\n\nHello${name ? ` ${name}` : ''},\n\nThank you for signing up for CotonAI! To complete your registration, please use the verification code above.\n\nThis code will expire in 5 minutes.\n\nIf you didn't request this code, please ignore this email.\n\nBest regards,\nThe CotonAI Team`;
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid OTP type' }),
         {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
         }
       );
     }
 
-    // Send email using Resend API
-    if (RESEND_API_KEY) {
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: 'CotonAI <no-reply@cotonai.com>', // Replace with your verified domain
-          to: email,
-          subject: subject,
-          html: htmlContent,
-          text: textContent,
+    // Send email using Supabase's built-in email service
+    // Note: This requires SMTP configuration in Supabase Dashboard
+    const { data, error } = await supabaseClient.auth.admin.inviteUserByEmail(email, {
+      data: {
+        otp: otp,
+        type: type,
+        name: name || '',
+        subject: subject,
+        html: htmlContent,
+        text: textContent
+      },
+      redirectTo: `${Deno.env.get('SITE_URL') || 'http://localhost:5173'}/auth/callback?otp=${otp}&email=${email}`
+    });
+
+    if (error) {
+      console.error('Error sending email:', error);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to send email',
+          details: error.message,
+          fallback: `OTP: ${otp}` // Provide OTP as fallback
         }),
-      });
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
+    }
 
-      const emailData = await emailResponse.json();
-
-      if (!emailResponse.ok) {
-        console.error('Resend API error:', emailData);
-        return new Response(
-          JSON.stringify({ error: 'Failed to send email', details: emailData }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-              'Access-Control-Allow-Origin': '*',
-            },
-          }
-        );
+    console.log(`OTP email sent successfully to: ${email}`);
+    
+    return new Response(
+      JSON.stringify({ 
+        message: 'OTP email sent successfully!',
+        email: email,
+        otp: otp // Include OTP in response for development
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       }
+    );
 
-      return new Response(
-        JSON.stringify({ 
-          message: 'OTP email sent successfully!', 
-          emailId: emailData.id 
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    } else {
-      // Fallback if no Resend API key
-      console.log(`📧 Email simulation - To: ${email}, OTP: ${otp}`);
-      return new Response(
-        JSON.stringify({ 
-          message: 'Email simulation successful (RESEND_API_KEY not set)', 
-          otp: otp 
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        }
-      );
-    }
   } catch (error) {
     console.error('Error in send-otp-email function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message,
+        fallback: 'Check console for OTP'
+      }),
       {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
       }
     );
   }
