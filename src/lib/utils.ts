@@ -183,63 +183,37 @@ export async function sendSignupOTP(email: string, name: string, password: strin
   
   localStorage.setItem('signup_data', JSON.stringify(signupData));
   
-  // Send OTP via email using a simple email service
+  // Send OTP via Supabase Edge Function
   try {
-    // Try to send email using a simple HTTP request to an email service
-    const emailData = {
-      to: email,
-      subject: `Your CotonAI Verification Code: ${otp}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #333; margin: 0;">CotonAI</h1>
-            <p style="color: #666; margin: 10px 0 0 0;">AI-Powered Design Platform</p>
-          </div>
-          
-          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px; text-align: center; margin: 20px 0;">
-            <h2 style="color: #333; margin: 0 0 20px 0;">Your Verification Code</h2>
-            <div style="background-color: #E1FF00; color: #333; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 20px; border-radius: 4px; margin: 20px 0;">
-              ${otp}
-            </div>
-            <p style="color: #666; margin: 20px 0 0 0; font-size: 14px;">
-              This code will expire in 5 minutes.
-            </p>
-          </div>
-          
-          <div style="text-align: center; margin-top: 30px;">
-            <p style="color: #666; font-size: 14px; margin: 0;">
-              If you didn't request this code, please ignore this email.
-            </p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; margin: 0;">
-              This is an automated message from CotonAI.
-            </p>
-          </div>
-        </div>
-      `,
-      text: `Your CotonAI verification code is: ${otp}\n\nThis code will expire in 5 minutes.\n\nIf you didn't request this code, please ignore this email.\n\nThis is an automated message from CotonAI.`
-    };
+    const { data, error } = await supabase.functions.invoke('send-otp-email', {
+      body: {
+        email,
+        otp,
+        type: 'signup',
+        name: name
+      }
+    });
 
-    // For now, we'll use a simple approach - store the OTP and show it
-    // In production, you would integrate with an email service like:
-    // - Resend (resend.com)
-    // - SendGrid
-    // - Mailgun
-    // - AWS SES
+    if (error) {
+      console.error('Error sending OTP via Edge Function:', error);
+      // Fallback: show OTP in console for development
+      console.log('Development OTP for', email, ':', otp);
+      alert(`Development Mode: OTP for ${email} is ${otp}\n\nNote: Edge Function not deployed or configured. Check console for OTP.`);
+      return { data: { otp }, error: null };
+    }
+
+    console.log('📧 OTP sent via Edge Function to:', email);
+    console.log('📧 Response:', data);
     
-    console.log('📧 Email would be sent to:', email);
-    console.log('📧 Subject:', emailData.subject);
-    console.log('📧 OTP Code:', otp);
-    
-    // Show a more informative alert
-    alert(`📧 OTP Email Sent!\n\nTo: ${email}\nCode: ${otp}\n\nNote: In production, this would be sent as a real email.\nFor now, use the code above to continue.`);
+    // Show success message
+    alert(`📧 OTP Email Sent!\n\nTo: ${email}\nCode: ${otp}\n\nCheck your email for the verification code.`);
     
     return { data: { otp }, error: null };
   } catch (error) {
-    console.error('Error preparing email:', error);
+    console.error('Error calling Edge Function:', error);
     // Fallback: show OTP in console for development
     console.log('Development OTP for', email, ':', otp);
-    alert(`Development Mode: OTP for ${email} is ${otp}\n\nNote: Email service not configured. Check console for OTP.`);
+    alert(`Development Mode: OTP for ${email} is ${otp}\n\nNote: Edge Function not available. Check console for OTP.`);
     return { data: { otp }, error: null };
   }
 }
@@ -310,20 +284,37 @@ export async function resendSignupOTP() {
   
   localStorage.setItem('signup_data', JSON.stringify(signupData));
   
-  // Send new OTP via email
+  // Send new OTP via Supabase Edge Function
   try {
-    console.log('📧 Resending OTP email to:', signupData.email);
-    console.log('📧 New OTP Code:', newOtp);
+    const { data, error } = await supabase.functions.invoke('send-otp-email', {
+      body: {
+        email: signupData.email,
+        otp: newOtp,
+        type: 'signup',
+        name: signupData.name
+      }
+    });
+
+    if (error) {
+      console.error('Error resending OTP via Edge Function:', error);
+      // Fallback: show OTP in console for development
+      console.log('Development OTP (resend) for', signupData.email, ':', newOtp);
+      alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}\n\nNote: Edge Function not deployed or configured. Check console for OTP.`);
+      return { data: { otp: newOtp }, error: null };
+    }
+
+    console.log('📧 New OTP sent via Edge Function to:', signupData.email);
+    console.log('📧 Response:', data);
     
-    // Show a more informative alert
-    alert(`📧 New OTP Email Sent!\n\nTo: ${signupData.email}\nCode: ${newOtp}\n\nNote: In production, this would be sent as a real email.\nFor now, use the code above to continue.`);
+    // Show success message
+    alert(`📧 New OTP Email Sent!\n\nTo: ${signupData.email}\nCode: ${newOtp}\n\nCheck your email for the verification code.`);
     
     return { data: { otp: newOtp }, error: null };
   } catch (error) {
-    console.error('Error resending OTP:', error);
+    console.error('Error calling Edge Function for resend:', error);
     // Fallback: show OTP in console for development
     console.log('Development OTP (resend) for', signupData.email, ':', newOtp);
-    alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}\n\nNote: Email service not configured. Check console for OTP.`);
+    alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}\n\nNote: Edge Function not available. Check console for OTP.`);
     return { data: { otp: newOtp }, error: null };
   }
 }
