@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn, signUp, getUser, signInWithGoogle, resetPassword } from '../lib/utils';
+import { signIn, signUp, getUser, signInWithGoogle, resetPassword, sendSignupOTP, verifySignupOTP, resendSignupOTP } from '../lib/utils';
 
 const FONT_SIZE = 'text-[12px]';
 const BG_IMAGE = '/auth-bg.jpg';
 const LOGO_IMAGE = '/CotonAI_Logo.svg';
 
 const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess }) => {
-  const [mode, setMode] = useState<'google' | 'email'>('google');
-  const [emailMode, setEmailMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [emailMode, setEmailMode] = useState<'signin' | 'signup' | 'forgot' | 'otp'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const navigate = useNavigate();
 
   const handleGoogleSignIn = async () => {
@@ -56,22 +59,101 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
     e.preventDefault();
     setLoading(true);
     setError(null);
+    
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+    
+    // Validate password strength
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+    
     try {
-      const { error } = await signUp(email, password, name);
+      const { error } = await sendSignupOTP(email, name, password);
       setLoading(false);
       if (error) {
         setError(error.message);
       } else {
-        setRequestSuccess(true);
-        setTimeout(() => {
-          setRequestSuccess(false);
-          setEmailMode('signin'); // Switch to sign-in after successful signup
-        }, 3000);
+        setOtpSent(true);
+        setEmailMode('otp');
+        setOtpResendCooldown(60); // 60 seconds cooldown
+        startResendCooldown();
       }
     } catch (error: any) {
       setLoading(false);
-      setError(error.message || 'Failed to create account. Please try again.');
+      setError(error.message || 'Failed to send OTP. Please try again.');
     }
+  };
+
+  const handleOTPVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    if (otp.length !== 6) {
+      setError('Please enter a 6-digit OTP');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      const { data, error } = await verifySignupOTP(otp);
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else if (data?.user) {
+        setRequestSuccess(true);
+        setTimeout(() => {
+          setRequestSuccess(false);
+          setEmailMode('signin');
+          onAuthSuccess();
+        }, 2000);
+      }
+    } catch (error: any) {
+      setLoading(false);
+      setError(error.message || 'Failed to verify OTP. Please try again.');
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (otpResendCooldown > 0) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { error } = await resendSignupOTP();
+      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        setOtpResendCooldown(60);
+        startResendCooldown();
+        setRequestSuccess(true);
+        setTimeout(() => setRequestSuccess(false), 3000);
+      }
+    } catch (error: any) {
+      setLoading(false);
+      setError(error.message || 'Failed to resend OTP. Please try again.');
+    }
+  };
+
+  const startResendCooldown = () => {
+    const interval = setInterval(() => {
+      setOtpResendCooldown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {
@@ -143,6 +225,8 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 ? handleEmailSignIn 
                 : emailMode === 'signup' 
                 ? handleEmailSignUp 
+                : emailMode === 'otp'
+                ? handleOTPVerification
                 : handlePasswordReset
             }
             className="w-full"
@@ -160,26 +244,61 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 />
               </>
             )}
-            <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Email</label>
-            <input
-              type="email"
-              className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Enter your email address"
-              required
-            />
-            {emailMode !== 'forgot' && (
+            {emailMode !== 'otp' && (
+              <>
+                <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Email</label>
+                <input
+                  type="email"
+                  className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  required
+                />
+              </>
+            )}
+            {emailMode === 'otp' && (
+              <>
+                <div className="text-center mb-4">
+                  <p className="text-neutral-300 text-sm mb-2">We've sent a 6-digit code to</p>
+                  <p className="text-white font-gilroy text-sm">{email}</p>
+                </div>
+                <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Enter OTP</label>
+                <input
+                  type="text"
+                  className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE} text-center text-lg tracking-widest`}
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  required
+                />
+              </>
+            )}
+            {emailMode !== 'forgot' && emailMode !== 'otp' && (
               <>
                 <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Password</label>
                 <input
                   type="password"
-                  className={`w-full mb-6 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
+                  className={`w-full mb-4 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
                 />
+                {emailMode === 'signup' && (
+                  <>
+                    <label className={`self-start text-neutral-300 font-gilroy mb-1 mt-2 ${FONT_SIZE}`}>Confirm Password</label>
+                    <input
+                      type="password"
+                      className={`w-full mb-6 px-4 py-2 rounded bg-[#232323] text-white focus:outline-none focus:ring-2 focus:ring-[#E1FF00] font-gilroy ${FONT_SIZE}`}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm your password"
+                      required
+                    />
+                  </>
+                )}
               </>
             )}
             {error && (
@@ -189,12 +308,19 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
             )}
             {requestSuccess && (
               <div className="text-green-400 mb-2 text-[11px] text-center">
-                {emailMode === 'signup' ? 'Account created successfully! You can now sign in.' : 'Welcome back!'}
+                {emailMode === 'signup' ? 'Account created successfully! You can now sign in.' : 
+                 emailMode === 'otp' ? 'Account verified successfully! Welcome to CotonAI!' :
+                 'Welcome back!'}
               </div>
             )}
             {resetEmailSent && (
               <div className="text-green-400 mb-2 text-[11px] text-center">
                 Password reset email sent! Check your inbox and follow the instructions.
+              </div>
+            )}
+            {otpSent && emailMode === 'otp' && (
+              <div className="text-blue-400 mb-2 text-[11px] text-center">
+                OTP sent! Check your email for the verification code.
               </div>
             )}
             <button
@@ -211,10 +337,29 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 : emailMode === 'signin' 
                 ? 'Sign In' 
                 : emailMode === 'signup' 
-                ? 'Create Account' 
+                ? 'Send OTP' 
+                : emailMode === 'otp'
+                ? 'Verify OTP'
                 : 'Send Reset Email'
               }
             </button>
+            {emailMode === 'otp' && (
+              <div className="mt-2 text-center">
+                <button
+                  type="button"
+                  onClick={handleResendOTP}
+                  disabled={otpResendCooldown > 0 || loading}
+                  className={`text-neutral-400 hover:text-white font-gilroy text-[11px] ${
+                    otpResendCooldown > 0 ? 'cursor-not-allowed' : ''
+                  }`}
+                >
+                  {otpResendCooldown > 0 
+                    ? `Resend OTP in ${otpResendCooldown}s` 
+                    : 'Resend OTP'
+                  }
+                </button>
+              </div>
+            )}
           </form>
 
           <div className="mt-3 flex flex-col items-center gap-2">
@@ -246,7 +391,23 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 Back to Sign In
               </button>
             )}
-            {emailMode !== 'forgot' && (
+            {emailMode === 'otp' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailMode('signup');
+                  setError(null);
+                  setRequestSuccess(false);
+                  setResetEmailSent(false);
+                  setOtpSent(false);
+                  setOtp('');
+                }}
+                className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
+              >
+                Back to Sign Up
+              </button>
+            )}
+            {emailMode !== 'forgot' && emailMode !== 'otp' && (
               <button
                 type="button"
                 onClick={() => {
@@ -254,25 +415,14 @@ const AuthOverlay: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                   setError(null);
                   setRequestSuccess(false);
                   setResetEmailSent(false);
+                  setOtpSent(false);
+                  setOtp('');
                 }}
                 className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
               >
                 {emailMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                setMode(mode === 'google' ? 'email' : 'google');
-                setEmailMode('signin'); // Reset to sign-in when switching to email
-                setError(null);
-                setRequestSuccess(false);
-                setResetEmailSent(false);
-              }}
-              className="text-neutral-400 hover:text-white font-gilroy text-[11px]"
-            >
-              {mode === 'google' ? 'Use email instead' : 'Use Google instead'}
-            </button>
           </div>
         </div>
       </div>
