@@ -122,9 +122,9 @@ export async function handleVideoFastrack(action, data) {
     contentType: segmindResponse.headers.get('content-type')
   });
 
-  // Upload video to Supabase
+  // Upload video to Supabase with user ID prefix for RLS
   const videoId = `video_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  const videoPath = `board-videos/${videoId}.mp4`;
+  const videoPath = `${userId}/${videoId}.mp4`;
 
   // Upload video to board-videos bucket (your existing bucket)
   const { data: videoUploadData, error: videoUploadError } = await supabase.storage
@@ -138,10 +138,14 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Failed to upload video to Supabase: ${videoUploadError.message}`);
   }
 
-  // Get video signed URL from board-videos bucket
+  // Get public URL for video (permanent access for authenticated users)
   const { data: videoUrlData } = await supabase.storage
     .from('board-videos')
-    .createSignedUrl(videoPath, 60);
+    .getPublicUrl(videoPath);
+
+  if (!videoUrlData?.publicUrl) {
+    throw new Error('Failed to get public URL for video');
+  }
 
   // Cleanup temp image from board-images bucket
   try {
@@ -162,7 +166,7 @@ export async function handleVideoFastrack(action, data) {
       : "Video generation",
     output: [{
       type: "video_generation_call",
-      result: videoUrlData.signedUrl,
+      result: videoUrlData.publicUrl,
       enhanced_description: additionalDetails && additionalDetails.trim()
         ? `Video generated. Custom requirements: ${additionalDetails.trim()}`
         : "Video generated"
@@ -170,7 +174,7 @@ export async function handleVideoFastrack(action, data) {
     message: "Video generation complete",
     video: {
       id: videoId,
-      url: videoUrlData.signedUrl,
+      url: videoUrlData.publicUrl,
       size: videoBuffer.byteLength
     }
   };
