@@ -205,7 +205,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   };
 
   // Images state: store loaded HTMLImageElement
-  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean }>>([]);
+  const [images, setImages] = useState<Array<{ id: string, image: HTMLImageElement | null, x: number, y: number, width?: number, height?: number, rotation?: number, timestamp: number, error?: boolean, loading?: boolean, src?: string | null }>>([]);
   // Videos state: store video elements with Konva.js video support
   const [videos, setVideos] = useState<Array<{ id: string, src: string, x: number, y: number, width: number, height: number, rotation: number, timestamp: number, videoElement: HTMLVideoElement, thumbnail?: HTMLImageElement }>>([]);
   
@@ -902,10 +902,31 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     }
     
     try {
-      // Upload images to Supabase Storage and get URLs
+      // Upload images to Supabase Storage and get URLs (with optimization)
       const serializedImages = await Promise.all(
         currentImages.map(async (img) => {
-          if (img.image && !img.error) {
+          // Check if image already has a Supabase URL (already uploaded)
+          const hasSupabaseUrl = img.src && (
+            img.src.includes('supabase') || 
+            img.src.includes('storage.googleapis.com') ||
+            img.src.startsWith('https://') && !img.src.startsWith('data:')
+          );
+          
+          if (hasSupabaseUrl) {
+            // Image already uploaded, preserve existing URL and properties
+            return {
+              id: img.id,
+              x: img.x,
+              y: img.y,
+              width: img.width,
+              height: img.height,
+              rotation: img.rotation,
+              timestamp: img.timestamp,
+              src: img.src, // Keep existing Supabase URL
+              error: false
+            };
+          } else if (img.image && !img.error) {
+            // New image or image without URL, upload to storage
             try {
               // Convert image to blob and upload to storage
               const blob = await imageElementToBlob(img.image, img.width, img.height);
@@ -919,7 +940,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 height: img.height,
                 rotation: img.rotation,
                 timestamp: img.timestamp,
-                src: imageUrl, // Supabase Storage URL
+                src: imageUrl, // New Supabase Storage URL
                 error: false
               };
             } catch (uploadError) {
@@ -946,7 +967,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               height: img.height,
               rotation: img.rotation,
               timestamp: img.timestamp,
-              src: null,
+              src: img.src || null, // Preserve existing src if any
               error: img.error || true
             };
           }
@@ -2098,6 +2119,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           height: imgData.height,
           rotation: imgData.rotation,
           timestamp: imgData.timestamp,
+          src: imgData.src || null, // Preserve existing URL from database
           error: false,
           loading: true // Mark as loading
         }));
@@ -2114,7 +2136,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             viewportCenter,
             (loadedImage, index) => {
               setImages(prev => prev.map((imgItem, i) => 
-                i === index ? { ...imgItem, image: loadedImage.image, loading: false, error: loadedImage.error } : imgItem
+                i === index ? { ...imgItem, image: loadedImage.image, loading: false, error: loadedImage.error, src: imageData[index].src } : imgItem
               ));
             }
           );
@@ -2128,14 +2150,14 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 
                 img.onload = () => {
                   setImages(prev => prev.map((imgItem, i) => 
-                    i === index ? { ...imgItem, image: img, loading: false } : imgItem
+                    i === index ? { ...imgItem, image: img, loading: false, src: imgData.src } : imgItem
                   ));
                 };
                 
                 img.onerror = () => {
                   console.error('Failed to load image from storage:', imgData.src);
                   setImages(prev => prev.map((imgItem, i) => 
-                    i === index ? { ...imgItem, error: true, loading: false } : imgItem
+                    i === index ? { ...imgItem, error: true, loading: false, src: imgData.src } : imgItem
                   ));
                   // Return image to pool on error
                   MemoryManager.returnImage(imgData.id);
