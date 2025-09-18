@@ -1,4 +1,4 @@
-import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Konva from 'konva';
 import { Stage, Layer, Line, Image as KonvaImage, Transformer, Text as KonvaText, Rect, Group } from 'react-konva';
 
@@ -798,7 +798,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Alt/Option key detection for duplication (works on both Windows/Linux Alt and Mac Option)
       if (e.key === 'Alt' || e.key === 'Meta' || e.altKey) {
-        console.log('Alt/Option key pressed:', { key: e.key, altKey: e.altKey, metaKey: e.metaKey });
         setIsAltPressed(true);
       }
       
@@ -812,7 +811,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const handleKeyUp = (e: KeyboardEvent) => {
       // Alt/Option key release
       if (e.key === 'Alt' || e.key === 'Meta' || !e.altKey) {
-        console.log('Alt/Option key released:', { key: e.key, altKey: e.altKey, metaKey: e.metaKey });
         setIsAltPressed(false);
         // Cancel duplication if Alt is released during drag
         if (isDuplicating) {
@@ -898,13 +896,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
 
   // Manual save function - upload images to Supabase Storage
   const saveBoardContent = useCallback(async (currentImages = images, currentStrokes = strokes, currentTexts = texts, currentVideos = videos) => {
-    console.log('🔄 saveBoardContent called');
-    console.log('props.onContentChange exists:', !!props.onContentChange);
-    console.log('props.boardContent exists:', !!props.boardContent);
-    console.log('Current videos state:', currentVideos);
     
     if (!props.onContentChange || !props.boardContent) {
-      console.log('❌ saveBoardContent early return - missing required props');
       return;
     }
     
@@ -983,9 +976,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
         }
       };
       
-      console.log('Saving board content with videos:', currentVideos.length);
-      console.log('Video data being saved:', videoData);
-      console.log('Full content being saved:', content);
       
       // Generate and store thumbnail for fast previews
       try {
@@ -2620,7 +2610,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const maxTimestamp = allTimestamps.length > 0 ? Math.max(...allTimestamps) : Date.now();
       const newTimestamp = maxTimestamp + 1;
       
-      console.log('Adding stroke with timestamp:', newTimestamp, 'max existing:', maxTimestamp);
       
       pushToUndoStackWithSave();
       setStrokes(prev => [
@@ -2984,8 +2973,32 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIds, sketchBox, pushToUndoStackWithSave]);
 
-  // Debug: log the timestamps
-  console.log('All items timestamps:', images.map(item => ({ id: item.id, type: 'image', timestamp: item.timestamp })).concat(strokes.map(item => ({ id: item.id, type: 'stroke', timestamp: item.timestamp }))));
+
+  // Memoized sorted arrays for better performance
+  const sortedImages = useMemo(() => 
+    images.slice().sort((a, b) => a.timestamp - b.timestamp), 
+    [images]
+  );
+  
+  const sortedStrokes = useMemo(() => 
+    strokes.slice().sort((a, b) => a.timestamp - b.timestamp), 
+    [strokes]
+  );
+  
+  const sortedTexts = useMemo(() => 
+    texts.slice().sort((a, b) => a.timestamp - b.timestamp), 
+    [texts]
+  );
+  
+  const sortedVideos = useMemo(() => 
+    videos.slice().sort((a, b) => a.timestamp - b.timestamp), 
+    [videos]
+  );
+  
+  const sortedFrames = useMemo(() => 
+    frames.slice().sort((a, b) => a.timestamp - b.timestamp), 
+    [frames]
+  );
 
   // Helper function to measure text width more accurately
   const measureTextWidth = (text: string, fontSize: number, fontFamily: string) => {
@@ -3623,10 +3636,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             ))}
           </Group>
           {/* Render frames at the very bottom (oldest to newest) */}
-          {frames
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map(frame => (
+          {sortedFrames.map(frame => (
               <Group
                 key={frame.id}
                 id={`frame-${frame.id}`}
@@ -3719,10 +3729,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           )}
           
           {/* Render all images first (oldest to newest) */}
-          {images
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map(img => (
+          {sortedImages.map(img => (
               img.error ? (
                 <Rect
                   key={img.id}
@@ -3766,11 +3773,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             ))}
           
           {/* Render all videos after images (oldest to newest) */}
-          {console.log('Rendering videos:', videos)}
-          {videos
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map(video => (
+          {sortedVideos.map(video => (
                               <Group
                   key={video.id}
                   id={`video-${video.id}`}
@@ -3905,10 +3908,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
             ))}
           
           {/* Render all texts after images (oldest to newest) */}
-          {texts
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map(txt => (
+          {sortedTexts.map(txt => (
               <Group key={txt.id}>
                 {/* Main text */}
                 <KonvaText
@@ -4092,10 +4092,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
               </Group>
             ))}
           {/* Render all strokes after images (oldest to newest) */}
-          {strokes
-            .slice()
-            .sort((a, b) => a.timestamp - b.timestamp)
-            .map(stroke => (
+          {sortedStrokes.map(stroke => (
               <Line
                 key={stroke.id}
                 id={`stroke-${stroke.id}`}
