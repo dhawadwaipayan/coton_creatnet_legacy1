@@ -183,20 +183,24 @@ export async function sendSignupOTP(email: string, name: string, password: strin
   
   localStorage.setItem('signup_data', JSON.stringify(signupData));
   
-  // For development: show OTP in console and alert
-  console.log('Development OTP for', email, ':', otp);
-  alert(`Development Mode: OTP for ${email} is ${otp}`);
+  // Send OTP via email using Supabase Edge Function
+  const { data, error } = await supabase.functions.invoke('send-otp-simple', {
+    body: {
+      email,
+      otp,
+      type: 'signup'
+    }
+  });
   
-  // TODO: Replace with actual Supabase Edge Function when deployed
-  // const { data, error } = await supabase.functions.invoke('send-otp', {
-  //   body: {
-  //     email,
-  //     otp,
-  //     type: 'signup'
-  //   }
-  // });
+  if (error) {
+    console.error('Error sending OTP:', error);
+    // Fallback: show OTP in console for development
+    console.log('Development OTP for', email, ':', otp);
+    alert(`Development Mode: OTP for ${email} is ${otp}\n\nNote: Email service not configured. Check console for OTP.`);
+    return { data: { otp }, error: null };
+  }
   
-  return { data: { otp }, error: null };
+  return { data, error: null };
 }
 
 export async function verifySignupOTP(enteredOTP: string) {
@@ -265,20 +269,24 @@ export async function resendSignupOTP() {
   
   localStorage.setItem('signup_data', JSON.stringify(signupData));
   
-  // For development: show OTP in console and alert
-  console.log('Development OTP (resend) for', signupData.email, ':', newOtp);
-  alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}`);
+  // Send new OTP via email using Supabase Edge Function
+  const { data, error } = await supabase.functions.invoke('send-otp-simple', {
+    body: {
+      email: signupData.email,
+      otp: newOtp,
+      type: 'signup'
+    }
+  });
   
-  // TODO: Replace with actual Supabase Edge Function when deployed
-  // const { data, error } = await supabase.functions.invoke('send-otp', {
-  //   body: {
-  //     email: signupData.email,
-  //     otp: newOtp,
-  //     type: 'signup'
-  //   }
-  // });
+  if (error) {
+    console.error('Error resending OTP:', error);
+    // Fallback: show OTP in console for development
+    console.log('Development OTP (resend) for', signupData.email, ':', newOtp);
+    alert(`Development Mode: New OTP for ${signupData.email} is ${newOtp}\n\nNote: Email service not configured. Check console for OTP.`);
+    return { data: { otp: newOtp }, error: null };
+  }
   
-  return { data: { otp: newOtp }, error: null };
+  return { data, error: null };
 }
 
 export function getUser() {
