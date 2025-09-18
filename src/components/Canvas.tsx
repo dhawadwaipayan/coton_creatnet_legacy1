@@ -29,6 +29,7 @@ function generateGridLines(size = 30000, gridSize = 20) {
   return lines;
 }
 
+
 function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
 }
@@ -239,6 +240,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
     };
   }, [videos.length, startVideoAnimation]);
+
   // Strokes state: freehand lines
   const [strokes, setStrokes] = useState<Array<{ id: string, points: number[], color: string, size: number, x: number, y: number, width: number, height: number, rotation: number, timestamp: number }>>([]);
   const [drawing, setDrawing] = useState(false);
@@ -1838,13 +1840,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       pushToUndoStackWithSave();
       const id = Date.now().toString();
       
-      // Create video element following Konva.js pattern
+      // Create video element for Konva.js integration
       const videoElement = document.createElement('video');
       videoElement.crossOrigin = 'anonymous';
       videoElement.src = src;
       videoElement.preload = 'metadata';
       videoElement.muted = true; // Mute to allow autoplay
       videoElement.loop = true; // Loop video for better UX
+      videoElement.playsInline = true; // Important for mobile compatibility
+      videoElement.controls = false; // We'll handle controls ourselves
       
       // Set video dimensions when metadata loads
       videoElement.addEventListener('loadedmetadata', () => {
@@ -1947,13 +1951,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           
           // Use the working importVideo method for proper video creation
           if (newSrc) {
-            // Create video element following Konva.js pattern
+            // Create video element for Konva.js integration
             const videoElement = document.createElement('video');
             videoElement.crossOrigin = 'anonymous';
             videoElement.src = newSrc;
             videoElement.preload = 'metadata';
             videoElement.muted = true;
             videoElement.loop = true;
+            videoElement.playsInline = true;
+            videoElement.controls = false;
             
             // Set video dimensions when metadata loads
             videoElement.addEventListener('loadedmetadata', () => {
@@ -2196,6 +2202,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           videoElement.preload = 'metadata';
           videoElement.muted = true;
           videoElement.loop = true;
+          videoElement.playsInline = true;
+          videoElement.controls = false;
           
           // Handle video loading
           videoElement.addEventListener('loadedmetadata', () => {
@@ -3778,16 +3786,30 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 >
 
                 {video.videoElement ? (
-                  video.thumbnail ? (
-                    // Show thumbnail when video is paused/not playing
-                    <KonvaImage
-                      image={video.thumbnail}
-                      width={video.width}
-                      height={video.height}
-                      cornerRadius={8}
-                    />
+                  video.videoElement.paused ? (
+                    // Show thumbnail when video is paused
+                    video.thumbnail ? (
+                      <KonvaImage
+                        image={video.thumbnail}
+                        width={video.width}
+                        height={video.height}
+                        cornerRadius={8}
+                      />
+                    ) : (
+                      // Show loading placeholder if no thumbnail
+                      <Rect
+                        x={0}
+                        y={0}
+                        width={video.width}
+                        height={video.height}
+                        fill="#f0f0f0"
+                        stroke="#ccc"
+                        strokeWidth={1}
+                        cornerRadius={8}
+                      />
+                    )
                   ) : (
-                    // Show live video when playing and no thumbnail yet
+                    // Show live video when playing
                     <KonvaImage
                       image={video.videoElement}
                       width={video.width}
@@ -4275,6 +4297,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           })}
         </Layer>
       </Stage>
+      
       {/* Inline text editing is now handled directly in the text elements */}
       </div>
     );
