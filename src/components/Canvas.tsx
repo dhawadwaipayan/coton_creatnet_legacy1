@@ -2389,7 +2389,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     ];
     setSelectedIds(newSelectedIds);
 
-    console.log('Duplicated items:', newItems);
   }, [selectedIds, images, videos, texts, strokes, generateUniqueId]);
 
   // Wheel event handler for zooming and scrolling
@@ -2454,20 +2453,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   const handleMouseDown = (e: any) => {
     // Check for Alt/Option+drag duplication (check both state and event)
     const isAltHeld = isAltPressed || e.evt.altKey;
-    console.log('Mouse down:', { 
-      isAltPressed, 
-      evtAltKey: e.evt.altKey, 
-      isAltHeld, 
-      selectedTool: props.selectedTool, 
-      selectedIdsLength: selectedIds.length 
-    });
     
     if (isAltHeld && props.selectedTool === 'select' && selectedIds.length > 0) {
       const stage = stageRef.current;
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
       
-      console.log('Starting Alt+drag duplication');
       setIsDuplicating(true);
       setDuplicateStartPos({ x: pointer.x, y: pointer.y });
       setDuplicateOffset({ x: 0, y: 0 });
