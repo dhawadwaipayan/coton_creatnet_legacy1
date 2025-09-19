@@ -205,6 +205,17 @@ export async function handleRenderPro(action, data) {
     throw new Error(`Segmind API error: ${segmindResponse.status} - ${errorText}`);
   }
 
+  // Check if response is JSON (error) or image
+  const contentType = segmindResponse.headers.get('content-type');
+  console.log('[Render Pro] Segmind response content-type:', contentType);
+  
+  if (contentType && contentType.includes('application/json')) {
+    // Response is JSON, likely an error
+    const errorData = await segmindResponse.json();
+    console.error('[Render Pro] Segmind API returned JSON error:', errorData);
+    throw new Error(`Segmind API error: ${JSON.stringify(errorData)}`);
+  }
+  
   // Segmind API should return image directly, just like video mode
   const segmindImageBuffer = await segmindResponse.arrayBuffer();
   console.log('[Render Pro] Received image from Segmind API:', {
