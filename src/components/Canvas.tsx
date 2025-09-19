@@ -14,6 +14,9 @@ import { CollaborationManager } from '../lib/collaborationManager';
 import { cdnManager } from '../lib/cdnManager';
 import { securityManager } from '../lib/securityManager';
 import { productionMonitor } from '../lib/productionMonitor';
+import { useHistory } from '../hooks/useHistory';
+import { ActionFactory } from '../lib/actionFactory';
+import { CanvasState } from '../types/actions';
 
 // Helper to generate grid lines for a 30000x30000 board
 function generateGridLines(size = 30000, gridSize = 20) {
@@ -665,9 +668,26 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   }, [editingText, props.onTextAdded]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Undo/Redo stacks
-  const [undoStack, setUndoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts; videos: typeof videos }>>([]);
-  const [redoStack, setRedoStack] = useState<Array<{ images: typeof images; strokes: typeof strokes; texts: typeof texts; videos: typeof videos }>>([]);
+  // New robust undo/redo system
+  const currentCanvasState: CanvasState = useMemo(() => ({
+    images,
+    videos,
+    texts,
+    strokes,
+    selectedIds
+  }), [images, videos, texts, strokes, selectedIds]);
+
+  const {
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    pushAction,
+    startBatch,
+    endBatch,
+    updateState,
+    getCurrentState
+  } = useHistory(currentCanvasState);
 
   // Debounced saving state
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -696,15 +716,10 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     videosRef.current = videos;
   }, [videos]);
 
-  // Helper to push current state to undo stack
-  const pushToUndoStack = useCallback(() => {
-    setUndoStack(prev => {
-      const newStack = [...prev, { images: JSON.parse(JSON.stringify(images)), strokes: JSON.parse(JSON.stringify(strokes)), texts: JSON.parse(JSON.stringify(texts)), videos: JSON.parse(JSON.stringify(videos)) }];
-      // Limit to 50 entries
-      return newStack.length > 50 ? newStack.slice(newStack.length - 50) : newStack;
-    });
-    setRedoStack([]); // Clear redo stack on new action
-  }, [images, strokes, texts, videos]);
+  // Update history manager when state changes
+  useEffect(() => {
+    updateState(currentCanvasState);
+  }, [currentCanvasState, updateState]);
 
   // Debounced save function - saves after 2 seconds of inactivity
   const debouncedSave = useCallback(() => {
@@ -731,67 +746,114 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     setSaveTimeout(timeout);
   }, [saveTimeout, props.onContentChange, props.boardContent]);
 
-  // Update pushToUndoStack to trigger debounced save
-  const pushToUndoStackWithSave = useCallback(() => {
-    pushToUndoStack();
-    // Trigger debounced save after content changes
-    debouncedSave();
-  }, [pushToUndoStack, debouncedSave]);
-
-  // Undo handler
+  // Enhanced undo handler with state restoration
   const handleUndo = useCallback(() => {
-    setUndoStack(prev => {
-      if (prev.length === 0) return prev;
-      setRedoStack(rStack => [{ images, strokes, texts, videos }, ...rStack]);
-      const last = prev[prev.length - 1];
-      setImages(last.images);
-      setStrokes(last.strokes);
-      setTexts(last.texts);
-      setVideos(last.videos);
-      return prev.slice(0, -1);
-    });
-  }, [images, strokes, texts, videos]);
+    const success = undo();
+    if (success) {
+      const restoredState = getCurrentState();
+      setImages(restoredState.images);
+      setVideos(restoredState.videos);
+      setTexts(restoredState.texts);
+      setStrokes(restoredState.strokes);
+      setSelectedIds(restoredState.selectedIds);
+      debouncedSave();
+    }
+  }, [undo, getCurrentState, debouncedSave]);
 
-  // Redo handler
+  // Enhanced redo handler with state restoration
   const handleRedo = useCallback(() => {
-    setRedoStack(prev => {
-      if (prev.length === 0) return prev;
-      setUndoStack(uStack => [...uStack, { images, strokes, texts, videos }]);
-      const next = prev[0];
-      setImages(next.images);
-      setStrokes(next.strokes);
-      setTexts(next.texts);
-      setVideos(next.videos);
-      return prev.slice(1);
-    });
-  }, [images, strokes, texts, videos]);
+    const success = redo();
+    if (success) {
+      const restoredState = getCurrentState();
+      setImages(restoredState.images);
+      setVideos(restoredState.videos);
+      setTexts(restoredState.texts);
+      setStrokes(restoredState.strokes);
+      setSelectedIds(restoredState.selectedIds);
+      debouncedSave();
+    }
+  }, [redo, getCurrentState, debouncedSave]);
+
+  // Global keyboard shortcuts for undo/redo (when not editing text)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Only handle undo/redo when not editing text
+      if (editingText) return;
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (((e.ctrlKey || e.metaKey) && e.key === 'y') || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Z')) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [editingText, handleUndo, handleRedo]);
   
-  // Delete selected items handler
+  // Delete selected items handler with action tracking
   const handleDeleteSelected = useCallback(() => {
     if (selectedIds.length === 0) return;
     
-    pushToUndoStackWithSave();
+    // Start batch for multiple deletions
+    const batchId = startBatch(`Delete ${selectedIds.length} items`);
     
     // Delete selected images
     const selectedImageIds = selectedIds.filter(id => id.type === 'image').map(id => id.id);
+    selectedImageIds.forEach(imageId => {
+      const image = images.find(img => img.id === imageId);
+      if (image) {
+        const action = ActionFactory.createDeleteImageAction(imageId, image);
+        pushAction(action);
+      }
+    });
     setImages(prev => prev.filter(img => !selectedImageIds.includes(img.id)));
     
     // Delete selected strokes
     const selectedStrokeIds = selectedIds.filter(id => id.type === 'stroke').map(id => id.id);
+    selectedStrokeIds.forEach(strokeId => {
+      const stroke = strokes.find(s => s.id === strokeId);
+      if (stroke) {
+        const action = ActionFactory.createDeleteStrokeAction(strokeId, stroke);
+        pushAction(action);
+      }
+    });
     setStrokes(prev => prev.filter(stroke => !selectedStrokeIds.includes(stroke.id)));
     
     // Delete selected texts
     const selectedTextIds = selectedIds.filter(id => id.type === 'text').map(id => id.id);
+    selectedTextIds.forEach(textId => {
+      const text = texts.find(t => t.id === textId);
+      if (text) {
+        const action = ActionFactory.createDeleteTextAction(textId, text);
+        pushAction(action);
+      }
+    });
     setTexts(prev => prev.filter(text => !selectedTextIds.includes(text.id)));
     
     // Delete selected videos
     const selectedVideoIds = selectedIds.filter(id => id.type === 'video').map(id => id.id);
+    selectedVideoIds.forEach(videoId => {
+      const video = videos.find(v => v.id === videoId);
+      if (video) {
+        const action = ActionFactory.createDeleteVideoAction(videoId, video);
+        pushAction(action);
+      }
+    });
     setVideos(prev => prev.filter(video => !selectedVideoIds.includes(video.id)));
+    
+    // End batch
+    endBatch();
     
     // Clear selection
     setSelectedIds([]);
     setSelectionRect(null);
-  }, [selectedIds, pushToUndoStackWithSave]);
+    
+    // Trigger save
+    debouncedSave();
+  }, [selectedIds, images, strokes, texts, videos, startBatch, pushAction, endBatch, debouncedSave]);
 
   // Keyboard event listeners for delete functionality and Alt/Option key detection
   React.useEffect(() => {
@@ -1612,7 +1674,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       //   return null;
       // }
       
-      pushToUndoStackWithSave();
+      const action = ActionFactory.createAddImageAction({
+        id: Date.now().toString(),
+        image: null,
+        x: x || 0,
+        y: y || 0,
+        width: width || 200,
+        height: height || 200,
+        rotation: 0,
+        timestamp: Date.now(),
+        loading: true,
+        src: src
+      });
+      pushAction(action);
+      
       const img = new window.Image();
       // Avoid tainted canvas: set CORS mode for cross-origin images
       try {
@@ -1848,8 +1923,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     },
     importVideo: (src: string, x: number, y: number, width: number, height: number) => {
       console.log('🎬 importVideo called with:', { src, x, y, width, height });
-      pushToUndoStackWithSave();
       const id = Date.now().toString();
+      
+      const action = ActionFactory.createAddVideoAction({
+        id,
+        src,
+        x,
+        y,
+        width,
+        height,
+        rotation: 0,
+        timestamp: Date.now(),
+        videoElement: document.createElement('video')
+      });
+      pushAction(action);
       
       // Create video element for Konva.js integration
       const videoElement = document.createElement('video');
@@ -2074,7 +2161,9 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     saveBoardContent,
     undo: handleUndo,
     redo: handleRedo,
-  }), [sketchBox, renderBox, stageRef, stagePos, zoom, getViewportCenter, centerViewportOnElement, screenToCanvas, props.renderModeActive, saveBoardContent, handleUndo, handleRedo, images, selectedIds, videos]);
+    canUndo,
+    canRedo,
+  }), [sketchBox, renderBox, stageRef, stagePos, zoom, getViewportCenter, centerViewportOnElement, screenToCanvas, props.renderModeActive, saveBoardContent, handleUndo, handleRedo, canUndo, canRedo, images, selectedIds, videos]);
 
   // Only load board content when board ID changes
   const lastBoardIdRef = useRef<string | null>(null);
@@ -2623,11 +2712,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       const maxTimestamp = allTimestamps.length > 0 ? Math.max(...allTimestamps) : Date.now();
       const newTimestamp = maxTimestamp + 1;
       
-      
-      pushToUndoStackWithSave();
-      setStrokes(prev => [
-        ...prev,
-        {
+      const newStroke = {
           ...currentStroke,
           x: minX,
           y: minY,
@@ -2635,8 +2720,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           height: maxY - minY,
           points: currentStroke.points.map((p, i) => i % 2 === 0 ? p - minX : p - minY),
           timestamp: newTimestamp
-        }
-      ]);
+        };
+      
+      const action = ActionFactory.createAddStrokeAction(newStroke);
+      pushAction(action);
+      
+      setStrokes(prev => [...prev, newStroke]);
       setDrawing(false);
       setCurrentStroke(null);
     }
@@ -2923,6 +3012,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const width = Math.max(20, node.width() * scaleX);
     const height = Math.max(20, node.height() * scaleY);
     const snapped = applySnapToFrame({ x, y, width, height }, undefined);
+    
+    const image = images.find(img => img.id === id);
+    if (image) {
+      const oldTransform = ActionFactory.createTransformStateFromItem(image);
+      const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, snapped.width, snapped.height, rotation);
+      
+      const action = ActionFactory.createTransformImageAction(id, oldTransform, newTransform);
+      pushAction(action);
+    }
+    
     setImages(prev => prev.map(img => img.id === id ? { ...img, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, rotation } : img));
     node.scaleX(1);
     node.scaleY(1);
@@ -2938,6 +3037,16 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     const newWidth = Math.max(20, node.width() ? node.width() * scaleX : (strokes.find(s => s.id === id)?.width || 20) * scaleX);
     const newHeight = Math.max(20, node.height() ? node.height() * scaleY : (strokes.find(s => s.id === id)?.height || 20) * scaleY);
     const snapped = applySnapToFrame({ x, y, width: newWidth, height: newHeight }, undefined);
+    
+    const stroke = strokes.find(s => s.id === id);
+    if (stroke) {
+      const oldTransform = ActionFactory.createTransformStateFromItem(stroke);
+      const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, snapped.width, snapped.height, rotation);
+      
+      const action = ActionFactory.createTransformStrokeAction(id, oldTransform, newTransform);
+      pushAction(action);
+    }
+    
     setStrokes(prev => prev.map(stroke => stroke.id === id ? { ...stroke, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, points: stroke.points.map((p, i) => i % 2 === 0 ? p * scaleX : p * scaleY), rotation } : stroke));
     node.scaleX(1);
     node.scaleY(1);
@@ -2969,13 +3078,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length > 0) {
-        pushToUndoStackWithSave();
-        setFrames(prev => prev.filter(frame => !selectedIds.some(sel => sel.id === frame.id && sel.type === 'frame')));
-        setImages(prev => prev.filter(img => !selectedIds.some(sel => sel.id === img.id && sel.type === 'image')));
-        setStrokes(prev => prev.filter(stroke => !selectedIds.some(sel => sel.id === stroke.id && sel.type === 'stroke')));
-        setTexts(prev => prev.filter(txt => !selectedIds.some(sel => sel.id === txt.id && sel.type === 'text')));
-        setVideos(prev => prev.filter(video => !selectedIds.some(sel => sel.id === video.id && sel.type === 'video')));
-        setSelectedIds([]);
+        // Use the enhanced delete handler
+        handleDeleteSelected();
       }
       // Allow deleting the bounding box with Delete/Backspace
       if ((e.key === 'Delete' || e.key === 'Backspace') && sketchBox) {
@@ -2984,7 +3088,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, sketchBox, pushToUndoStackWithSave]);
+  }, [selectedIds, sketchBox, handleDeleteSelected]);
 
 
   // Memoized sorted arrays for better performance
@@ -3082,10 +3186,8 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       if (!pointer) return;
       const canvasPos = screenToCanvas(pointer.x, pointer.y);
       const id = Date.now().toString();
-      pushToUndoStackWithSave();
-      setTexts(prev => [
-        ...prev,
-        {
+      
+      const newText = {
           id,
           text: '', // Start with blank text
           x: canvasPos.x,
@@ -3094,8 +3196,12 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
           fontSize: 32,
           rotation: 0,
           timestamp: Date.now()
-        }
-      ]);
+        };
+      
+      const action = ActionFactory.createAddTextAction(newText);
+      pushAction(action);
+      
+      setTexts(prev => [...prev, newText]);
       
       // Immediately enter native edit mode for the new text
       setEditingText({
@@ -3265,7 +3371,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
   // Helper function to import image using the existing importImage logic
   const importImageHelper = useCallback((src: string, x?: number, y?: number, width?: number, height?: number, onLoadId?: (id: string) => void) => {
     console.log('🎯 importImageHelper called with:', { src: src.substring(0, 50) + '...', x, y, width, height });
-    pushToUndoStackWithSave();
     const img = new window.Image();
     // Avoid tainted canvas: set CORS mode for cross-origin images
     try {
@@ -3326,19 +3431,22 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
       }
 
       console.log('🎯 Adding image to state:', { id, x: imageX, y: imageY, width: imageWidth, height: imageHeight });
-      setImages(prev => [
-        ...prev,
-        { 
-          id, 
-          image: img, 
-          x: imageX, 
-          y: imageY, 
-          width: imageWidth, 
-          height: imageHeight, 
-          rotation: 0, 
-          timestamp: Date.now() 
-        }
-      ]);
+      
+      const newImage = { 
+        id, 
+        image: img, 
+        x: imageX, 
+        y: imageY, 
+        width: imageWidth, 
+        height: imageHeight, 
+        rotation: 0, 
+        timestamp: Date.now() 
+      };
+      
+      const action = ActionFactory.createAddImageAction(newImage);
+      pushAction(action);
+      
+      setImages(prev => [...prev, newImage]);
       
       if (onLoadId) onLoadId(id);
       
@@ -3408,7 +3516,7 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     };
     
     return id;
-  }, [pushToUndoStackWithSave, getViewportCenter, centerViewportOnElement]);
+  }, [pushAction, getViewportCenter, centerViewportOnElement]);
 
   // Helper function to validate image URLs
   const isValidImageUrl = useCallback((url: string): boolean => {
@@ -3772,9 +3880,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onClick={evt => handleItemClick(img.id, 'image', evt)}
                   onTap={evt => handleItemClick(img.id, 'image', evt)}
                   onDragEnd={e => {
-                    pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
                     const snapped = applySnapToFrame({ x, y, width: img.width || 200, height: img.height || 200 }, undefined);
+                    
+                    const oldTransform = ActionFactory.createTransformStateFromItem(img);
+                    const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, img.width || 200, img.height || 200, img.rotation || 0);
+                    
+                    const action = ActionFactory.createTransformImageAction(img.id, oldTransform, newTransform);
+                    pushAction(action);
+                    
                     setImages(prev => prev.map(im => im.id === img.id ? { ...im, x: snapped.x, y: snapped.y } : im));
                     handleGroupDragEnd();
                   }}
@@ -3798,14 +3912,19 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onClick={evt => handleItemClick(video.id, 'video', evt)}
                   onTap={evt => handleItemClick(video.id, 'video', evt)}
                   onDragEnd={e => {
-                    pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
                     const snapped = applySnapToFrame({ x, y, width: video.width, height: video.height }, undefined);
+                    
+                    const oldTransform = ActionFactory.createTransformStateFromItem(video);
+                    const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, video.width, video.height, video.rotation);
+                    
+                    const action = ActionFactory.createTransformVideoAction(video.id, oldTransform, newTransform);
+                    pushAction(action);
+                    
                     setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x: snapped.x, y: snapped.y } : v));
                     handleGroupDragEnd();
                   }}
                   onTransformEnd={e => {
-                    pushToUndoStackWithSave();
                     const node = e.target;
                     const scaleX = node.scaleX();
                     const scaleY = node.scaleY();
@@ -3815,6 +3934,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     const newWidth = Math.max(20, video.width * scaleX);
                     const newHeight = Math.max(20, video.height * scaleY);
                     const snapped = applySnapToFrame({ x, y, width: newWidth, height: newHeight }, undefined);
+                    
+                    const oldTransform = ActionFactory.createTransformStateFromItem(video);
+                    const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, snapped.width, snapped.height, rotation);
+                    
+                    const action = ActionFactory.createTransformVideoAction(video.id, oldTransform, newTransform);
+                    pushAction(action);
+                    
                     setVideos(prev => prev.map(v => v.id === video.id ? { ...v, x: snapped.x, y: snapped.y, width: snapped.width, height: snapped.height, rotation } : v));
                     node.scaleX(1);
                     node.scaleY(1);
@@ -3947,15 +4073,20 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                   onDblClick={() => handleTextDblClick(txt)}
                   onDblTap={() => handleTextDblClick(txt)}
                   onDragEnd={e => {
-                    pushToUndoStackWithSave();
                     const { x, y } = e.target.position();
                     const widthApprox = measureTextWidth(txt.text, txt.fontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
                     const snapped = applySnapToFrame({ x, y, width: widthApprox, height: txt.fontSize * 1.2 }, undefined);
+                    
+                    const oldTransform = ActionFactory.createTransformStateFromItem(txt);
+                    const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, widthApprox, txt.fontSize * 1.2, txt.rotation);
+                    
+                    const action = ActionFactory.createTransformTextAction(txt.id, oldTransform, newTransform);
+                    pushAction(action);
+                    
                     setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x: snapped.x, y: snapped.y } : t));
                     handleGroupDragEnd();
                   }}
                   onTransformEnd={e => {
-                    pushToUndoStackWithSave();
                     const node = e.target;
                     const scaleX = node.scaleX();
                     const scaleY = node.scaleY();
@@ -3965,6 +4096,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                     const newFontSize = Math.max(10, txt.fontSize * scaleY);
                     const widthApprox = measureTextWidth(txt.text, newFontSize, "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif");
                     const snapped = applySnapToFrame({ x, y, width: widthApprox, height: newFontSize * 1.2 }, undefined);
+                    
+                    const oldTransform = ActionFactory.createTransformStateFromItem(txt);
+                    const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, widthApprox, newFontSize * 1.2, rotation);
+                    
+                    const action = ActionFactory.createTransformTextAction(txt.id, oldTransform, newTransform);
+                    pushAction(action);
+                    
                     setTexts(prev => prev.map(t => t.id === txt.id ? { ...t, x: snapped.x, y: snapped.y, fontSize: newFontSize, rotation } : t));
                     node.scaleX(1);
                     node.scaleY(1);
@@ -4122,9 +4260,15 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
                 onClick={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onTap={evt => handleItemClick(stroke.id, 'stroke', evt)}
                 onDragEnd={e => {
-                  pushToUndoStackWithSave();
                   const { x, y } = e.target.position();
                   const snapped = applySnapToFrame({ x, y, width: stroke.width, height: stroke.height }, undefined);
+                  
+                  const oldTransform = ActionFactory.createTransformStateFromItem(stroke);
+                  const newTransform = ActionFactory.createTransformState(snapped.x, snapped.y, stroke.width, stroke.height, stroke.rotation);
+                  
+                  const action = ActionFactory.createTransformStrokeAction(stroke.id, oldTransform, newTransform);
+                  pushAction(action);
+                  
                   setStrokes(prev => prev.map(s => s.id === stroke.id ? { ...s, x: snapped.x, y: snapped.y } : s));
                   handleGroupDragEnd();
                 }}

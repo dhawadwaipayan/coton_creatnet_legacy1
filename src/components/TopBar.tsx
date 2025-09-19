@@ -55,9 +55,11 @@ interface TopBarProps {
   onBoardNameChange: (name: string) => void;
   onSaveBoard?: () => void;
   isSaving?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardName, onBoardNameChange, onSaveBoard, isSaving = false }) => {
+export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardName, onBoardNameChange, onSaveBoard, isSaving = false, canUndo = false, canRedo = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // boardName and onBoardNameChange come from props
   const [editing, setEditing] = useState(false);
@@ -221,6 +223,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
           }
           label="Undo"
           onClick={handleUndo}
+          disabled={!canUndo}
         />
         <TopBarButton
           icon={
@@ -230,6 +233,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
           }
           label="Redo"
           onClick={handleRedo}
+          disabled={!canRedo}
         />
       </div>
     </div>

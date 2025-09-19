@@ -22,6 +22,8 @@ const Index = () => {
   const [boundingBoxCreated, setBoundingBoxCreated] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string>('');
   const canvasRef = useRef<any>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   
   // Zoom state for demo
   const [zoom, setZoom] = useState(100);
@@ -221,6 +223,24 @@ const Index = () => {
       boards: boards.map(b => ({ id: b.id, name: b.name, lastEdited: b.lastEdited }))
     });
   }, [currentBoardId, currentBoard, boards]);
+
+  // Update undo/redo state from canvas
+  useEffect(() => {
+    const updateUndoRedoState = () => {
+      if (canvasRef.current) {
+        setCanUndo(canvasRef.current.canUndo || false);
+        setCanRedo(canvasRef.current.canRedo || false);
+      }
+    };
+
+    // Update immediately
+    updateUndoRedoState();
+
+    // Set up interval to check for changes
+    const interval = setInterval(updateUndoRedoState, 100);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Prepare board content for Canvas
   const getBoardContentForCanvas = () => {
@@ -487,6 +507,8 @@ const Index = () => {
                   onBoardNameChange={name => currentBoard && handleUpdateBoardName(currentBoard.id, name)}
                   onSaveBoard={handleManualSave}
                   isSaving={savingBoard}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
                 />
               </div>
             )}
