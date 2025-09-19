@@ -14,11 +14,11 @@ interface RenderResponse {
   success: boolean;
   mode: string;
   model_used: string;
-  enhanced_prompt?: string;
+  enhanced_prompt: string;
   output: Array<{
     type: string;
     result: string;
-    enhanced_description?: string;
+    enhanced_description: string;
   }>;
   message: string;
   imageDimensions?: {
@@ -26,11 +26,6 @@ interface RenderResponse {
     height: number;
     aspectRatio: number;
   };
-  // Polling properties for async operations
-  poll_url?: string;
-  request_id?: string;
-  status?: string;
-  downloadData?: string;
 }
 
 export async function callRenderService(request: RenderRequest, userId?: string): Promise<RenderResponse> {
@@ -59,7 +54,7 @@ export async function callRenderService(request: RenderRequest, userId?: string)
             base64Material,
             additionalDetails,
             isFastMode: mode === 'fastrack' || mode === 'model',  // Model mode also uses fast mode
-            userId: userId  // Include userId in the request
+            userId  // Add userId for Segmind pro mode
           },
           timestamp: Date.now(),
           nonce: Math.random().toString(36).substring(2, 15)
@@ -115,7 +110,6 @@ export const renderFlat = (base64Sketch: string, base64Material?: string, additi
 
 export const renderPro = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
-
 
 export const renderExtract = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'extract', base64Sketch, base64Material, additionalDetails }, userId);

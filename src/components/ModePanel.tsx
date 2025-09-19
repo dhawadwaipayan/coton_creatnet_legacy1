@@ -30,7 +30,7 @@ export interface ModePanelProps {
   sketchModeActive: boolean;
   onSketchBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
   renderBoundingBox?: { x: number, y: number, width: number, height: number } | null;
-  userId: string | null; // Add userId prop
+  userId: string; // Add userId prop
 }
 
 export const ModePanel: React.FC<ModePanelProps> = ({
@@ -319,12 +319,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     setAiError(null);
     if (!canvasRef.current) {
       setAiStatus('idle');
-      return;
-    }
-    
-    if (!userId) {
-      setAiError('User not authenticated. Please log in and try again.');
-      setAiStatus('error');
       return;
     }
     // Always get the bounding box PNG from Canvas
@@ -724,12 +718,6 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     setAiError(null);
     if (!canvasRef.current) {
       setAiStatus('idle');
-      return;
-    }
-    
-    if (!userId) {
-      setAiError('User not authenticated. Please log in and try again.');
-      setAiStatus('error');
       return;
     }
     

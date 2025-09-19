@@ -2,7 +2,7 @@
 // Handles render_fastrack requests
 
 import { createClient } from '@supabase/supabase-js';
-import { handleRenderFastrack, handleRenderAccurate, handleRenderPro } from './handlers/renderHandler.js';
+import { handleRenderFastrack, handleRenderAccurate } from './handlers/renderHandler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,7 +57,28 @@ export default async function handler(req, res) {
           error: 'Flat sub-mode not yet implemented' 
         });
       case 'render_pro':
-        result = await handleRenderPro(action, data);
+        // Route to renderpipeline for Segmind integration
+        const renderPipelineResponse = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/renderpipeline`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            service: 'render_pro',
+            action,
+            data,
+            timestamp: Date.now(),
+            nonce: Math.random().toString(36).substring(2, 15)
+          })
+        });
+
+        if (!renderPipelineResponse.ok) {
+          const errorData = await renderPipelineResponse.json();
+          throw new Error(errorData.error || 'Render pipeline error');
+        }
+
+        const pipelineResult = await renderPipelineResponse.json();
+        result = pipelineResult.result;
         break;
       case 'render_extract':
         // TODO: Implement Extract sub-mode handler
