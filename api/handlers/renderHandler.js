@@ -161,9 +161,9 @@ export async function handleRenderPro(action, data) {
 
   console.log('[Render Pro] Image uploaded, calling Segmind API');
 
-  // Prepare Segmind API request
+  // Prepare Segmind API request - try with base64 data instead of URL
   const segmindRequest = {
-    Base64Sketch: signedUrlData.signedUrl, // Segmind expects image URL
+    Base64Sketch: cleanBase64, // Send base64 data directly
     Additional_Details: additionalDetails || ''
   };
 
@@ -179,8 +179,12 @@ export async function handleRenderPro(action, data) {
 
   if (!segmindResponse.ok) {
     const errorText = await segmindResponse.text();
-    console.error('[Render Pro] Segmind API error:', errorText);
-    throw new Error(`Segmind API error: ${segmindResponse.status} ${errorText}`);
+    console.error('[Render Pro] Segmind API error:', {
+      status: segmindResponse.status,
+      statusText: segmindResponse.statusText,
+      error: errorText
+    });
+    throw new Error(`Segmind API error: ${segmindResponse.status} - ${errorText}`);
   }
 
   const segmindResult = await segmindResponse.json();
@@ -252,7 +256,9 @@ export async function handleRenderPro(action, data) {
           downloadData: `data:image/png;base64,${cleanBase64}`
         };
       } else if (pollResult.status === 'FAILED') {
-        throw new Error('Segmind processing failed');
+        const errorDetails = pollResult.error_message || pollResult.error || 'Unknown error';
+        console.error('[Render Pro] Segmind processing failed:', errorDetails);
+        throw new Error(`Segmind processing failed: ${JSON.stringify(errorDetails)}`);
       }
       
       // Still processing, wait and try again
