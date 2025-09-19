@@ -161,11 +161,29 @@ export async function handleRenderPro(action, data) {
 
   console.log('[Render Pro] Image uploaded, calling Segmind API with public URL:', publicUrlData.publicUrl);
 
-  // Prepare Segmind API request with public URL
+  // Test if the public URL is accessible
+  try {
+    const testResponse = await fetch(publicUrlData.publicUrl, { method: 'HEAD' });
+    console.log('[Render Pro] Public URL test response:', testResponse.status);
+    if (!testResponse.ok) {
+      throw new Error(`Public URL not accessible: ${testResponse.status}`);
+    }
+  } catch (testError) {
+    console.error('[Render Pro] Public URL test failed:', testError);
+    throw new Error(`Public URL test failed: ${testError.message}`);
+  }
+
+  // Use public URL as per Segmind API documentation
   const segmindRequest = {
-    Base64Sketch: publicUrlData.publicUrl, // Send public URL to Segmind
+    Base64Sketch: publicUrlData.publicUrl, // Send image URL as per API docs
     Additional_Details: additionalDetails || ''
   };
+
+  console.log('[Render Pro] Segmind request payload:', {
+    Base64Sketch: publicUrlData.publicUrl,
+    Additional_Details: additionalDetails || '',
+    requestSize: JSON.stringify(segmindRequest).length
+  });
 
   // Call Segmind API
   const segmindResponse = await fetch('https://api.segmind.com/workflows/68cdb1828ed0001726e0f151-v2', {
