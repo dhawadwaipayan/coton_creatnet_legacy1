@@ -150,20 +150,20 @@ export async function handleRenderPro(action, data) {
     throw new Error(`Failed to upload image to Supabase: ${uploadError.message}`);
   }
 
-  // Get signed URL for Segmind API (10 minutes expiry)
-  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+  // Get public URL for Segmind API
+  const { data: publicUrlData } = await supabase.storage
     .from('board-images')
-    .createSignedUrl(imagePath, 600); // 10 minutes
+    .getPublicUrl(imagePath);
 
-  if (signedUrlError || !signedUrlData?.signedUrl) {
-    throw new Error('Failed to create signed URL for image');
+  if (!publicUrlData?.publicUrl) {
+    throw new Error('Failed to get public URL for image');
   }
 
-  console.log('[Render Pro] Image uploaded, calling Segmind API');
+  console.log('[Render Pro] Image uploaded, calling Segmind API with public URL:', publicUrlData.publicUrl);
 
-  // Prepare Segmind API request - try with base64 data instead of URL
+  // Prepare Segmind API request with public URL
   const segmindRequest = {
-    Base64Sketch: cleanBase64, // Send base64 data directly
+    Base64Sketch: publicUrlData.publicUrl, // Send public URL to Segmind
     Additional_Details: additionalDetails || ''
   };
 
