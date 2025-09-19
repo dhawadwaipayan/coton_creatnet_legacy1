@@ -196,20 +196,74 @@ export async function handleRenderPro(action, data) {
     console.warn('[Render Pro] Failed to cleanup temporary image:', cleanupError);
   }
 
-  // Return poll URL for client-side polling
-  return {
-    success: true,
-    mode: "Render Pro (Segmind)",
-    model_used: "segmind-workflow-v2",
-    poll_url: segmindResult.poll_url,
-    request_id: segmindResult.request_id,
-    status: segmindResult.status,
-    message: "Render Pro request queued, polling for completion...",
-    imageDimensions: {
-      width: 1024,
-      height: 1536,
-      aspectRatio: 1024 / 1536
-    },
-    downloadData: `data:image/png;base64,${cleanBase64}` // Base64 data for direct download
-  };
+  // Poll for completion on server side
+  console.log('[Render Pro] Starting server-side polling...');
+  
+  let attempts = 0;
+  const maxAttempts = 30; // 90 seconds total
+  
+  while (attempts < maxAttempts) {
+    try {
+      console.log(`[Render Pro] Polling attempt ${attempts + 1}/${maxAttempts}`);
+      
+      const pollResponse = await fetch(segmindResult.poll_url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.SEGMIND_API_KEY
+        }
+      });
+      
+      if (!pollResponse.ok) {
+        throw new Error(`Polling failed: ${pollResponse.status}`);
+      }
+      
+      const pollResult = await pollResponse.json();
+      console.log('[Render Pro] Poll result:', pollResult);
+      
+      // Check if processing is complete
+      if (pollResult.status === 'COMPLETED' && pollResult.RenderPro_Output) {
+        console.log('[Render Pro] Processing completed successfully');
+        
+        // Fetch the final image
+        const imageResponse = await fetch(pollResult.RenderPro_Output);
+        if (!imageResponse.ok) {
+          throw new Error('Failed to fetch final image');
+        }
+        
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+        
+        // Return in the same format as other render modes
+        return {
+          success: true,
+          mode: "Render Pro (Segmind)",
+          model_used: "segmind-workflow-v2",
+          output: [{
+            type: "image_generation_call",
+            result: imageBase64
+          }],
+          message: "Fashion render complete using Segmind AI",
+          imageDimensions: {
+            width: 1024,
+            height: 1536,
+            aspectRatio: 1024 / 1536
+          },
+          downloadData: `data:image/png;base64,${cleanBase64}`
+        };
+      } else if (pollResult.status === 'FAILED') {
+        throw new Error('Segmind processing failed');
+      }
+      
+      // Still processing, wait and try again
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+      attempts++;
+      
+    } catch (error) {
+      console.error('[Render Pro] Polling error:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('Segmind processing timeout - maximum attempts reached');
 }
