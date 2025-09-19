@@ -4,7 +4,7 @@
 // Tracking disabled: no imports
 
 interface RenderRequest {
-  mode: 'fastrack' | 'accurate';
+  mode: 'fastrack' | 'accurate' | 'model' | 'flat' | 'pro' | 'extract';
   base64Sketch: string;
   base64Material?: string;
   additionalDetails?: string;
@@ -99,3 +99,16 @@ export const renderFastrack = (base64Sketch: string, base64Material?: string, ad
 
 export const renderAccurate = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'accurate', base64Sketch, base64Material, additionalDetails }, userId);
+
+// New sub-mode functions
+export const renderModel = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'model', base64Sketch, base64Material, additionalDetails }, userId);
+
+export const renderFlat = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'flat', base64Sketch, base64Material, additionalDetails }, userId);
+
+export const renderPro = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
+
+export const renderExtract = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'extract', base64Sketch, base64Material, additionalDetails }, userId);

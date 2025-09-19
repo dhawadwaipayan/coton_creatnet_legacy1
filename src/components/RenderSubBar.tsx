@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 
 interface RenderSubBarProps {
   onCancel: () => void;
-  onGenerate: (details: string) => void;
+  onGenerate: (details: string, subMode: string) => void;
   onAddMaterial: () => void;
   onMaterialChange?: (base64: string | null) => void;
   canGenerate?: boolean;
   isLimitReached?: boolean;
 }
+
+type RenderSubMode = 'model' | 'flat' | 'pro' | 'extract';
 
 export const RenderSubBar: React.FC<RenderSubBarProps> = ({
   onCancel,
@@ -19,17 +21,19 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
 }) => {
   const [additionalDetails, setAdditionalDetails] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isFastMode] = useState(true); // Locked to Fastrack mode
+  const [selectedSubMode, setSelectedSubMode] = useState<RenderSubMode>('model');
+  const [isSubModeMenuOpen, setIsSubModeMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const subModeMenuRef = useRef<HTMLDivElement>(null);
 
   const handleGenerate = () => {
     console.log('[RenderSubBar] Generate clicked with details:', additionalDetails);
-    console.log('[RenderSubBar] Generate clicked with fastMode:', isFastMode);
+    console.log('[RenderSubBar] Generate clicked with subMode:', selectedSubMode);
     console.log('[RenderSubBar] Details length:', additionalDetails.length);
     console.log('[RenderSubBar] Details type:', typeof additionalDetails);
     console.log('[RenderSubBar] Details trimmed:', additionalDetails.trim());
-    console.log('[RenderSubBar] Calling onGenerate with:', { details: additionalDetails, isFastMode });
-    onGenerate(additionalDetails);
+    console.log('[RenderSubBar] Calling onGenerate with:', { details: additionalDetails, subMode: selectedSubMode });
+    onGenerate(additionalDetails, selectedSubMode);
   };
 
   const handleCancel = () => {
@@ -57,7 +61,35 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
     }
   };
 
-  // Speed toggle removed - locked to Fastrack mode
+  const handleSubModeSelect = (subMode: RenderSubMode) => {
+    setSelectedSubMode(subMode);
+    setIsSubModeMenuOpen(false);
+  };
+
+  const toggleSubModeMenu = () => {
+    setIsSubModeMenuOpen(!isSubModeMenuOpen);
+  };
+
+  // Close menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (subModeMenuRef.current && !subModeMenuRef.current.contains(event.target as Node)) {
+        setIsSubModeMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const subModeLabels: Record<RenderSubMode, string> = {
+    model: 'Model',
+    flat: 'Flat',
+    pro: 'Pro',
+    extract: 'Extract'
+  };
 
   return (
     <div className="w-[800px] h-[45px] bg-[#1a1a1a] border border-[#373737] rounded-xl flex items-center gap-2 mb-2.5 mx-0 py-[24px] px-[8px]">
@@ -68,6 +100,7 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
         accept="image/*"
         onChange={handleFileChange}
         className="hidden"
+        aria-label="Upload material image"
       />
       
       {/* Add Image button */}
@@ -110,12 +143,43 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
         />
       </div>
 
-      {/* Fastrack Mode Indicator (locked) */}
-      <div className="flex items-center gap-1 px-2 py-1 text-neutral-400 shrink-0">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-[16px] h-[16px]">
-          <path d="M9.5 1L6.5 8H10L6.5 15L9.5 8H6L9.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <span className="text-sm ml-0.5">Fastrack</span>
+      {/* Render Sub-Mode Selector */}
+      <div className="relative" ref={subModeMenuRef}>
+        <button
+          onClick={toggleSubModeMenu}
+          className="flex items-center gap-1 px-3 py-2 bg-[#212121] hover:bg-[#2a2a2a] text-neutral-400 hover:text-white transition-colors shrink-0 rounded-lg min-w-[100px] h-[32px]"
+        >
+          <span className="text-sm font-gilroy font-medium">{subModeLabels[selectedSubMode]}</span>
+          <svg 
+            width="12" 
+            height="12" 
+            viewBox="0 0 12 12" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            className={`transition-transform ${isSubModeMenuOpen ? 'rotate-180' : ''}`}
+          >
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Dropdown Menu */}
+        {isSubModeMenuOpen && (
+          <div className="absolute top-full left-0 mt-1 w-full bg-[#212121] border border-[#373737] rounded-lg shadow-lg z-50">
+            {Object.entries(subModeLabels).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => handleSubModeSelect(mode as RenderSubMode)}
+                className={`w-full px-3 py-2 text-left text-sm font-gilroy font-medium transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                  selectedSubMode === mode
+                    ? 'bg-[#E1FF00] text-black'
+                    : 'text-neutral-400 hover:text-white hover:bg-[#2a2a2a]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Cancel button */}

@@ -7,7 +7,7 @@ import { BrushSubBar } from './BrushSubBar';
 import { FilmReel } from '@phosphor-icons/react';
 // Removed CanvasHandle import; use any for canvasRef
 // Removed unused provider-specific imports
-import { renderFastrack } from '../services/renderService';
+import { renderFastrack, renderModel, renderFlat, renderPro, renderExtract } from '../services/renderService';
 import { editFastrack } from '../services/editService';
 import { colorwayColor, colorwayPrint, generateColorwayColor, generateColorwayPrint, transformColorwayResponse } from '../services/colorwayService';
 import { videoFastrack } from '../services/videoService';
@@ -308,11 +308,12 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (closeRenderBar) closeRenderBar();
   };
 
-  const handleRenderGenerate = async (details: string) => {
+  const handleRenderGenerate = async (details: string, subMode: string) => {
     console.log('[ModePanel] handleRenderGenerate called with details:', details);
+    console.log('[ModePanel] handleRenderGenerate called with subMode:', subMode);
     console.log('[ModePanel] details length:', details?.length);
     console.log('[ModePanel] details trimmed:', details?.trim());
-    console.log('[ModePanel] Using Fastrack mode (locked)');
+    console.log('[ModePanel] Using sub-mode:', subMode);
     
     setAiStatus('generating');
     setAiError(null);
@@ -391,12 +392,28 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       let result;
       let base64 = null;
       
-      // Always use Fastrack mode (locked)
-      // Minimal logs without provider/model names
-        console.log('[Render] Calling render service');
-        
-        const geminiResponse = await renderFastrack(base64Sketch, base64Material, cleanDetails, userId);
-        result = geminiResponse;
+      // Use the selected sub-mode
+      console.log('[Render] Calling render service with sub-mode:', subMode);
+      
+      let geminiResponse;
+      switch (subMode) {
+        case 'model':
+          geminiResponse = await renderModel(base64Sketch, base64Material, cleanDetails, userId);
+          break;
+        case 'flat':
+          geminiResponse = await renderFlat(base64Sketch, base64Material, cleanDetails, userId);
+          break;
+        case 'pro':
+          geminiResponse = await renderPro(base64Sketch, base64Material, cleanDetails, userId);
+          break;
+        case 'extract':
+          geminiResponse = await renderExtract(base64Sketch, base64Material, cleanDetails, userId);
+          break;
+        default:
+          // Fallback to model mode
+          geminiResponse = await renderModel(base64Sketch, base64Material, cleanDetails, userId);
+      }
+      result = geminiResponse;
         
         console.log('[Render] Response structure:', {
           success: result.success,
