@@ -113,10 +113,8 @@ export const renderModel = (base64Sketch: string, base64Material?: string, addit
 export const renderFlat = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'flat', base64Sketch, base64Material, additionalDetails }, userId);
 
-export const renderPro = async (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) => {
-  // Call the server-side polling version
-  return await callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
-};
+export const renderPro = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
+  callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
 
 
 export const renderExtract = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
