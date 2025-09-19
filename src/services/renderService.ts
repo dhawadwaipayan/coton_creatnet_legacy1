@@ -58,7 +58,8 @@ export async function callRenderService(request: RenderRequest, userId?: string)
             base64Sketch,
             base64Material,
             additionalDetails,
-            isFastMode: mode === 'fastrack' || mode === 'model'  // Model mode also uses fast mode
+            isFastMode: mode === 'fastrack' || mode === 'model',  // Model mode also uses fast mode
+            userId: userId  // Include userId in the request
           },
           timestamp: Date.now(),
           nonce: Math.random().toString(36).substring(2, 15)
