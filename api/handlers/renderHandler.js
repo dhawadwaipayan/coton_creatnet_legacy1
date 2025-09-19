@@ -206,14 +206,14 @@ export async function handleRenderPro(action, data) {
   }
 
   // Segmind API should return image directly, just like video mode
-  const imageBuffer = await segmindResponse.arrayBuffer();
+  const segmindImageBuffer = await segmindResponse.arrayBuffer();
   console.log('[Render Pro] Received image from Segmind API:', {
-    size: imageBuffer.byteLength,
+    size: segmindImageBuffer.byteLength,
     contentType: segmindResponse.headers.get('content-type')
   });
 
   // Convert to base64
-  const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+  const imageBase64 = Buffer.from(segmindImageBuffer).toString('base64');
 
   // Cleanup temp image from board-images bucket
   try {
