@@ -82,13 +82,13 @@ export async function handleRenderFastrack(action, data) {
   // Return in format expected by client
   return {
     success: true,
-    mode: "Render Fastrack",
-    model_used: "render-ai-v2",
+    mode: "Render Model (Gemini)",
+    model_used: "gemini-2.5-flash-image-preview",
     output: [{
       type: "image_generation_call",
       result: imageData
     }],
-    message: "Fashion render complete",
+    message: "Fashion render complete using Gemini AI",
     imageDimensions: {
       width: 1024,
       height: 1536,

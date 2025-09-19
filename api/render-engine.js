@@ -45,11 +45,27 @@ export default async function handler(req, res) {
     let result;
     switch (service) {
       case 'render_fastrack':
+      case 'render_model':  // Model sub-mode uses Gemini (same as fastrack)
         result = await handleRenderFastrack(action, data);
         break;
       case 'render_accurate':
         result = await handleRenderAccurate(action, data);
         break;
+      case 'render_flat':
+        // TODO: Implement Flat sub-mode handler
+        return res.status(501).json({ 
+          error: 'Flat sub-mode not yet implemented' 
+        });
+      case 'render_pro':
+        // TODO: Implement Pro sub-mode handler
+        return res.status(501).json({ 
+          error: 'Pro sub-mode not yet implemented' 
+        });
+      case 'render_extract':
+        // TODO: Implement Extract sub-mode handler
+        return res.status(501).json({ 
+          error: 'Extract sub-mode not yet implemented' 
+        });
       default:
         return res.status(400).json({ 
           error: `Unknown render service: ${service}` 

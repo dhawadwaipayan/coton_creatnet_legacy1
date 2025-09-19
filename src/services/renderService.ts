@@ -46,18 +46,18 @@ export async function callRenderService(request: RenderRequest, userId?: string)
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        service: `render_${mode}`,
-        action: 'generate',
-        data: {
-          base64Sketch,
-          base64Material,
-          additionalDetails,
-          isFastMode: mode === 'fastrack'
-        },
-        timestamp: Date.now(),
-        nonce: Math.random().toString(36).substring(2, 15)
-      })
+        body: JSON.stringify({
+          service: `render_${mode}`,
+          action: 'generate',
+          data: {
+            base64Sketch,
+            base64Material,
+            additionalDetails,
+            isFastMode: mode === 'fastrack' || mode === 'model'  // Model mode also uses fast mode
+          },
+          timestamp: Date.now(),
+          nonce: Math.random().toString(36).substring(2, 15)
+        })
     });
 
     if (!response.ok) {
