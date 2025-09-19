@@ -110,3 +110,106 @@ export async function handleRenderAccurate(action, data) {
   // This is a placeholder - implement actual OpenAI call
   throw new Error('Render accurate mode not implemented yet');
 }
+
+export async function handleRenderPro(action, data) {
+  console.log('[Render Handler] handleRenderPro called with:', { action, dataKeys: Object.keys(data) });
+  const { base64Sketch, base64Material, additionalDetails, userId } = data;
+  
+  if (!base64Sketch) {
+    throw new Error('Missing base64Sketch for render pro');
+  }
+
+  if (!userId) {
+    throw new Error('Missing userId for render pro');
+  }
+
+  // Import Supabase client
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
+  // Clean base64 data
+  const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');
+  const imageBuffer = Buffer.from(cleanBase64, 'base64');
+
+  // Upload image to Supabase board-images bucket
+  const imageId = `render_pro_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  const imagePath = `temp-images/${imageId}.png`;
+
+  console.log('[Render Pro] Uploading image to Supabase board-images bucket');
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('board-images')
+    .upload(imagePath, imageBuffer, {
+      contentType: 'image/png',
+      upsert: false
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload image to Supabase: ${uploadError.message}`);
+  }
+
+  // Get signed URL for Segmind API (10 minutes expiry)
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    .from('board-images')
+    .createSignedUrl(imagePath, 600); // 10 minutes
+
+  if (signedUrlError || !signedUrlData?.signedUrl) {
+    throw new Error('Failed to create signed URL for image');
+  }
+
+  console.log('[Render Pro] Image uploaded, calling Segmind API');
+
+  // Prepare Segmind API request
+  const segmindRequest = {
+    Base64Sketch: signedUrlData.signedUrl, // Segmind expects image URL
+    Additional_Details: additionalDetails || ''
+  };
+
+  // Call Segmind API
+  const segmindResponse = await fetch('https://api.segmind.com/workflows/68cdb1828ed0001726e0f151-v2', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.SEGMIND_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(segmindRequest)
+  });
+
+  if (!segmindResponse.ok) {
+    const errorText = await segmindResponse.text();
+    console.error('[Render Pro] Segmind API error:', errorText);
+    throw new Error(`Segmind API error: ${segmindResponse.status} ${errorText}`);
+  }
+
+  const segmindResult = await segmindResponse.json();
+  console.log('[Render Pro] Segmind response:', segmindResult);
+
+  // Cleanup temp image from board-images bucket
+  try {
+    await supabase.storage
+      .from('board-images')
+      .remove([imagePath]);
+    console.log('[Render Pro] Cleaned up temporary image');
+  } catch (cleanupError) {
+    console.warn('[Render Pro] Failed to cleanup temporary image:', cleanupError);
+  }
+
+  // Return poll URL for client-side polling
+  return {
+    success: true,
+    mode: "Render Pro (Segmind)",
+    model_used: "segmind-workflow-v2",
+    poll_url: segmindResult.poll_url,
+    request_id: segmindResult.request_id,
+    status: segmindResult.status,
+    message: "Render Pro request queued, polling for completion...",
+    imageDimensions: {
+      width: 1024,
+      height: 1536,
+      aspectRatio: 1024 / 1536
+    },
+    downloadData: `data:image/png;base64,${cleanBase64}` // Base64 data for direct download
+  };
+}

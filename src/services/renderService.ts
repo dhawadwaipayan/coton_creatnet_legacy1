@@ -14,11 +14,11 @@ interface RenderResponse {
   success: boolean;
   mode: string;
   model_used: string;
-  enhanced_prompt: string;
+  enhanced_prompt?: string;
   output: Array<{
     type: string;
     result: string;
-    enhanced_description: string;
+    enhanced_description?: string;
   }>;
   message: string;
   imageDimensions?: {
@@ -26,6 +26,11 @@ interface RenderResponse {
     height: number;
     aspectRatio: number;
   };
+  // Polling properties for async operations
+  poll_url?: string;
+  request_id?: string;
+  status?: string;
+  downloadData?: string;
 }
 
 export async function callRenderService(request: RenderRequest, userId?: string): Promise<RenderResponse> {
@@ -107,8 +112,91 @@ export const renderModel = (base64Sketch: string, base64Material?: string, addit
 export const renderFlat = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'flat', base64Sketch, base64Material, additionalDetails }, userId);
 
-export const renderPro = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
-  callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
+export const renderPro = async (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) => {
+  // First call to get poll URL
+  const initialResponse = await callRenderService({ mode: 'pro', base64Sketch, base64Material, additionalDetails }, userId);
+  
+  // If we have a poll URL, start polling
+  if (initialResponse.poll_url) {
+    return await pollSegmindResult(initialResponse.poll_url, initialResponse);
+  }
+  
+  return initialResponse;
+};
+
+// Polling function for Segmind async results
+async function pollSegmindResult(pollUrl: string, initialResponse: any, maxAttempts: number = 30): Promise<any> {
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    try {
+      console.log(`[Render Pro] Polling attempt ${attempts + 1}/${maxAttempts}`);
+      
+      const pollResponse = await fetch(pollUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!pollResponse.ok) {
+        throw new Error(`Polling failed: ${pollResponse.status}`);
+      }
+      
+      const pollResult = await pollResponse.json();
+      console.log('[Render Pro] Poll result:', pollResult);
+      
+      // Check if processing is complete
+      if (pollResult.status === 'COMPLETED' && pollResult.RenderPro_Output) {
+        console.log('[Render Pro] Processing completed successfully');
+        
+        // Fetch the final image
+        const imageResponse = await fetch(pollResult.RenderPro_Output);
+        if (!imageResponse.ok) {
+          throw new Error('Failed to fetch final image');
+        }
+        
+        const imageBlob = await imageResponse.blob();
+        const imageBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            // Remove the data:image/png;base64, prefix
+            const base64Data = result.split(',')[1];
+            resolve(base64Data);
+          };
+          reader.readAsDataURL(imageBlob);
+        });
+        
+        // Return in the same format as other render modes
+        return {
+          success: true,
+          mode: "Render Pro (Segmind)",
+          model_used: "segmind-workflow-v2",
+          output: [{
+            type: "image_generation_call",
+            result: imageBase64
+          }],
+          message: "Fashion render complete using Segmind AI",
+          imageDimensions: initialResponse.imageDimensions,
+          downloadData: initialResponse.downloadData
+        };
+      } else if (pollResult.status === 'FAILED') {
+        throw new Error('Segmind processing failed');
+      }
+      
+      // Still processing, wait and try again
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+      attempts++;
+      
+    } catch (error) {
+      console.error('[Render Pro] Polling error:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('Segmind processing timeout - maximum attempts reached');
+}
 
 export const renderExtract = (base64Sketch: string, base64Material?: string, additionalDetails?: string, userId?: string) =>
   callRenderService({ mode: 'extract', base64Sketch, base64Material, additionalDetails }, userId);

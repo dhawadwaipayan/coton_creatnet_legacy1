@@ -147,24 +147,14 @@ export const RenderSubBar: React.FC<RenderSubBarProps> = ({
       <div className="relative" ref={subModeMenuRef}>
         <button
           onClick={toggleSubModeMenu}
-          className="flex items-center gap-1 px-2 py-1 bg-[#212121] hover:bg-[#2a2a2a] text-neutral-400 hover:text-white transition-colors shrink-0 rounded-lg min-w-[80px] h-[28px]"
+          className="flex items-center justify-center px-2 py-1 bg-[#212121] hover:bg-[#2a2a2a] text-neutral-400 hover:text-white transition-colors shrink-0 rounded-lg min-w-[80px] h-[28px]"
         >
           <span className="text-sm font-gilroy font-medium">{subModeLabels[selectedSubMode]}</span>
-          <svg 
-            width="10" 
-            height="10" 
-            viewBox="0 0 10 10" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg"
-            className={`transition-transform ${isSubModeMenuOpen ? 'rotate-180' : ''}`}
-          >
-            <path d="M2.5 3.5L5 6L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
         </button>
 
         {/* Dropdown Menu - Opens upward */}
         {isSubModeMenuOpen && (
-          <div className="absolute bottom-full left-0 mb-2 w-full bg-[#212121] border border-[#373737] rounded-lg shadow-lg z-50">
+          <div className="absolute bottom-full left-0 mb-2.5 w-full bg-[#212121] border border-[#373737] rounded-lg shadow-lg z-50">
             {Object.entries(subModeLabels).map(([mode, label]) => (
               <button
                 key={mode}

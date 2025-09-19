@@ -2,7 +2,7 @@
 // Handles render_fastrack requests
 
 import { createClient } from '@supabase/supabase-js';
-import { handleRenderFastrack, handleRenderAccurate } from './handlers/renderHandler.js';
+import { handleRenderFastrack, handleRenderAccurate, handleRenderPro } from './handlers/renderHandler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,10 +57,8 @@ export default async function handler(req, res) {
           error: 'Flat sub-mode not yet implemented' 
         });
       case 'render_pro':
-        // TODO: Implement Pro sub-mode handler
-        return res.status(501).json({ 
-          error: 'Pro sub-mode not yet implemented' 
-        });
+        result = await handleRenderPro(action, data);
+        break;
       case 'render_extract':
         // TODO: Implement Extract sub-mode handler
         return res.status(501).json({ 
