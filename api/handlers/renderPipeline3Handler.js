@@ -63,6 +63,9 @@ export async function handleRenderPipeline3(action, data, service) {
   console.log('- API Key length:', apiKey ? apiKey.length : 0);
   console.log('- Service:', service);
   console.log('- Workflow URL:', workflowUrl);
+  console.log('- Workflow URL type:', typeof workflowUrl);
+  console.log('- RENDER_PRO_URL env var:', process.env.RENDER_PRO_URL);
+  console.log('- RENDER_PRO_URL type:', typeof process.env.RENDER_PRO_URL);
   
   if (!apiKey) {
     throw new Error('SEGMIND_API_KEY environment variable is not configured');
@@ -70,6 +73,17 @@ export async function handleRenderPipeline3(action, data, service) {
   
   if (!workflowUrl) {
     throw new Error(`${service} workflow URL environment variable is not configured`);
+  }
+  
+  if (typeof workflowUrl !== 'string') {
+    throw new Error(`${service} workflow URL environment variable is not a string: ${typeof workflowUrl}`);
+  }
+  
+  // Validate URL format
+  try {
+    new URL(workflowUrl);
+  } catch (urlError) {
+    throw new Error(`Invalid workflow URL format: ${workflowUrl} - ${urlError.message}`);
   }
 
   // Clean base64 data
@@ -144,19 +158,39 @@ export async function handleRenderPipeline3(action, data, service) {
   console.log('[Render Pipeline 3 Handler] Segmind API response received:', JSON.stringify(result, null, 2));
 
   // Extract the generated image URL from Segmind response
-  let generatedImageUrl = result.RenderPro_Output || result.renderPro_Output || result.output || result;
+  console.log('[Render Pipeline 3 Handler] Full response structure:', JSON.stringify(result, null, 2));
   
-  // If the response is an object, try to extract the URL from common fields
-  if (typeof generatedImageUrl === 'object' && generatedImageUrl !== null) {
-    generatedImageUrl = generatedImageUrl.url || generatedImageUrl.image_url || generatedImageUrl.imageUrl || generatedImageUrl.result;
+  let generatedImageUrl = null;
+  
+  // Try to extract URL from various possible response structures
+  if (result.RenderPro_Output) {
+    generatedImageUrl = result.RenderPro_Output;
+  } else if (result.renderPro_Output) {
+    generatedImageUrl = result.renderPro_Output;
+  } else if (result.output) {
+    generatedImageUrl = result.output;
+  } else if (result.result) {
+    generatedImageUrl = result.result;
+  } else if (result.url) {
+    generatedImageUrl = result.url;
+  } else if (result.image_url) {
+    generatedImageUrl = result.image_url;
+  } else if (result.imageUrl) {
+    generatedImageUrl = result.imageUrl;
+  }
+  
+  // If it's still an object, try to extract URL from nested structure
+  if (generatedImageUrl && typeof generatedImageUrl === 'object') {
+    console.log('[Render Pipeline 3 Handler] Generated image URL is an object, trying to extract URL...');
+    generatedImageUrl = generatedImageUrl.url || generatedImageUrl.image_url || generatedImageUrl.imageUrl || generatedImageUrl.result || generatedImageUrl.output;
   }
   
   if (!generatedImageUrl || typeof generatedImageUrl !== 'string') {
-    console.error('[Render Pipeline 3 Handler] Invalid image URL response:', JSON.stringify(result, null, 2));
+    console.error('[Render Pipeline 3 Handler] Could not extract valid URL from response:', JSON.stringify(result, null, 2));
     throw new Error('No valid image URL returned from Segmind API');
   }
 
-  console.log('[Render Pipeline 3 Handler] Generated image URL:', generatedImageUrl);
+  console.log('[Render Pipeline 3 Handler] Extracted image URL:', generatedImageUrl);
 
   // Download the generated image from Segmind
   const imageResponse = await fetch(generatedImageUrl);
