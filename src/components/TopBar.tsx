@@ -42,7 +42,7 @@ const TopBarButton: React.FC<ButtonProps> = ({
       aria-label={label}
       disabled={disabled}
     >
-      <div className="w-5 h-5 flex items-center justify-center">
+      <div className="w-4 h-4 flex items-center justify-center">
         {icon}
       </div>
       {!iconOnly && <span className="self-stretch my-auto">{label}</span>}
@@ -196,20 +196,20 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
         <TopBarButton
-          icon={<List size={20} weight="regular" />}
+          icon={<List size={16} weight="bold" />}
           label="Import"
           onClick={handleImport}
           iconOnly={true}
         />
         <TopBarButton
-          icon={<ArrowUUpLeft size={20} weight="regular" />}
+          icon={<ArrowUUpLeft size={16} weight="bold" />}
           label="Undo"
           onClick={handleUndo}
           disabled={!canUndo}
           iconOnly={true}
         />
         <TopBarButton
-          icon={<ArrowUUpRight size={20} weight="regular" />}
+          icon={<ArrowUUpRight size={16} weight="bold" />}
           label="Redo"
           onClick={handleRedo}
           disabled={!canRedo}
