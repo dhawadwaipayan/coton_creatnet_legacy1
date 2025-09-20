@@ -106,21 +106,42 @@ async function processSegmindResult(result, requestId) {
   // Extract the generated image URL from the completed result
   let generatedImageUrl = null;
   
-  // Try to extract URL from various possible response structures
-  if (result.RenderPro_Output) {
-    generatedImageUrl = result.RenderPro_Output;
-  } else if (result.renderPro_Output) {
-    generatedImageUrl = result.renderPro_Output;
-  } else if (result.output) {
-    generatedImageUrl = result.output;
-  } else if (result.result) {
-    generatedImageUrl = result.result;
-  } else if (result.url) {
-    generatedImageUrl = result.url;
-  } else if (result.image_url) {
-    generatedImageUrl = result.image_url;
-  } else if (result.imageUrl) {
-    generatedImageUrl = result.imageUrl;
+  // Check if output is a JSON string that needs parsing
+  if (result.output && typeof result.output === 'string') {
+    try {
+      const parsedOutput = JSON.parse(result.output);
+      console.log('[Render Pipeline 3 Handler] Parsed output:', JSON.stringify(parsedOutput, null, 2));
+      
+      // Look for RenderPro_Output in the parsed array
+      if (Array.isArray(parsedOutput)) {
+        for (const item of parsedOutput) {
+          if (item.keyname === 'RenderPro_Output' && item.value && item.value.data) {
+            generatedImageUrl = item.value.data;
+            console.log('[Render Pipeline 3 Handler] Found URL in parsed output:', generatedImageUrl);
+            break;
+          }
+        }
+      }
+    } catch (parseError) {
+      console.error('[Render Pipeline 3 Handler] Failed to parse output JSON:', parseError);
+    }
+  }
+  
+  // Fallback to other possible response structures
+  if (!generatedImageUrl) {
+    if (result.RenderPro_Output) {
+      generatedImageUrl = result.RenderPro_Output;
+    } else if (result.renderPro_Output) {
+      generatedImageUrl = result.renderPro_Output;
+    } else if (result.result) {
+      generatedImageUrl = result.result;
+    } else if (result.url) {
+      generatedImageUrl = result.url;
+    } else if (result.image_url) {
+      generatedImageUrl = result.image_url;
+    } else if (result.imageUrl) {
+      generatedImageUrl = result.imageUrl;
+    }
   }
   
   // If it's still an object, try to extract URL from nested structure
