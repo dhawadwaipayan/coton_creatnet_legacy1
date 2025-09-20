@@ -158,7 +158,7 @@ export async function handleRenderPipeline3(action, data, service) {
     throw new Error(`Failed to download generated image: ${imageResponse.status}`);
   }
 
-  const imageBuffer = await imageResponse.arrayBuffer();
+  const generatedImageBuffer = await imageResponse.arrayBuffer();
   console.log('[Render Pipeline 3 Handler] Downloaded generated image');
 
   // Upload the generated image to our board-images bucket
@@ -167,7 +167,7 @@ export async function handleRenderPipeline3(action, data, service) {
 
   const { data: uploadGeneratedData, error: uploadGeneratedError } = await supabase.storage
     .from('board-images')
-    .upload(generatedImagePath, imageBuffer, {
+    .upload(generatedImagePath, generatedImageBuffer, {
       contentType: 'image/png',
       upsert: false
     });
