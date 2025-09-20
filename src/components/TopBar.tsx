@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { List, ArrowUpLeft } from '@phosphor-icons/react';
+import { List } from '@phosphor-icons/react';
 
 interface ButtonProps {
   icon: React.ReactNode;
@@ -42,7 +42,7 @@ const TopBarButton: React.FC<ButtonProps> = ({
       aria-label={label}
       disabled={disabled}
     >
-      <div className="w-[12px] h-[12px] flex items-center justify-center">
+      <div className="w-5 h-5 flex items-center justify-center">
         {icon}
       </div>
       {!iconOnly && <span className="self-stretch my-auto">{label}</span>}
@@ -196,20 +196,28 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
         <TopBarButton
-          icon={<List size={12} weight="regular" />}
+          icon={<List size={20} weight="regular" />}
           label="Import"
           onClick={handleImport}
           iconOnly={true}
         />
         <TopBarButton
-          icon={<ArrowUpLeft size={12} weight="regular" />}
+          icon={
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path d="M3 12a9 9 0 0 1 9-9c2.4 0 4.6.9 6.2 2.4l-2.1 2.1c-1.1-.8-2.4-1.3-3.8-1.3-3.3 0-6 2.7-6 6s2.7 6 6 6c1.4 0 2.7-.5 3.8-1.3l2.1 2.1C16.6 20.1 14.4 21 12 21c-5 0-9-4-9-9z"/>
+            </svg>
+          }
           label="Undo"
           onClick={handleUndo}
           disabled={!canUndo}
           iconOnly={true}
         />
         <TopBarButton
-          icon={<ArrowUpLeft size={12} weight="regular" />}
+          icon={
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path d="M21 12a9 9 0 0 0-9-9c-2.4 0-4.6.9-6.2 2.4l2.1 2.1c1.1-.8 2.4-1.3 3.8-1.3 3.3 0 6 2.7 6 6s-2.7 6-6 6c-1.4 0-2.7-.5-3.8-1.3l-2.1 2.1C7.4 20.1 9.6 21 12 21c5 0 9-4 9-9z"/>
+            </svg>
+          }
           label="Redo"
           onClick={handleRedo}
           disabled={!canRedo}
