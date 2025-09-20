@@ -198,7 +198,7 @@ async function processSegmindResult(result, requestId) {
     model_used: modeConfig.model_used,
     output: [{
       type: "image_generation_call",
-      result: `data:image/png;base64,${Buffer.from(generatedImageBuffer).toString('base64')}`
+      result: Buffer.from(generatedImageBuffer).toString('base64')
     }],
     message: modeConfig.message,
     imageDimensions: {
