@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { List, ArrowUpLeft } from '@phosphor-icons/react';
 
 interface ButtonProps {
   icon: React.ReactNode;
@@ -195,32 +196,20 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
         <TopBarButton
-          icon={
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-              <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
-              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-            </svg>
-          }
+          icon={<List size={12} weight="regular" />}
           label="Import"
           onClick={handleImport}
+          iconOnly={true}
         />
         <TopBarButton
-          icon={
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-              <path fillRule="evenodd" d="M7.793 2.232a.75.75 0 01-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 010 10.75H10.75a.75.75 0 010-1.5h2.875a3.875 3.875 0 000-7.75H3.622l4.146 3.957a.75.75 0 01-1.036 1.085l-5.5-5.25a.75.75 0 010-1.085l5.5-5.25a.75.75 0 011.06.025z" clipRule="evenodd" />
-            </svg>
-          }
+          icon={<ArrowUpLeft size={12} weight="regular" />}
           label="Undo"
           onClick={handleUndo}
           disabled={!canUndo}
           iconOnly={true}
         />
         <TopBarButton
-          icon={
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-              <path fillRule="evenodd" d="M12.207 2.232a.75.75 0 00.025 1.06l4.146 3.958H6.375a5.375 5.375 0 000 10.75H9.25a.75.75 0 000-1.5H6.375a3.875 3.875 0 010-7.75h10.003l-4.146 3.957a.75.75 0 001.036 1.085l5.5-5.25a.75.75 0 000-1.085l-5.5-5.25a.75.75 0 00-1.06.025z" clipRule="evenodd" />
-            </svg>
-          }
+          icon={<ArrowUpLeft size={12} weight="regular" />}
           label="Redo"
           onClick={handleRedo}
           disabled={!canRedo}
