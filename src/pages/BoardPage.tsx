@@ -89,7 +89,7 @@ const BoardPage = () => {
 
   // Board state management
   const [boards, setBoards] = useState([]);
-  const [currentBoardId, setCurrentBoardId] = useState(null);
+  const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -111,6 +111,21 @@ const BoardPage = () => {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Function to reload board data
+  const reloadBoardData = async (boardId: string) => {
+    if (!userId) return;
+    try {
+      const userBoards = await getBoardsForUser(userId);
+      setBoards(userBoards);
+      const board = userBoards.find(b => b.id === boardId);
+      if (board) {
+        console.log('Reloaded board data:', board);
+      }
+    } catch (error) {
+      console.error('Error reloading board data:', error);
+    }
+  };
 
   // Check user authentication and load board
   useEffect(() => {
@@ -146,6 +161,7 @@ const BoardPage = () => {
               setShowBoardOverlay(false);
               setBoardError(null);
               setBoardValidated(true);
+              console.log('Board found and loaded:', boardExists);
             } else {
               setBoardError('Board not found or access denied');
               setShowBoardOverlay(false);
@@ -171,6 +187,13 @@ const BoardPage = () => {
 
     checkUserStatus();
   }, [boardId, navigate]);
+
+  // Reload board data when boardId changes
+  useEffect(() => {
+    if (boardId && userId && boardValidated) {
+      reloadBoardData(boardId);
+    }
+  }, [boardId, userId, boardValidated]);
 
   // Get current board
   const currentBoard = boards.find(b => b.id === currentBoardId) || null;
@@ -213,7 +236,10 @@ const BoardPage = () => {
     // Show empty state during auth overlay or board overlay
     if (showAuth || showBoardOverlay) return null;
     
-    if (!currentBoard) return null;
+    if (!currentBoard) {
+      console.log('No current board found');
+      return null;
+    }
     
     const content = {
       id: currentBoard.id,
@@ -288,6 +314,11 @@ const BoardPage = () => {
 
   const handleSwitchBoard = (id: string) => {
     setCurrentBoardId(id);
+    // Reload the board data to ensure fresh content
+    const board = boards.find(b => b.id === id);
+    if (board) {
+      console.log('Switching to board:', board);
+    }
     // Navigate to the board URL
     navigateToBoard(navigate, id);
   };
@@ -314,6 +345,10 @@ const BoardPage = () => {
     // Only allow cancel if there's a valid current board to return to
     if (currentBoardId && boards.find(b => b.id === currentBoardId)) {
       setShowBoardOverlay(false);
+      // Navigate back to the current board URL
+      if (boardId) {
+        navigateToBoard(navigate, boardId);
+      }
     }
   };
 
@@ -497,24 +532,26 @@ const BoardPage = () => {
               {!showAuth && !showBoardOverlay && (
                 <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2.5 pointer-events-auto">
                   <GenerationPanel />
-                  <ModePanel
-                    canvasRef={canvasRef}
-                    onSketchModeActivated={handleSketchModeActivated}
-                    onBoundingBoxCreated={handleBoundingBoxCreated}
-                    showSketchSubBar={sketchBarOpen}
-                    closeSketchBar={handleCloseSketchBar}
-                    selectedMode={selectedMode}
-                    setSelectedMode={setSelectedMode}
-                    brushColor={brushColor}
-                    setBrushColor={setBrushColor}
-                    brushSize={brushSize}
-                    setBrushSize={setBrushSize}
-                    sketchModeActive={sketchModeActive}
-                    onSketchBoundingBoxChange={setSketchBoundingBox}
-                    renderBoundingBox={renderBoundingBox}
-                    closeRenderBar={handleCloseRenderBar}
-                    userId={userId}
-                  />
+                  {userId && (
+                    <ModePanel
+                      canvasRef={canvasRef}
+                      onSketchModeActivated={handleSketchModeActivated}
+                      onBoundingBoxCreated={handleBoundingBoxCreated}
+                      showSketchSubBar={sketchBarOpen}
+                      closeSketchBar={handleCloseSketchBar}
+                      selectedMode={selectedMode}
+                      setSelectedMode={setSelectedMode}
+                      brushColor={brushColor}
+                      setBrushColor={setBrushColor}
+                      brushSize={brushSize}
+                      setBrushSize={setBrushSize}
+                      sketchModeActive={sketchModeActive}
+                      onSketchBoundingBoxChange={setSketchBoundingBox}
+                      renderBoundingBox={renderBoundingBox}
+                      closeRenderBar={handleCloseRenderBar}
+                      userId={userId}
+                    />
+                  )}
                 </div>
               )}
             </div>
