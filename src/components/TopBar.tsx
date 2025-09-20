@@ -5,13 +5,15 @@ interface ButtonProps {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  iconOnly?: boolean;
 }
 
 const TopBarButton: React.FC<ButtonProps> = ({ 
   icon, 
   label, 
   onClick, 
-  disabled = false
+  disabled = false,
+  iconOnly = false
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
@@ -35,14 +37,14 @@ const TopBarButton: React.FC<ButtonProps> = ({
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`flex items-center gap-2.5 justify-center px-2.5 py-2 text-sm whitespace-nowrap min-h-[30px] cursor-pointer transition-colors ${getTextColor()} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      className={`flex items-center ${iconOnly ? 'gap-0 justify-center px-2' : 'gap-2.5 justify-center px-2.5'} py-2 text-sm whitespace-nowrap min-h-[30px] cursor-pointer transition-colors ${getTextColor()} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
       aria-label={label}
       disabled={disabled}
     >
       <div className="w-[12px] h-[12px] flex items-center justify-center">
         {icon}
       </div>
-      <span className="self-stretch my-auto">{label}</span>
+      {!iconOnly && <span className="self-stretch my-auto">{label}</span>}
     </button>
   );
 };
@@ -211,6 +213,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
           label="Undo"
           onClick={handleUndo}
           disabled={!canUndo}
+          iconOnly={true}
         />
         <TopBarButton
           icon={
@@ -221,6 +224,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
           label="Redo"
           onClick={handleRedo}
           disabled={!canRedo}
+          iconOnly={true}
         />
       </div>
     </div>
