@@ -144,10 +144,16 @@ export async function handleRenderPipeline3(action, data, service) {
   console.log('[Render Pipeline 3 Handler] Segmind API response received:', JSON.stringify(result, null, 2));
 
   // Extract the generated image URL from Segmind response
-  const generatedImageUrl = result.RenderPro_Output || result.renderPro_Output || result.output || result;
+  let generatedImageUrl = result.RenderPro_Output || result.renderPro_Output || result.output || result;
   
-  if (!generatedImageUrl) {
-    throw new Error('No image URL returned from Segmind API');
+  // If the response is an object, try to extract the URL from common fields
+  if (typeof generatedImageUrl === 'object' && generatedImageUrl !== null) {
+    generatedImageUrl = generatedImageUrl.url || generatedImageUrl.image_url || generatedImageUrl.imageUrl || generatedImageUrl.result;
+  }
+  
+  if (!generatedImageUrl || typeof generatedImageUrl !== 'string') {
+    console.error('[Render Pipeline 3 Handler] Invalid image URL response:', JSON.stringify(result, null, 2));
+    throw new Error('No valid image URL returned from Segmind API');
   }
 
   console.log('[Render Pipeline 3 Handler] Generated image URL:', generatedImageUrl);
