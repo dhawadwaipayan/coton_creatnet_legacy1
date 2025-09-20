@@ -197,23 +197,8 @@ async function processSegmindResult(result, requestId) {
   // Get mode configuration
   const modeConfig = getModeConfig('render_pro');
 
-  // Return in format expected by client (matching renderPipeline1Handler format)
-  return {
-    success: true,
-    mode: modeConfig.mode,
-    model_used: modeConfig.model_used,
-    output: [{
-      type: "image_generation_call",
-      result: imageData  // Return base64 data, not URL
-    }],
-    message: modeConfig.message,
-    imageDimensions: {
-      width: 1024,
-      height: 1536,
-      aspectRatio: 1024 / 1536
-    },
-    downloadData: finalImageUrl  // URL for download purposes
-  };
+  // Return base64 data directly (like renderPipeline1Handler)
+  return imageData;
 }
 
 export async function handleRenderPipeline3(action, data, service) {
