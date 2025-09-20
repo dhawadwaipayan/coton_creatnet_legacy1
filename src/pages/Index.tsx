@@ -13,7 +13,7 @@ import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
-import { navigateToBoard } from '../lib/boardUtils';
+import { navigateToBoard, getDashboardUrl } from '../lib/boardUtils';
 import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
@@ -195,7 +195,7 @@ const Index = () => {
     
     // If we're currently on the deleted board, redirect to home
     if (currentBoardId === id) {
-      navigate('/');
+      navigate(getDashboardUrl());
     }
   };
 
@@ -322,7 +322,7 @@ const Index = () => {
     setShowAuth(true);
     setUserName('');
     setBoards([]);
-    navigate('/');
+    navigate(getDashboardUrl());
           setCurrentBoardId(null);
           setUserId(null);
           setShowBoardOverlay(false);

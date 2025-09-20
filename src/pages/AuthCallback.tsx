@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { handleGoogleAuthCallback } from '../lib/utils';
+import { getDashboardUrl } from '../lib/boardUtils';
 
 const AuthCallback: React.FC = () => {
   const [status, setStatus] = useState<'processing' | 'success' | 'error' | 'recovery'>('processing');
@@ -21,7 +22,7 @@ const AuthCallback: React.FC = () => {
       if (mode === 'recovery') {
         setStatus('recovery');
         setTimeout(() => {
-          navigate('/', { replace: true });
+          navigate(getDashboardUrl(), { replace: true });
         }, 3000);
         return;
       }
@@ -39,7 +40,7 @@ const AuthCallback: React.FC = () => {
         setStatus('success');
         // Redirect to main app after a short delay
         setTimeout(() => {
-          navigate('/', { replace: true });
+          navigate(getDashboardUrl(), { replace: true });
         }, 2000);
       } else {
         setError('No user session found');

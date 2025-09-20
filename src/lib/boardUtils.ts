@@ -1,6 +1,13 @@
 // Board URL utilities for URL-based board navigation
 
 /**
+ * Get dashboard URL
+ */
+export function getDashboardUrl(): string {
+  return '/dashboard';
+}
+
+/**
  * Generate a board URL from board ID
  */
 export function getBoardUrl(boardId: string): string {

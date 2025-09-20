@@ -13,7 +13,7 @@ import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
-import { navigateToBoard, isValidBoardId } from '../lib/boardUtils';
+import { navigateToBoard, isValidBoardId, getDashboardUrl } from '../lib/boardUtils';
 import { v4 as uuidv4 } from 'uuid';
 
 const BoardPage = () => {
@@ -150,7 +150,7 @@ const BoardPage = () => {
             if (!isValidBoardId(boardId)) {
               setBoardError('Invalid board ID format');
               setTimeout(() => {
-                navigate('/');
+                navigate(getDashboardUrl());
               }, 3000);
               return;
             }
@@ -167,7 +167,7 @@ const BoardPage = () => {
               setShowBoardOverlay(false);
               setBoardValidated(false);
               setTimeout(() => {
-                navigate('/');
+                navigate(getDashboardUrl());
               }, 3000);
             }
           } else {
@@ -337,7 +337,7 @@ const BoardPage = () => {
     // If we're currently on the deleted board, redirect to home
     if (currentBoardId === id) {
       setCurrentBoardId(null);
-      navigate('/');
+      navigate(getDashboardUrl());
     }
   };
 
@@ -389,7 +389,7 @@ const BoardPage = () => {
     setShowAuth(true);
     setUserName('');
     setBoards([]);
-    navigate('/');
+    navigate(getDashboardUrl());
     setCurrentBoardId(null);
     setUserId(null);
     setShowBoardOverlay(false);
@@ -412,7 +412,7 @@ const BoardPage = () => {
           <h1 className="text-2xl font-bold text-red-600 mb-4">Board Not Found</h1>
           <p className="text-gray-600 mb-4">{boardError}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(getDashboardUrl())}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             Return to Home
