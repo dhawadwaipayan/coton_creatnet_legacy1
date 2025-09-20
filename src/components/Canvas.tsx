@@ -716,13 +716,6 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     videosRef.current = videos;
   }, [videos]);
 
-  // Update history manager when state changes
-  useEffect(() => {
-    updateState(currentCanvasState);
-    // Trigger autosave after any content change
-    debouncedSave();
-  }, [currentCanvasState, updateState, debouncedSave]);
-
   // Debounced save function - saves after 2 seconds of inactivity
   const debouncedSave = useCallback(() => {
     // Clear existing timeout
@@ -747,6 +740,13 @@ export const Canvas = forwardRef(function CanvasStub(props: any, ref) {
     
     setSaveTimeout(timeout);
   }, [saveTimeout, props.onContentChange, props.boardContent]);
+
+  // Update history manager when state changes
+  useEffect(() => {
+    updateState(currentCanvasState);
+    // Trigger autosave after any content change
+    debouncedSave();
+  }, [currentCanvasState, updateState, debouncedSave]);
 
   // Enhanced undo handler with state restoration
   const handleUndo = useCallback(() => {
