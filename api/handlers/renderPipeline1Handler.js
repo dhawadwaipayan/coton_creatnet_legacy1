@@ -23,34 +23,34 @@ const getBasePrompt = (service) => {
 const getModeConfig = (service) => {
   const configs = {
     'render_model': {
-      mode: "Render Model (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Fashion render complete using Gemini AI"
+      mode: "Render Model",
+      model_used: "RENDER_FASTRACK_KEY",
+      message: "Fashion render complete"
     },
     'render_flat': {
-      mode: "Render Flat (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Fashion render complete using Gemini AI (Flat mode)"
+      mode: "Render Flat",
+      model_used: "RENDER_FLAT_BASE_PROMPT",
+      message: "Fashion render complete (Flat mode)"
     },
     'render_extract': {
-      mode: "Render Extract (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Fashion render complete using Gemini AI (Extract mode)"
+      mode: "Render Extract",
+      model_used: "RENDER_EXTRACT_BASE_PROMPT",
+      message: "Fashion render complete (Extract mode)"
     },
     'render_colorway_color': {
-      mode: "Colorway Color (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Colorway Color generation complete using Gemini AI"
+      mode: "Colorway Color",
+      model_used: "COLORWAY_COLOR_KEY",
+      message: "Colorway Color generation complete"
     },
     'render_colorway_print': {
-      mode: "Colorway Print (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Colorway Print generation complete using Gemini AI"
+      mode: "Colorway Print",
+      model_used: "COLORWAY_PRINT_KEY",
+      message: "Colorway Print generation complete"
     },
     'edit_fastrack': {
-      mode: "Edit (Gemini)",
-      model_used: "gemini-2.5-flash-image-preview",
-      message: "Edit complete using Gemini AI"
+      mode: "Edit",
+      model_used: "EDIT_FASTRACK_KEY",
+      message: "Edit complete"
     }
   };
   return configs[service] || configs['render_model'];
