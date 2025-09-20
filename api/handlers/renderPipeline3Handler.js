@@ -166,7 +166,12 @@ async function processSegmindResult(result, requestId) {
   const generatedImageBuffer = await imageResponse.arrayBuffer();
   console.log('[Render Pipeline 3 Handler] Downloaded generated image');
 
-  // Upload the generated image to our board-images bucket
+  // Convert to base64 data URL (like renderPipeline1Handler)
+  const base64Data = Buffer.from(generatedImageBuffer).toString('base64');
+  const imageData = `data:image/png;base64,${base64Data}`;
+  console.log('[Render Pipeline 3 Handler] Converted to base64 data URL');
+
+  // Upload the generated image to our board-images bucket for storage
   const generatedImageId = `generated_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   const generatedImagePath = `generated-images/${generatedImageId}.png`;
 
@@ -181,7 +186,7 @@ async function processSegmindResult(result, requestId) {
     throw new Error(`Failed to upload generated image to Supabase: ${uploadGeneratedError.message}`);
   }
 
-  // Get public URL for the generated image
+  // Get public URL for the generated image (for downloadData)
   const { data: generatedPublicUrlData } = supabase.storage
     .from('board-images')
     .getPublicUrl(generatedImagePath);
@@ -192,14 +197,14 @@ async function processSegmindResult(result, requestId) {
   // Get mode configuration
   const modeConfig = getModeConfig('render_pro');
 
-  // Return in format expected by client
+  // Return in format expected by client (matching renderPipeline1Handler format)
   return {
     success: true,
     mode: modeConfig.mode,
     model_used: modeConfig.model_used,
     output: [{
       type: "image_generation_call",
-      result: finalImageUrl
+      result: imageData  // Return base64 data, not URL
     }],
     message: modeConfig.message,
     imageDimensions: {
@@ -207,7 +212,7 @@ async function processSegmindResult(result, requestId) {
       height: 1536,
       aspectRatio: 1024 / 1536
     },
-    downloadData: finalImageUrl
+    downloadData: finalImageUrl  // URL for download purposes
   };
 }
 
