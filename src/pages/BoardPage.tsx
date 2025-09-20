@@ -44,6 +44,13 @@ const BoardPage = () => {
   const canvasRef = useRef<any>(null);
   const sketchModeActive = sketchBarOpen && selectedMode === 'sketch';
   const renderModeActive = selectedMode === 'render';
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Selected mode:', selectedMode);
+    console.log('Render mode active:', renderModeActive);
+    console.log('Sketch mode active:', sketchModeActive);
+  }, [selectedMode, renderModeActive, sketchModeActive]);
 
   // Load user and board
   useEffect(() => {

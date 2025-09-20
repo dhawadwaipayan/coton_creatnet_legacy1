@@ -29,6 +29,7 @@ export interface ModePanelProps {
   setBrushSize: (size: number) => void;
   sketchModeActive: boolean;
   onSketchBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
+  onRenderBoundingBoxChange: (box: { x: number, y: number, width: number, height: number } | null) => void;
   renderBoundingBox?: { x: number, y: number, width: number, height: number } | null;
   userId: string; // Add userId prop
 }
@@ -48,6 +49,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   setBrushSize,
   sketchModeActive,
   onSketchBoundingBoxChange,
+  onRenderBoundingBoxChange,
   renderBoundingBox,
   userId // Destructure userId
 }) => {
@@ -100,34 +102,18 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (canvasRef.current && canvasRef.current.clearSketchBox) {
       canvasRef.current.clearSketchBox();
     }
-    
-    // Show the appropriate sub bar based on mode
-    if (modeId === 'render') {
-      setShowRenderSubBar(true);
-      setShowColorwaySubBar(false);
-      setShowVideoSubBar(false);
-    } else if (modeId === 'colorway') {
-      setShowRenderSubBar(false);
-      setShowColorwaySubBar(true);
-      setShowVideoSubBar(false);
-    } else if (modeId === 'video') {
-      setShowRenderSubBar(false);
-      setShowColorwaySubBar(false);
-      setShowVideoSubBar(true);
-    } else {
-      setShowRenderSubBar(false);
-      setShowColorwaySubBar(false);
-      setShowVideoSubBar(false);
-    }
     if (canvasRef.current && canvasRef.current.clearRenderBox) {
       canvasRef.current.clearRenderBox();
     }
+    
+    // Show the appropriate sub bar based on mode
     if (modeId === 'sketch') {
       setShowRenderSubBar(false);
       setShowColorwaySubBar(false);
       setShowVideoSubBar(false);
       if (onSketchModeActivated) onSketchModeActivated();
     } else if (modeId === 'render') {
+      console.log('Render mode activated');
       setShowRenderSubBar(true);
       setShowColorwaySubBar(false);
       setShowVideoSubBar(false);
@@ -178,6 +164,13 @@ export const ModePanel: React.FC<ModePanelProps> = ({
   };
 
   // Note: Sub bar visibility is now controlled directly in handleModeSelect
+
+  // Listen for render bounding box changes from Canvas
+  useEffect(() => {
+    if (canvasRef.current && canvasRef.current.renderBox) {
+      onRenderBoundingBoxChange(canvasRef.current.renderBox);
+    }
+  }, [canvasRef.current?.renderBox, onRenderBoundingBoxChange]);
 
   // Remove all functions, useEffects, and logic that reference fabric, FabricImage, or getFabricCanvas
   // Remove all bounding box logic that uses fabricCanvas or fabric.Rect

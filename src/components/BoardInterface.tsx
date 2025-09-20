@@ -247,6 +247,7 @@ export const BoardInterface: React.FC<BoardInterfaceProps> = ({
                     setBrushSize={setBrushSize}
                     sketchModeActive={sketchModeActive}
                     onSketchBoundingBoxChange={onSketchBoundingBoxChange}
+                    onRenderBoundingBoxChange={onRenderBoundingBoxChange}
                     renderBoundingBox={renderBoundingBox}
                     closeRenderBar={onCloseRenderBar}
                     userId={userId}
