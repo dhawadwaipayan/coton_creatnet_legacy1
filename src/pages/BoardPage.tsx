@@ -69,6 +69,7 @@ const BoardPage = () => {
   const [showBoardOverlay, setShowBoardOverlay] = useState(false);
   const [boardLoading, setBoardLoading] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
+  const [boardValidated, setBoardValidated] = useState(false);
 
   // Load user and boards
   useEffect(() => {
@@ -98,8 +99,12 @@ const BoardPage = () => {
             if (boardExists) {
               setCurrentBoardId(boardId);
               setShowBoardOverlay(false);
+              setBoardError(null); // Clear any previous errors
+              setBoardValidated(true);
             } else {
               setBoardError('Board not found or access denied');
+              setShowBoardOverlay(false); // Don't show overlay for invalid boards
+              setBoardValidated(false);
               // Redirect to home after a delay
               setTimeout(() => {
                 navigate('/');
@@ -202,9 +207,14 @@ const BoardPage = () => {
       currentBoardId,
       currentBoard,
       boardsCount: boards.length,
+      showBoardOverlay,
+      showAuth,
+      boardError,
+      boardId,
+      boardValidated,
       boards: boards.map(b => ({ id: b.id, name: b.name, lastEdited: b.lastEdited }))
     });
-  }, [currentBoardId, currentBoard, boards]);
+  }, [currentBoardId, currentBoard, boards, showBoardOverlay, showAuth, boardError, boardId, boardValidated]);
 
   // Update undo/redo state from canvas
   useEffect(() => {
@@ -288,8 +298,8 @@ const BoardPage = () => {
     return <AuthOverlay onAuthSuccess={() => setShowAuth(false)} />;
   }
 
-  // Show board overlay if no board selected
-  if (showBoardOverlay) {
+  // Show board overlay if no board selected and we're not on a specific board URL
+  if (showBoardOverlay && !boardId) {
     return (
       <BoardOverlay
         onCancel={handleCancelBoardOverlay}
@@ -301,6 +311,18 @@ const BoardPage = () => {
         onDeleteBoard={handleDeleteBoard}
         isCancelDisabled={isCancelDisabled}
       />
+    );
+  }
+
+  // Show loading state while validating board
+  if (boardId && !boardValidated && !boardError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading board...</p>
+        </div>
+      </div>
     );
   }
 
