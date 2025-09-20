@@ -55,7 +55,7 @@ export async function callVideoService(request: VideoRequest): Promise<VideoResp
 
     // Use the squeezed image for API call
     const squeezedImage = preprocessingResult.processedImage;
-    const response = await fetch('/api/video-engine', {
+      const response = await fetch('/api/studio-engine', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

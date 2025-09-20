@@ -1,8 +1,8 @@
-// Edit Proxy - Dedicated proxy for edit operations
-// Handles edit_fastrack requests
+// Edit Engine - Handles edit operations
+// Routes sub-modes to appropriate handlers
 
 import { createClient } from '@supabase/supabase-js';
-import { handleEditFastrack } from './handlers/editHandler.js';
+import { handleRenderPipeline1 } from './handlers/renderPipeline1Handler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,17 +35,18 @@ export default async function handler(req, res) {
     }
 
     // Add request logging for debugging
-    console.log(`[Edit Proxy] Routing request: ${service}.${action}`, {
+    console.log(`[Edit Engine] Routing request: ${service}.${action}`, {
       timestamp,
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
 
-    // Route to appropriate edit handler
+    // Route to appropriate handler based on sub-mode
     let result;
     switch (service) {
       case 'edit_fastrack':
-        result = await handleEditFastrack(action, data);
+        // Route to renderPipeline1 for edit operations (Gemini AI)
+        result = await handleRenderPipeline1(action, data, service);
         break;
       default:
         return res.status(400).json({ 

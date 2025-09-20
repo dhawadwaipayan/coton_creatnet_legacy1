@@ -1,8 +1,8 @@
-// Colorway Proxy - Dedicated proxy for colorway operations
-// Handles colorway_color and colorway_print requests
+// Colorway Engine - Handles colorway operations
+// Routes sub-modes to appropriate handlers
 
 import { createClient } from '@supabase/supabase-js';
-import { handleColorwayColor, handleColorwayPrint } from './handlers/colorwayHandler.js';
+import { handleRenderPipeline1 } from './handlers/renderPipeline1Handler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,20 +35,22 @@ export default async function handler(req, res) {
     }
 
     // Add request logging for debugging
-    console.log(`[Colorway Proxy] Routing request: ${service}.${action}`, {
+    console.log(`[Colorway Engine] Routing request: ${service}.${action}`, {
       timestamp,
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
 
-    // Route to appropriate colorway handler
+    // Route to appropriate handler based on sub-mode
     let result;
     switch (service) {
       case 'colorway_color':
-        result = await handleColorwayColor(action, data);
+        // Route to renderPipeline1 for colorway_color
+        result = await handleRenderPipeline1(action, data, 'render_colorway_color');
         break;
       case 'colorway_print':
-        result = await handleColorwayPrint(action, data);
+        // Route to renderPipeline1 for colorway_print
+        result = await handleRenderPipeline1(action, data, 'render_colorway_print');
         break;
       default:
         return res.status(400).json({ 

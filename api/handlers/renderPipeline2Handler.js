@@ -1,5 +1,5 @@
-// Video Handler - Handles video operations (fastrack only)
-// Separate proxy handler for video operations
+// Render Pipeline 2 Handler - Video operations
+// Migrated from videoHandler.js
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,8 +7,8 @@ const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-export async function handleVideoFastrack(action, data) {
-  console.log('[Video Handler] handleVideoFastrack called with:', { action, dataKeys: Object.keys(data) });
+export async function handleRenderPipeline2(action, data, service) {
+  console.log('[Render Pipeline 2 Handler] handleRenderPipeline2 called with:', { action, service, dataKeys: Object.keys(data) });
   const { base64Sketch, additionalDetails, userId } = data;
   
   if (!base64Sketch) {
@@ -29,7 +29,7 @@ export async function handleVideoFastrack(action, data) {
     finalPrompt += ` ${additionalDetails.trim()}`;
   }
   
-  console.log('[Video Handler] Final prompt length:', finalPrompt.length);
+  console.log('[Render Pipeline 2 Handler] Final prompt length:', finalPrompt.length);
 
   // Clean base64 data
   const cleanBase64 = base64Sketch.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -60,7 +60,7 @@ export async function handleVideoFastrack(action, data) {
     throw new Error(`Failed to create signed URL: ${urlError.message}`);
   }
 
-  console.log('[Video Handler] Image upload result:', {
+  console.log('[Render Pipeline 2 Handler] Image upload result:', {
     uploadData: uploadData?.path,
     urlData: urlData?.signedUrl ? 'Signed URL created successfully' : 'No signed URL',
     tempImagePath
@@ -75,12 +75,12 @@ export async function handleVideoFastrack(action, data) {
   try {
     const testResponse = await fetch(urlData.signedUrl, { method: 'HEAD' });
     if (!testResponse.ok) {
-      console.warn(`[Video Handler] Signed URL test failed: ${testResponse.status}`);
+      console.warn(`[Render Pipeline 2 Handler] Signed URL test failed: ${testResponse.status}`);
     } else {
-      console.log('[Video Handler] Signed URL verified as accessible');
+      console.log('[Render Pipeline 2 Handler] Signed URL verified as accessible');
     }
   } catch (testError) {
-    console.warn('[Video Handler] Signed URL test error:', testError.message);
+    console.warn('[Render Pipeline 2 Handler] Signed URL test error:', testError.message);
   }
 
   // Prepare Segmind API request
@@ -92,7 +92,7 @@ export async function handleVideoFastrack(action, data) {
     style: "realistic"
   };
 
-  console.log('[Video Handler] Segmind API request:', {
+  console.log('[Render Pipeline 2 Handler] Segmind API request:', {
     prompt: segmindRequest.prompt.substring(0, 100) + '...',
     image: segmindRequest.image,
     duration: segmindRequest.duration,
@@ -117,7 +117,7 @@ export async function handleVideoFastrack(action, data) {
 
   // Segmind API returns video file directly, not JSON
   const videoBuffer = await segmindResponse.arrayBuffer();
-  console.log('[Video Handler] Received video from Segmind API:', {
+  console.log('[Render Pipeline 2 Handler] Received video from Segmind API:', {
     size: videoBuffer.byteLength,
     contentType: segmindResponse.headers.get('content-type')
   });

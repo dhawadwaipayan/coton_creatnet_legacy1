@@ -1,8 +1,8 @@
-// Video Proxy - Dedicated proxy for video operations
-// Handles video_fastrack requests
+// Studio Engine - Handles video and studio operations
+// Routes sub-modes to appropriate handlers
 
 import { createClient } from '@supabase/supabase-js';
-import { handleVideoFastrack } from './handlers/videoHandler.js';
+import { handleRenderPipeline2 } from './handlers/renderPipeline2Handler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,21 +35,22 @@ export default async function handler(req, res) {
     }
 
     // Add request logging for debugging
-    console.log(`[Video Proxy] Routing request: ${service}.${action}`, {
+    console.log(`[Studio Engine] Routing request: ${service}.${action}`, {
       timestamp,
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
 
-    // Route to appropriate video handler
+    // Route to appropriate handler based on sub-mode
     let result;
     switch (service) {
       case 'video_fastrack':
-        result = await handleVideoFastrack(action, data);
+        // Route to renderPipeline2 for video operations
+        result = await handleRenderPipeline2(action, data, service);
         break;
       default:
         return res.status(400).json({ 
-          error: `Unknown video service: ${service}` 
+          error: `Unknown studio service: ${service}` 
         });
     }
 

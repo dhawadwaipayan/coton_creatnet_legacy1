@@ -1,8 +1,8 @@
-// Render Proxy - Dedicated proxy for render operations
-// Handles render_fastrack requests
+// Render Engine - Handles render operations
+// Routes sub-modes to appropriate handlers
 
 import { createClient } from '@supabase/supabase-js';
-import { handleRenderFastrack, handleRenderAccurate } from './handlers/renderHandler.js';
+import { handleRenderPipeline1 } from './handlers/renderPipeline1Handler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,29 +35,29 @@ export default async function handler(req, res) {
     }
 
     // Add request logging for debugging
-    console.log(`[Render Proxy] Routing request: ${service}.${action}`, {
+    console.log(`[Render Engine] Routing request: ${service}.${action}`, {
       timestamp,
       nonce: nonce ? nonce.substring(0, 8) + '...' : 'none',
       dataKeys: Object.keys(data)
     });
 
-    // Route to appropriate render handler
+    // Route to appropriate handler based on sub-mode
     let result;
     switch (service) {
       case 'render_fastrack':
-      case 'render_model':  // Model sub-mode uses Gemini (same as fastrack)
-        result = await handleRenderFastrack(action, data);
+        // render_fastrack is now render_model
+        result = await handleRenderPipeline1(action, data, 'render_model');
         break;
-      case 'render_accurate':
-        result = await handleRenderAccurate(action, data);
-        break;
+      case 'render_model':
       case 'render_flat':
-        // TODO: Implement Flat sub-mode handler
-        return res.status(501).json({ 
-          error: 'Flat sub-mode not yet implemented' 
-        });
+      case 'render_extract':
+      case 'render_colorway_color':
+      case 'render_colorway_print':
+        // Route to renderPipeline1 for all render sub-modes
+        result = await handleRenderPipeline1(action, data, service);
+        break;
       case 'render_pro':
-        // Route to renderpipeline for Segmind integration
+        // Route to renderpipeline for Segmind integration (keep existing for now)
         const renderPipelineResponse = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/renderpipeline`, {
           method: 'POST',
           headers: {
@@ -80,11 +80,6 @@ export default async function handler(req, res) {
         const pipelineResult = await renderPipelineResponse.json();
         result = pipelineResult.result;
         break;
-      case 'render_extract':
-        // TODO: Implement Extract sub-mode handler
-        return res.status(501).json({ 
-          error: 'Extract sub-mode not yet implemented' 
-        });
       default:
         return res.status(400).json({ 
           error: `Unknown render service: ${service}` 
