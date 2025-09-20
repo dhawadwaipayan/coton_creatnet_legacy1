@@ -34,8 +34,11 @@ export interface BoardInterfaceProps {
   
   // Brush state
   brushColor: string;
+  setBrushColor: (color: string) => void;
   brushSize: number;
+  setBrushSize: (size: number) => void;
   textColor: string;
+  setTextColor: (color: string) => void;
   
   // Sketch/Render state
   sketchModeActive: boolean;
@@ -92,8 +95,11 @@ export const BoardInterface: React.FC<BoardInterfaceProps> = ({
   canRedo,
   zoom,
   brushColor,
+  setBrushColor,
   brushSize,
+  setBrushSize,
   textColor,
+  setTextColor,
   sketchModeActive,
   sketchBoundingBox,
   renderModeActive,
@@ -189,9 +195,9 @@ export const BoardInterface: React.FC<BoardInterfaceProps> = ({
         {!showAuth && !showBoardOverlay && selectedTool === 'draw' && (
           <BrushSubBar
             brushColor={brushColor}
-            setBrushColor={(color) => {/* handled by parent */}}
+            setBrushColor={setBrushColor}
             brushSize={brushSize}
-            setBrushSize={(size) => {/* handled by parent */}}
+            setBrushSize={setBrushSize}
           />
         )}
 
@@ -199,7 +205,7 @@ export const BoardInterface: React.FC<BoardInterfaceProps> = ({
         {!showAuth && !showBoardOverlay && selectedTool === 'text' && (
           <TextSubBar
             textColor={textColor}
-            setTextColor={(color) => {/* handled by parent */}}
+            setTextColor={setTextColor}
           />
         )}
 
@@ -236,9 +242,9 @@ export const BoardInterface: React.FC<BoardInterfaceProps> = ({
                     selectedMode={selectedMode}
                     setSelectedMode={onModeSelect}
                     brushColor={brushColor}
-                    setBrushColor={(color) => {/* handled by parent */}}
+                    setBrushColor={setBrushColor}
                     brushSize={brushSize}
-                    setBrushSize={(size) => {/* handled by parent */}}
+                    setBrushSize={setBrushSize}
                     sketchModeActive={sketchModeActive}
                     onSketchBoundingBoxChange={onSketchBoundingBoxChange}
                     renderBoundingBox={renderBoundingBox}

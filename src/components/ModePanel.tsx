@@ -100,6 +100,25 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (canvasRef.current && canvasRef.current.clearSketchBox) {
       canvasRef.current.clearSketchBox();
     }
+    
+    // Show the appropriate sub bar based on mode
+    if (modeId === 'render') {
+      setShowRenderSubBar(true);
+      setShowColorwaySubBar(false);
+      setShowVideoSubBar(false);
+    } else if (modeId === 'colorway') {
+      setShowRenderSubBar(false);
+      setShowColorwaySubBar(true);
+      setShowVideoSubBar(false);
+    } else if (modeId === 'video') {
+      setShowRenderSubBar(false);
+      setShowColorwaySubBar(false);
+      setShowVideoSubBar(true);
+    } else {
+      setShowRenderSubBar(false);
+      setShowColorwaySubBar(false);
+      setShowVideoSubBar(false);
+    }
     if (canvasRef.current && canvasRef.current.clearRenderBox) {
       canvasRef.current.clearRenderBox();
     }
@@ -158,26 +177,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     if (onSketchBoundingBoxChange) onSketchBoundingBoxChange(box);
   };
 
-  // Close render sub bar if selectedMode changes to anything other than 'render'
-  useEffect(() => {
-    if (selectedMode !== 'render' && showRenderSubBar) {
-      setShowRenderSubBar(false);
-    }
-  }, [selectedMode, showRenderSubBar]);
-
-  // Close colorway sub bar if selectedMode changes to anything other than 'colorway'
-  useEffect(() => {
-    if (selectedMode !== 'colorway' && showColorwaySubBar) {
-      setShowColorwaySubBar(false);
-    }
-  }, [selectedMode, showColorwaySubBar]);
-
-  // Close video sub bar if selectedMode changes to anything other than 'video'
-  useEffect(() => {
-    if (selectedMode !== 'video' && showVideoSubBar) {
-      setShowVideoSubBar(false);
-    }
-  }, [selectedMode, showVideoSubBar]);
+  // Note: Sub bar visibility is now controlled directly in handleModeSelect
 
   // Remove all functions, useEffects, and logic that reference fabric, FabricImage, or getFabricCanvas
   // Remove all bounding box logic that uses fabricCanvas or fabric.Rect

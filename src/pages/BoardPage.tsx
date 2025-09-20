@@ -307,8 +307,11 @@ const BoardPage = () => {
           canRedo={canRedo}
           zoom={zoom}
           brushColor={brushColor}
+          setBrushColor={setBrushColor}
           brushSize={brushSize}
+          setBrushSize={setBrushSize}
           textColor={textColor}
+          setTextColor={setTextColor}
           sketchModeActive={sketchModeActive}
           sketchBoundingBox={sketchBoundingBox}
           renderModeActive={renderModeActive}
