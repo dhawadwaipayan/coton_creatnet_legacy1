@@ -45,6 +45,151 @@ const getModeConfig = (service) => {
   return configs[service] || configs['render_pro'];
 };
 
+// Poll Segmind API for completion
+async function pollSegmindResult(pollUrl, requestId) {
+  console.log('[Render Pipeline 3 Handler] Starting polling for request:', requestId);
+  
+  const maxAttempts = 30; // 5 minutes max (10 seconds * 30)
+  const pollInterval = 10000; // 10 seconds
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`[Render Pipeline 3 Handler] Polling attempt ${attempt}/${maxAttempts}`);
+    
+    try {
+      const pollResponse = await fetch(pollUrl, {
+        method: 'GET',
+        headers: {
+          'x-api-key': process.env.SEGMIND_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!pollResponse.ok) {
+        console.error(`[Render Pipeline 3 Handler] Polling failed: ${pollResponse.status}`);
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        continue;
+      }
+      
+      const pollResult = await pollResponse.json();
+      console.log(`[Render Pipeline 3 Handler] Poll result:`, JSON.stringify(pollResult, null, 2));
+      
+      if (pollResult.status === 'COMPLETED' || pollResult.status === 'SUCCESS') {
+        console.log('[Render Pipeline 3 Handler] Request completed, processing result...');
+        return await processSegmindResult(pollResult, requestId);
+      } else if (pollResult.status === 'FAILED' || pollResult.status === 'ERROR') {
+        throw new Error(`Segmind request failed: ${pollResult.message || 'Unknown error'}`);
+      } else if (pollResult.status === 'QUEUED' || pollResult.status === 'PROCESSING') {
+        console.log(`[Render Pipeline 3 Handler] Request still ${pollResult.status}, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        continue;
+      } else {
+        console.log(`[Render Pipeline 3 Handler] Unknown status: ${pollResult.status}, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        continue;
+      }
+    } catch (error) {
+      console.error(`[Render Pipeline 3 Handler] Polling error on attempt ${attempt}:`, error);
+      if (attempt === maxAttempts) {
+        throw new Error(`Polling failed after ${maxAttempts} attempts: ${error.message}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+  }
+  
+  throw new Error(`Request timed out after ${maxAttempts} polling attempts`);
+}
+
+// Process the completed Segmind result
+async function processSegmindResult(result, requestId) {
+  console.log('[Render Pipeline 3 Handler] Processing completed result for request:', requestId);
+  
+  // Extract the generated image URL from the completed result
+  let generatedImageUrl = null;
+  
+  // Try to extract URL from various possible response structures
+  if (result.RenderPro_Output) {
+    generatedImageUrl = result.RenderPro_Output;
+  } else if (result.renderPro_Output) {
+    generatedImageUrl = result.renderPro_Output;
+  } else if (result.output) {
+    generatedImageUrl = result.output;
+  } else if (result.result) {
+    generatedImageUrl = result.result;
+  } else if (result.url) {
+    generatedImageUrl = result.url;
+  } else if (result.image_url) {
+    generatedImageUrl = result.image_url;
+  } else if (result.imageUrl) {
+    generatedImageUrl = result.imageUrl;
+  }
+  
+  // If it's still an object, try to extract URL from nested structure
+  if (generatedImageUrl && typeof generatedImageUrl === 'object') {
+    console.log('[Render Pipeline 3 Handler] Generated image URL is an object, trying to extract URL...');
+    generatedImageUrl = generatedImageUrl.url || generatedImageUrl.image_url || generatedImageUrl.imageUrl || generatedImageUrl.result || generatedImageUrl.output;
+  }
+  
+  if (!generatedImageUrl || typeof generatedImageUrl !== 'string') {
+    console.error('[Render Pipeline 3 Handler] Could not extract valid URL from completed result:', JSON.stringify(result, null, 2));
+    throw new Error('No valid image URL returned from completed Segmind request');
+  }
+
+  console.log('[Render Pipeline 3 Handler] Extracted image URL from completed result:', generatedImageUrl);
+
+  // Download the generated image from Segmind
+  const imageResponse = await fetch(generatedImageUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to download generated image: ${imageResponse.status}`);
+  }
+
+  const generatedImageBuffer = await imageResponse.arrayBuffer();
+  console.log('[Render Pipeline 3 Handler] Downloaded generated image');
+
+  // Upload the generated image to our board-images bucket
+  const generatedImageId = `generated_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  const generatedImagePath = `generated-images/${generatedImageId}.png`;
+
+  const { data: uploadGeneratedData, error: uploadGeneratedError } = await supabase.storage
+    .from('board-images')
+    .upload(generatedImagePath, generatedImageBuffer, {
+      contentType: 'image/png',
+      upsert: false
+    });
+
+  if (uploadGeneratedError) {
+    throw new Error(`Failed to upload generated image to Supabase: ${uploadGeneratedError.message}`);
+  }
+
+  // Get public URL for the generated image
+  const { data: generatedPublicUrlData } = supabase.storage
+    .from('board-images')
+    .getPublicUrl(generatedImagePath);
+
+  const finalImageUrl = generatedPublicUrlData.publicUrl;
+  console.log('[Render Pipeline 3 Handler] Generated image uploaded to board-images:', finalImageUrl);
+
+  // Get mode configuration
+  const modeConfig = getModeConfig('render_pro');
+
+  // Return in format expected by client
+  return {
+    success: true,
+    mode: modeConfig.mode,
+    model_used: modeConfig.model_used,
+    output: [{
+      type: "image_generation_call",
+      result: finalImageUrl
+    }],
+    message: modeConfig.message,
+    imageDimensions: {
+      width: 1024,
+      height: 1536,
+      aspectRatio: 1024 / 1536
+    },
+    downloadData: finalImageUrl
+  };
+}
+
 export async function handleRenderPipeline3(action, data, service) {
   console.log('[Render Pipeline 3 Handler] handleRenderPipeline3 called with:', { action, service, dataKeys: Object.keys(data) });
   
@@ -157,9 +302,13 @@ export async function handleRenderPipeline3(action, data, service) {
   const result = await response.json();
   console.log('[Render Pipeline 3 Handler] Segmind API response received:', JSON.stringify(result, null, 2));
 
-  // Extract the generated image URL from Segmind response
-  console.log('[Render Pipeline 3 Handler] Full response structure:', JSON.stringify(result, null, 2));
-  
+  // Check if the request is queued and needs polling
+  if (result.status === 'QUEUED' && result.poll_url) {
+    console.log('[Render Pipeline 3 Handler] Request is queued, starting polling...');
+    return await pollSegmindResult(result.poll_url, result.request_id);
+  }
+
+  // If not queued, try to extract the image URL directly
   let generatedImageUrl = null;
   
   // Try to extract URL from various possible response structures
@@ -192,66 +341,6 @@ export async function handleRenderPipeline3(action, data, service) {
 
   console.log('[Render Pipeline 3 Handler] Extracted image URL:', generatedImageUrl);
 
-  // Download the generated image from Segmind
-  const imageResponse = await fetch(generatedImageUrl);
-  if (!imageResponse.ok) {
-    throw new Error(`Failed to download generated image: ${imageResponse.status}`);
-  }
-
-  const generatedImageBuffer = await imageResponse.arrayBuffer();
-  console.log('[Render Pipeline 3 Handler] Downloaded generated image');
-
-  // Upload the generated image to our board-images bucket
-  const generatedImageId = `generated_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  const generatedImagePath = `generated-images/${generatedImageId}.png`;
-
-  const { data: uploadGeneratedData, error: uploadGeneratedError } = await supabase.storage
-    .from('board-images')
-    .upload(generatedImagePath, generatedImageBuffer, {
-      contentType: 'image/png',
-      upsert: false
-    });
-
-  if (uploadGeneratedError) {
-    throw new Error(`Failed to upload generated image to Supabase: ${uploadGeneratedError.message}`);
-  }
-
-  // Get public URL for the generated image
-  const { data: generatedPublicUrlData } = supabase.storage
-    .from('board-images')
-    .getPublicUrl(generatedImagePath);
-
-  const finalImageUrl = generatedPublicUrlData.publicUrl;
-  console.log('[Render Pipeline 3 Handler] Generated image uploaded to board-images:', finalImageUrl);
-
-  // Clean up temporary input image
-  try {
-    await supabase.storage
-      .from('board-images')
-      .remove([tempImagePath]);
-    console.log('[Render Pipeline 3 Handler] Temporary input image cleaned up');
-  } catch (cleanupError) {
-    console.warn('[Render Pipeline 3 Handler] Failed to clean up temporary input image:', cleanupError);
-  }
-
-  // Get mode configuration
-  const modeConfig = getModeConfig(service);
-
-  // Return in format expected by client
-  return {
-    success: true,
-    mode: modeConfig.mode,
-    model_used: modeConfig.model_used,
-    output: [{
-      type: "image_generation_call",
-      result: finalImageUrl
-    }],
-    message: modeConfig.message,
-    imageDimensions: {
-      width: 1024,
-      height: 1536,
-      aspectRatio: 1024 / 1536
-    },
-    downloadData: finalImageUrl
-  };
+  // Process the immediate result (no polling needed)
+  return await processSegmindResult(result, 'immediate');
 }
