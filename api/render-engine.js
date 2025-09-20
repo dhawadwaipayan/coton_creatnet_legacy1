@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { handleRenderPipeline1 } from './handlers/renderPipeline1Handler.js';
+import { handleRenderPipeline3 } from './handlers/renderPipeline3Handler.js';
 
 const supabaseUrl = 'https://mtflgvphxklyzqmvrdyw.supabase.co';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -45,40 +46,20 @@ export default async function handler(req, res) {
     let result;
     switch (service) {
       case 'render_fastrack':
-        // render_fastrack is now render_model
+        // render_fastrack is now render_model (Gemini)
         result = await handleRenderPipeline1(action, data, 'render_model');
         break;
       case 'render_model':
-      case 'render_flat':
-      case 'render_extract':
       case 'render_colorway_color':
       case 'render_colorway_print':
-        // Route to renderPipeline1 for all render sub-modes
+        // Route to renderPipeline1 for Gemini-based modes
         result = await handleRenderPipeline1(action, data, service);
         break;
       case 'render_pro':
-        // Route to renderpipeline for Segmind integration (keep existing for now)
-        const renderPipelineResponse = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/renderpipeline`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            service: 'render_pro',
-            action,
-            data,
-            timestamp: Date.now(),
-            nonce: Math.random().toString(36).substring(2, 15)
-          })
-        });
-
-        if (!renderPipelineResponse.ok) {
-          const errorData = await renderPipelineResponse.json();
-          throw new Error(errorData.error || 'Render pipeline error');
-        }
-
-        const pipelineResult = await renderPipelineResponse.json();
-        result = pipelineResult.result;
+      case 'render_flat':
+      case 'render_extract':
+        // Route to renderPipeline3 for Segmind-based modes
+        result = await handleRenderPipeline3(action, data, service);
         break;
       default:
         return res.status(400).json({ 
