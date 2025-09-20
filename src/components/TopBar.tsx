@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { FloppyDisk } from '@phosphor-icons/react';
 
 interface ButtonProps {
   icon: React.ReactNode;
@@ -53,13 +52,11 @@ interface TopBarProps {
   onLogoClick?: () => void;
   boardName: string;
   onBoardNameChange: (name: string) => void;
-  onSaveBoard?: () => void;
-  isSaving?: boolean;
   canUndo?: boolean;
   canRedo?: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardName, onBoardNameChange, onSaveBoard, isSaving = false, canUndo = false, canRedo = false }) => {
+export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardName, onBoardNameChange, canUndo = false, canRedo = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // boardName and onBoardNameChange come from props
   const [editing, setEditing] = useState(false);
@@ -153,6 +150,7 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
         accept="image/*" 
         onChange={handleFileChange} 
         className="hidden" 
+        aria-label="Import image file"
       />
       
       {/* Logo (clickable) */}
@@ -204,17 +202,6 @@ export const TopBar: React.FC<TopBarProps> = ({ canvasRef, onLogoClick, boardNam
           label="Import"
           onClick={handleImport}
         />
-        {/* Move Save button here, remove Export button */}
-        {onSaveBoard && (
-        <TopBarButton
-          icon={
-              <FloppyDisk size={12} weight="regular" className={`${isSaving ? 'animate-spin' : ''} inline-block`} />
-          }
-            label={isSaving ? "Saving..." : "Save"}
-            onClick={isSaving ? () => {} : onSaveBoard}
-            disabled={isSaving}
-        />
-        )}
         <TopBarButton
           icon={
             <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">

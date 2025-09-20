@@ -86,7 +86,6 @@ const Index = () => {
   const [currentBoardId, setCurrentBoardId] = useState(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingBoards, setLoadingBoards] = useState(false);
-  const [savingBoard, setSavingBoard] = useState(false);
 
   // Sync zoom state with Canvas zoom changes
   useEffect(() => {
@@ -316,31 +315,11 @@ const Index = () => {
 
 
 
-  // Manual save function
-  const handleManualSave = async () => {
-    if (canvasRef.current && canvasRef.current.saveBoardContent) {
-      console.log('Manual save triggered');
-      setSavingBoard(true);
-      try {
-        await canvasRef.current.saveBoardContent();
-        console.log('Manual save completed successfully');
-      } catch (error) {
-        console.error('Manual save failed:', error);
-      } finally {
-        setSavingBoard(false);
-      }
-    } else {
-      console.error('Canvas save function not available');
-    }
-  };
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleManualSave();
-      }
+      // Ctrl/Cmd+S is now handled by autosave, no manual save needed
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -505,8 +484,6 @@ const Index = () => {
                   onLogoClick={() => setShowBoardOverlay(true)}
                   boardName={currentBoard?.name || ''}
                   onBoardNameChange={name => currentBoard && handleUpdateBoardName(currentBoard.id, name)}
-                  onSaveBoard={handleManualSave}
-                  isSaving={savingBoard}
                   canUndo={canUndo}
                   canRedo={canRedo}
                 />
