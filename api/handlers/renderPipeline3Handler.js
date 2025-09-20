@@ -166,12 +166,7 @@ async function processSegmindResult(result, requestId) {
   const generatedImageBuffer = await imageResponse.arrayBuffer();
   console.log('[Render Pipeline 3 Handler] Downloaded generated image');
 
-  // Convert to base64 data URL (like renderPipeline1Handler)
-  const base64Data = Buffer.from(generatedImageBuffer).toString('base64');
-  const imageData = `data:image/png;base64,${base64Data}`;
-  console.log('[Render Pipeline 3 Handler] Converted to base64 data URL');
-
-  // Upload the generated image to our board-images bucket for storage
+  // Upload the generated image to our board-images bucket
   const generatedImageId = `generated_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
   const generatedImagePath = `generated-images/${generatedImageId}.png`;
 
@@ -186,7 +181,7 @@ async function processSegmindResult(result, requestId) {
     throw new Error(`Failed to upload generated image to Supabase: ${uploadGeneratedError.message}`);
   }
 
-  // Get public URL for the generated image (for downloadData)
+  // Get public URL for the generated image
   const { data: generatedPublicUrlData } = supabase.storage
     .from('board-images')
     .getPublicUrl(generatedImagePath);
@@ -194,11 +189,25 @@ async function processSegmindResult(result, requestId) {
   const finalImageUrl = generatedPublicUrlData.publicUrl;
   console.log('[Render Pipeline 3 Handler] Generated image uploaded to board-images:', finalImageUrl);
 
-  // Get mode configuration
+  // Return in the same format as renderPipeline1Handler
   const modeConfig = getModeConfig('render_pro');
-
-  // Return base64 data directly (like renderPipeline1Handler)
-  return imageData;
+  
+  return {
+    success: true,
+    mode: modeConfig.mode,
+    model_used: modeConfig.model_used,
+    output: [{
+      type: "image_generation_call",
+      result: `data:image/png;base64,${Buffer.from(generatedImageBuffer).toString('base64')}`
+    }],
+    message: modeConfig.message,
+    imageDimensions: {
+      width: 1024,
+      height: 1536,
+      aspectRatio: 1024 / 1536
+    },
+    downloadData: finalImageUrl
+  };
 }
 
 export async function handleRenderPipeline3(action, data, service) {
