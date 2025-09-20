@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { GenerationPanel } from '@/components/GenerationPanel';
 import { ModePanel } from '@/components/ModePanel';
@@ -12,9 +13,11 @@ import { TextSubBar } from '@/components/TextSubBar';
 import AuthOverlay from '../components/AuthOverlay';
 import { getUser, signOut, getBoardsForUser, createBoard, updateBoard, deleteBoard } from '../lib/utils';
 import BoardOverlay from '../components/BoardOverlay';
+import { navigateToBoard } from '../lib/boardUtils';
 import { v4 as uuidv4 } from 'uuid';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedTool, setSelectedTool] = useState<string | null>('select');
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [selectedVideoSrc, setSelectedVideoSrc] = useState<string | null>(null);
@@ -163,6 +166,9 @@ const Index = () => {
     setBoards(prev => [...prev, newBoard]);
     setCurrentBoardId(newBoard.id);
     setShowBoardOverlay(false);
+    
+    // Navigate to the new board URL
+    navigateToBoard(navigate, newBoard.id);
   };
 
   // Switch board (select only, do not enter)
@@ -175,6 +181,9 @@ const Index = () => {
   const handleEnterBoard = (id) => {
     setCurrentBoardId(id);
     setShowBoardOverlay(false);
+    
+    // Navigate to the board URL
+    navigateToBoard(navigate, id);
   };
 
   // Delete board
@@ -183,6 +192,11 @@ const Index = () => {
     setBoards(prev => prev.filter(b => b.id !== id));
     // If the deleted board was current, clear currentBoardId
     setCurrentBoardId(prev => (prev === id ? null : prev));
+    
+    // If we're currently on the deleted board, redirect to home
+    if (currentBoardId === id) {
+      navigate('/');
+    }
   };
 
   // Handle cancel button logic
@@ -306,8 +320,9 @@ const Index = () => {
   const handleLogout = async () => {
     await signOut();
     setShowAuth(true);
-              setUserName('');
-          setBoards([]);
+    setUserName('');
+    setBoards([]);
+    navigate('/');
           setCurrentBoardId(null);
           setUserId(null);
           setShowBoardOverlay(false);
