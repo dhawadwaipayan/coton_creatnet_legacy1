@@ -124,17 +124,16 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setShowRenderSubBar(true);
       setShowColorwaySubBar(false);
       setShowVideoSubBar(false);
-      if (closeSketchBar) closeSketchBar();
     } else if (modeId === 'colorway') {
+      console.log('Colorway mode activated');
       setShowRenderSubBar(false);
       setShowColorwaySubBar(true);
       setShowVideoSubBar(false);
-      if (closeSketchBar) closeSketchBar();
     } else if (modeId === 'video') {
+      console.log('Video mode activated');
       setShowRenderSubBar(false);
       setShowColorwaySubBar(false);
       setShowVideoSubBar(true);
-      if (closeSketchBar) closeSketchBar();
     } else {
       if (closeSketchBar) closeSketchBar();
       setShowRenderSubBar(false);
