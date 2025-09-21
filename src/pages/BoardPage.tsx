@@ -43,7 +43,7 @@ const BoardPage = () => {
   
   const canvasRef = useRef<any>(null);
   const sketchModeActive = sketchBarOpen && selectedMode === 'sketch';
-  const renderModeActive = selectedMode === 'render' || selectedMode === 'colorway' || selectedMode === 'video';
+  const renderModeActive = selectedMode === 'render';
   
   // Debug logging
   useEffect(() => {

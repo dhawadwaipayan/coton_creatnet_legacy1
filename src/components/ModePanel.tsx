@@ -98,7 +98,14 @@ export const ModePanel: React.FC<ModePanelProps> = ({
     label: 'Video'
   }];
   const handleModeSelect = (modeId: string) => {
-    if (setSelectedMode) setSelectedMode(modeId);
+    console.log('ModePanel: handleModeSelect called with:', modeId);
+    console.log('ModePanel: setSelectedMode function:', setSelectedMode);
+    if (setSelectedMode) {
+      setSelectedMode(modeId);
+      console.log('ModePanel: setSelectedMode called with:', modeId);
+    } else {
+      console.log('ModePanel: setSelectedMode is not available');
+    }
     if (canvasRef.current && canvasRef.current.clearSketchBox) {
       canvasRef.current.clearSketchBox();
     }
@@ -135,6 +142,7 @@ export const ModePanel: React.FC<ModePanelProps> = ({
       setShowVideoSubBar(false);
     }
     console.log(`Selected mode: ${modeId}`);
+    console.log('ModePanel: current selectedMode prop:', selectedMode);
   };
 
   const handleSketchCancel = () => {
